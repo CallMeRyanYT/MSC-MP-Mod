@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{F6D2B5F5-8B95-4AC8-BF23-90C31C3F2201}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>MSCMP</RootNamespace>
+    <AssemblyName>MSCMP.Mod</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <LangVersion>Default</LangVersion>
+    <OutputPath>..\..\artifacts\current\</OutputPath>
+    <GameManaged>$(MSC_GAME_DIR)\mysummercar_Data\Managed</GameManaged>
+    <Framework2>$(windir)\Microsoft.NET\Framework\v2.0.50727</Framework2>
+    <Framework3>$(MSBuildProgramFiles32)\Reference Assemblies\Microsoft\Framework\v3.5</Framework3>
+    <PowerShellExe>$(windir)\System32\WindowsPowerShell\v1.0\powershell.exe</PowerShellExe>
+    <PowerShellExe Condition="Exists('$(windir)\Sysnative\WindowsPowerShell\v1.0\powershell.exe')">$(windir)\Sysnative\WindowsPowerShell\v1.0\powershell.exe</PowerShellExe>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="..\MSCMP.Core\**\*.cs" />
+    <Compile Include="..\MSCMP.Network\**\*.cs" />
+    <Compile Include="..\MSCMP.Game\**\*.cs" />
+    <Compile Include="..\MSCMP.Persistence\**\*.cs" />
+    <Compile Include="..\MSCMP.Sync\**\*.cs" />
+    <Compile Include="..\..\vendor\LiteNetLib\**\*.cs" />
+    <Reference Include="mscorlib"><HintPath>$(Framework2)\mscorlib.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="System"><HintPath>$(Framework2)\System.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="System.Core"><HintPath>$(Framework3)\System.Core.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameManaged)\UnityEngine.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="MSCLoader"><HintPath>$(GameManaged)\MSCLoader.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="PlayMaker"><HintPath>$(GameManaged)\PlayMaker.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+  <!-- One canonical build pipeline pins legacy syntax and the actual game's runtime references.
+       No restore, NuGet resolution, or implicit modern framework reference is used. -->
+  <Target Name="Build">
+    <Exec Command="&quot;$(PowerShellExe)&quot; -Version 5.1 -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\build.ps1&quot;" />
+  </Target>
+  <Target Name="Rebuild" DependsOnTargets="Build" />
+</Project>

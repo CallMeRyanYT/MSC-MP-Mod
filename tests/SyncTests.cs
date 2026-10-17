@@ -1,0 +1,151 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using MSCMP.Core;
+using MSCMP.Network;
+using MSCMP.Sync;
+
+internal static class SyncTests
+{
+    private static int assertions;
+    private static void Check(bool value, string message) { assertions++; if (!value) throw new Exception(message); }
+    private static void Refused(Action action, string message)
+    { bool refused = false; try { action(); } catch (ArgumentException) { refused = true; } catch (InvalidDataException) { refused = true; } catch (EndOfStreamException) { refused = true; } Check(refused, message); }
+    private static CompatibilityInfo Compatibility()
+    { return new CompatibilityInfo { ModVersion = "0.2.0-sync-test", GameFingerprint = new string('a', 64), ContentManifest = new string('b', 64), Capabilities = 1 }; }
+    private static AuthorityWorld World(ulong generation)
+    {
+        AuthorityWorld world = new AuthorityWorld(generation, new AuthorityLimits(3, 4, 20, 10000, 5, 64, 4096), 32, 256);
+        world.ConnectPlayer(1, 1, WorldVector.Zero, true); return world;
+    }
+    private static void Framing()
+    {
+        ReliableBlobSender sender = new ReliableBlobSender(); ReliableBlobReceiver receiver = new ReliableBlobReceiver();
+        byte[] source = new byte[10007]; for (int i = 0; i < source.Length; i++) source[i] = (byte)(i % 251);
+        Check(sender.Enqueue(source), "Large blob queued"); source[0] = 200;
+        int blocked = sender.Pump(delegate(byte[] frame) { return false; }, 4);
+        Check(blocked == 0 && sender.PendingCount == 1, "Backpressure preserves queued blob");
+        byte[] completed = null; List<byte[]> frames = new List<byte[]>();
+        while (sender.PendingCount != 0)
+            sender.Pump(delegate(byte[] frame) { frames.Add(frame); byte[] result = receiver.Receive(frame, 10); if (result != null) completed = result; return true; }, 4);
+        Check(completed != null && completed.Length == source.Length && completed[0] == 0, "Sender snapshots bytes and transfer completes");
+        for (int i = 1; i < source.Length; i += 37) Check(completed[i] == source[i], "Chunked bytes preserved");
+        Check(receiver.AllocatedBytes == 0 && sender.PendingBytes == 0, "Buffers released after completion");
+        Refused(delegate { receiver.Receive(frames[0], 20); }, "Old transfer cannot resurrect");
+        Refused(delegate { new ReliableBlobReceiver().Receive(frames[1], 20); }, "Out of order chunks rejected");
+        byte[] huge = (byte[])frames[0].Clone(); Buffer.BlockCopy(BitConverter.GetBytes(Int32.MaxValue), 0, huge, 12, 4);
+        ReliableBlobReceiver capped = new ReliableBlobReceiver(); Refused(delegate { capped.Receive(huge, 20); }, "Huge allocation refused"); Check(capped.AllocatedBytes == 0, "No allocation before size check");
+        ReliableBlobReceiver timeout = new ReliableBlobReceiver(); timeout.Receive(frames[0], 20);
+        Refused(delegate { timeout.CheckTimeout(120021); }, "Incomplete transfer timeout"); Check(timeout.AllocatedBytes == 0, "Expired buffer released");
+        ReliableBlobSender cap = new ReliableBlobSender(); Check(cap.Enqueue(new byte[ReliableBlobSender.MaximumBlob]), "Exact byte cap accepted"); Check(!cap.Enqueue(new byte[1]), "Queue byte cap enforced");
+        Refused(delegate { cap.Enqueue(new byte[ReliableBlobSender.MaximumBlob + 1]); }, "Oversize blob refused");
+    }
+    private static void Codec()
+    {
+        AuthorityWorld world = World(7); world.RegisterAuthoredItem("authored/path:42", "test-block", WorldVector.Zero);
+        WorldSnapshot snapshot = world.CaptureSnapshot(); byte[] encoded = WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.Snapshot, Snapshot = snapshot });
+        WorldMessage decoded = WorldMessages.Decode(encoded, 88, 99);
+        ReplicaWorld replica = new ReplicaWorld(7);
+        Check(replica.LoadSnapshot(decoded.Snapshot) == ApplyOutcome.Applied && replica.GetEntity(1).AuthoredKey == "authored/path:42", "Snapshot wire roundtrip");
+        for (int i = 0; i < encoded.Length; i++)
+        {
+            byte[] cut = new byte[i]; Buffer.BlockCopy(encoded, 0, cut, 0, i);
+            Refused(delegate { WorldMessages.Decode(cut, 1, 1); }, "Every truncated snapshot prefix rejected");
+        }
+        byte[] trailing = new byte[encoded.Length + 1]; Buffer.BlockCopy(encoded, 0, trailing, 0, encoded.Length);
+        Refused(delegate { WorldMessages.Decode(trailing, 1, 1); }, "Trailing bytes rejected");
+        byte[] countBomb = (byte[])encoded.Clone(); Buffer.BlockCopy(BitConverter.GetBytes(Int32.MaxValue), 0, countBomb, 29, 4);
+        Refused(delegate { WorldMessages.Decode(countBomb, 1, 1); }, "Snapshot count bomb rejected");
+        AuthorityCommand forged = new AuthorityCommand(CommandKind.Pickup, 7, 888, 999, 1, 1, 1, 1, WorldVector.Zero, WorldVector.Zero);
+        WorldMessage command = WorldMessages.Decode(WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.Command, Command = forged }), 2, 3);
+        Check(command.Command.PlayerId == 2 && command.Command.ConnectionGeneration == 3, "Wire cannot choose player or connection identity");
+    }
+    private static void PumpUntil(DiagnosticSession[] networks, WorldSyncSession[] worlds, Func<bool> done, string condition)
+    {
+        Stopwatch watch = Stopwatch.StartNew();
+        while (watch.ElapsedMilliseconds < 20000)
+        {
+            foreach (DiagnosticSession network in networks) network.Poll();
+            foreach (WorldSyncSession world in worlds) world.Poll();
+            if (done()) { Check(true, condition); return; }
+            Thread.Sleep(10);
+        }
+        throw new Exception("Timed out: " + condition);
+    }
+    private static void UdpIntegration()
+    {
+        List<DiagnosticSession> networks = new List<DiagnosticSession>(); List<WorldSyncSession> syncs = new List<WorldSyncSession>();
+        try
+        {
+            DiagnosticSession host = new DiagnosticSession(Compatibility(), "Host"); networks.Add(host); host.Host(0);
+            AuthorityWorld authority = World(host.SessionGeneration);
+            for (int i = 0; i < 24; i++) authority.RegisterAuthoredItem("synthetic/" + i, "test-block", WorldVector.Zero);
+            WorldSyncSession hostWorld = new WorldSyncSession(host, authority, WorldVector.Zero); syncs.Add(hostWorld);
+            DiagnosticSession a = new DiagnosticSession(Compatibility(), "Alice"); networks.Add(a); a.Join("127.0.0.1", host.LocalPort);
+            WorldSyncSession aw = new WorldSyncSession(a, null, WorldVector.Zero); syncs.Add(aw);
+            DiagnosticSession b = new DiagnosticSession(Compatibility(), "Bob"); networks.Add(b); b.Join("127.0.0.1", host.LocalPort);
+            WorldSyncSession bw = new WorldSyncSession(b, null, WorldVector.Zero); syncs.Add(bw);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return aw.Ready && bw.Ready && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Two clients installed baseline, catch-up and ready barrier over UDP");
+            int results = 0, accepted = 0;
+            aw.ReceivedResult += delegate(WorldMessage m) { results++; if (m.Outcome == CommandOutcome.Accepted) accepted++; };
+            bw.ReceivedResult += delegate(WorldMessage m) { results++; if (m.Outcome == CommandOutcome.Accepted) accepted++; };
+            aw.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
+            bw.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return results == 2 && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Racing pickup replies and authoritative commit converge");
+            Check(accepted == 1 && authority.GetEntity(1).Lifecycle == EntityLifecycle.Held, "Exactly one UDP contender owns item");
+            ulong holder = authority.GetEntity(1).HolderId;
+            Check(aw.Replica.GetEntity(1).HolderId == holder && bw.Replica.GetEntity(1).HolderId == holder, "Both clients agree on holder");
+            WorldSyncSession holderWorld = a.LocalPlayerId == holder ? aw : bw;
+            DiagnosticSession holderNetwork = a.LocalPlayerId == holder ? a : b;
+            holderWorld.Request(CommandKind.Throw, 1, new WorldVector(1, 0, 0), new WorldVector(2, 0, 0));
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return authority.GetEntity(1).Lifecycle == EntityLifecycle.Free && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Throw commits velocity and frees hand on both clients");
+            Check(aw.Replica.GetEntity(1).Velocity.X == 2 && authority.GetPlayer(holder).HandEntityId == 0, "Throw state coherent");
+            holderWorld.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return authority.GetEntity(1).Lifecycle == EntityLifecycle.Held && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Pickup before late join");
+            DiagnosticSession c = new DiagnosticSession(Compatibility(), "Late"); networks.Add(c); c.Join("127.0.0.1", host.LocalPort);
+            WorldSyncSession cw = new WorldSyncSession(c, null, WorldVector.Zero); syncs.Add(cw);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return cw.Ready && cw.Replica.Watermark == authority.Watermark; }, "Fourth participant late joins held item");
+            Check(cw.Replica.GetEntity(1).HolderId == holder && cw.Replica.GetPlayer(holder).HandEntityId == 1, "Late join preserves held relationship");
+            holderWorld.Dispose(); holderNetwork.Leave(); syncs.Remove(holderWorld); networks.Remove(holderNetwork);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return !authority.GetPlayer(holder).Connected && authority.GetEntity(1).Lifecycle == EntityLifecycle.Free && cw.Replica.Watermark == authority.Watermark; }, "Disconnect releases held item and converges");
+            Check(cw.Replica.GetPlayer(holder).HandEntityId == 0, "Disconnect clears replicated hand");
+            holderNetwork.Dispose();
+            // A connected client cannot publish a host-owned snapshot/commit.
+            ReliableBlobSender malicious = new ReliableBlobSender();
+            malicious.Enqueue(WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.Snapshot, Snapshot = authority.CaptureSnapshot() }));
+            // New sequence starts at1, whereas the existing world stream has advanced: either framing
+            // rejection or authoritative-message rejection must remove only this peer.
+            malicious.Pump(delegate(byte[] frame) { return c.SendApplication(1, frame); }, 4);
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return !authority.GetPlayer(c.LocalPlayerId).Connected; }, "Forged world traffic disconnects sender");
+            Check(host.IsRunning && host.AcceptedPeerCount >= 1, "Malformed peer does not stop host or healthy peer");
+            hostWorld.Dispose();
+            Check(!hostWorld.Ready, "Disposed authority cannot advertise ready");
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return !aw.Ready && !bw.Ready && !cw.Ready; }, "World disposal invalidates connected replicas");
+        }
+        finally { foreach (WorldSyncSession sync in syncs) sync.Dispose(); foreach (DiagnosticSession network in networks) network.Dispose(); }
+    }
+    private static void StalledBootstrap()
+    {
+        using (DiagnosticSession host = new DiagnosticSession(Compatibility(), "Host"))
+        using (DiagnosticSession client = new DiagnosticSession(Compatibility(), "Stalled"))
+        {
+            host.Host(0); AuthorityWorld authority = World(host.SessionGeneration); long now = 0;
+            using (WorldSyncSession sync = new WorldSyncSession(host, authority, WorldVector.Zero, delegate { return now; }))
+            {
+                client.Join("127.0.0.1", host.LocalPort);
+                PumpUntil(new DiagnosticSession[] { host, client }, new WorldSyncSession[] { sync }, delegate { return client.LocalPlayerId != 0; }, "Stalled peer reaches transport acceptance");
+                ulong player = client.LocalPlayerId; Check(authority.GetPlayer(player).Connected && !authority.GetPlayer(player).Ready, "No snapshot ACK means no readiness");
+                now = 90001; sync.Poll(); Check(!authority.GetPlayer(player).Connected, "Complete bootstrap deadline releases silent peer");
+                host.Leave(); Check(!sync.Ready, "Network leave invalidates host world readiness");
+                host.Host(0); Check(!sync.Ready, "Restarted network cannot reuse old authoritative generation");
+            }
+        }
+    }
+    public static int Main()
+    {
+        try { Framing(); Codec(); UdpIntegration(); StalledBootstrap(); Console.WriteLine("Sync tests passed: " + assertions + " assertions; real localhost UDP with a host and three clients, synthetic world only."); return 0; }
+        catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+}

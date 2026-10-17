@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "dependencies": [
+    {
+      "name": "LiteNetLib",
+      "version": "0.7.7.2",
+      "repository": "https://github.com/RevenantX/LiteNetLib",
+      "commit": "5ba2470394092ac5924b1ea45da588cfa5a1e948",
+      "license": "MIT",
+      "licenseFile": "vendor/LiteNetLib/LICENSE.txt",
+      "inclusion": "source embedded in MSCMP.Mod.dll",
+      "target": ".NET Framework 3.5 / C# 3 transport subset",
+      "patches": "vendor/LiteNetLib/PATCHES.md",
+      "inGameVerified": false,
+      "files": [
+        {
+          "path": "vendor/LiteNetLib/DiagnosticPacketGuard.cs",
+          "sha256": "b39e60a5bd52d7360e7c8dc6f94a7dba4cc8c8671010aa55fd1036f5322fd503",
+          "upstreamSha256": null
+        },
+        {
+          "path": "vendor/LiteNetLib/INetEventListener.cs",
+          "sha256": "dcf5426656a7a6494d4649348c50148232b0d19135fe2c709525d5b4e03fa112",
+          "upstreamSha256": "dcf5426656a7a6494d4649348c50148232b0d19135fe2c709525d5b4e03fa112"
+        },
+        {
+          "path": "vendor/LiteNetLib/LICENSE.txt",
+          "sha256": "fb0ddfabda9a59ed56f99c8dc38067697be9f1dda6d00b7316a05a9c4017d11a",
+          "upstreamSha256": "fb0ddfabda9a59ed56f99c8dc38067697be9f1dda6d00b7316a05a9c4017d11a"
+        },
+        {
+          "path": "vendor/LiteNetLib/NatPunchModule.cs",
+          "sha256": "4be26f9b995c07ecc5b3e7de03f1a27fa26dce1b77dc23d6a4e22530a0310cad",
+          "upstreamSha256": "4be26f9b995c07ecc5b3e7de03f1a27fa26dce1b77dc23d6a4e22530a0310cad"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetConstants.cs",
+          "sha256": "c92e8d558bb8038e5a0162804377af1e10da1bef886d5a5e83fac97d4c91b2d3",
+          "upstreamSha256": "c92e8d558bb8038e5a0162804377af1e10da1bef886d5a5e83fac97d4c91b2d3"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetDebug.cs",
+          "sha256": "26fee2c049925bdbdfc513514a388f31258fb145a4db03dd6bf261b6a4e61da7",
+          "upstreamSha256": "26fee2c049925bdbdfc513514a388f31258fb145a4db03dd6bf261b6a4e61da7"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetEndPoint.cs",
+          "sha256": "f7400587c42dc022c03e249292c4b67e8fa15484aa9523f160de669e0f2ba78d",
+          "upstreamSha256": "f7400587c42dc022c03e249292c4b67e8fa15484aa9523f160de669e0f2ba78d"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetManager.cs",
+          "sha256": "24471aac4811496b4e9ffbf6c35fe9ce211a13e4099648df9388feef6131b9fe",
+          "upstreamSha256": "ea737e63ec4713dd823c3fbab090762000ba2f967d4c375e5095b8fe907d7953"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetPacket.cs",
+          "sha256": "67b0293c2051cdf5aa80c4d8ddcd94991a7bf8eafc6b20835dee0cae7b1e627c",
+          "upstreamSha256": "67b0293c2051cdf5aa80c4d8ddcd94991a7bf8eafc6b20835dee0cae7b1e627c"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetPacketPool.cs",
+          "sha256": "9776e61981381648df29ee9c6fd669a1904b33040172d3779edac1cfc8e16f42",
+          "upstreamSha256": "9776e61981381648df29ee9c6fd669a1904b33040172d3779edac1cfc8e16f42"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetPeer.cs",
+          "sha256": "e3529c99b34bb91e422b03e56dc457535a0474400cee80969c433ec2717124d6",
+          "upstreamSha256": "d0c261df6a9268a2ec2ccfada984302504fa93f362ccfc4dcdb1bc36f2584e85"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetPeerCollection.cs",
+          "sha256": "cdddce82370135fa1c79b720ac15b8b0117e027b5e919daf1ef77803f119a6f8",
+          "upstreamSha256": "89cf765bb28f1307ed4e632c6a252d08307bdfb76dce1bcf246d4061a5e6f7a8"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetSocket.cs",
+          "sha256": "bc95aedbe437e49f0414efea35e11efce31b666528ca560c1d4f8ab1287c5f29",
+          "upstreamSha256": "bc95aedbe437e49f0414efea35e11efce31b666528ca560c1d4f8ab1287c5f29"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetStatistics.cs",
+          "sha256": "fc2f22849fcf66e7d806531af19380b3e6e4e3fa04df7918c5bc27df0a76abf1",
+          "upstreamSha256": "fc2f22849fcf66e7d806531af19380b3e6e4e3fa04df7918c5bc27df0a76abf1"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetThread.cs",
+          "sha256": "e31c2e667ce62c09f95962dd001b44bb5ab868ab2ba3e22914ec348bc0dc8b8d",
+          "upstreamSha256": "e31c2e667ce62c09f95962dd001b44bb5ab868ab2ba3e22914ec348bc0dc8b8d"
+        },
+        {
+          "path": "vendor/LiteNetLib/NetUtils.cs",
+          "sha256": "542a4fd7a1a58626e02fb9719d952183977dda9116fa561ff35537f2e5dc746d",
+          "upstreamSha256": "542a4fd7a1a58626e02fb9719d952183977dda9116fa561ff35537f2e5dc746d"
+        },
+        {
+          "path": "vendor/LiteNetLib/ReliableChannel.cs",
+          "sha256": "ddce32c65669eadef5a1e63da10cda33027be219ba4ae3d53787af406a94eefd",
+          "upstreamSha256": "ddce32c65669eadef5a1e63da10cda33027be219ba4ae3d53787af406a94eefd"
+        },
+        {
+          "path": "vendor/LiteNetLib/SequencedChannel.cs",
+          "sha256": "41f35a793e1edc7ec3111ccf0f3dd1143154c13008c4dd67b65ea8a9ce6a6d43",
+          "upstreamSha256": "e1d68a705682a3c08578c4e4dafa83d9e5000904be7348afc220f11bf6743e12"
+        },
+        {
+          "path": "vendor/LiteNetLib/SimpleChannel.cs",
+          "sha256": "038fcf1254bb8fbb607cca222f3910ea653b4eaf7b8f0de1885ebb854ec376c1",
+          "upstreamSha256": "038fcf1254bb8fbb607cca222f3910ea653b4eaf7b8f0de1885ebb854ec376c1"
+        },
+        {
+          "path": "vendor/LiteNetLib/Utils/FastBitConverter.cs",
+          "sha256": "78a19795eca6d2f1ab7a4463e6fa678ccf3a2745bd6198e0b03b634ad3a1c96b",
+          "upstreamSha256": "78a19795eca6d2f1ab7a4463e6fa678ccf3a2745bd6198e0b03b634ad3a1c96b"
+        },
+        {
+          "path": "vendor/LiteNetLib/Utils/NetDataReader.cs",
+          "sha256": "10ae1a976a14baa10a6936802b4dcd6b4907069d8528ae0acde4ea229474dcb9",
+          "upstreamSha256": "10ae1a976a14baa10a6936802b4dcd6b4907069d8528ae0acde4ea229474dcb9"
+        },
+        {
+          "path": "vendor/LiteNetLib/Utils/NetDataWriter.cs",
+          "sha256": "382c1d73375958e98303fccb4258d261458d88f94fb95e6b997bd9e04dd4d01c",
+          "upstreamSha256": "382c1d73375958e98303fccb4258d261458d88f94fb95e6b997bd9e04dd4d01c"
+        }
+      ]
+    }
+  ]
+}

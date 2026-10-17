@@ -1,0 +1,32 @@
+# Local installations, inspection evidence and build output
+.local/
+artifacts/
+config/local.json
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.log
+*.zip
+# Game data and saves must never be committed
+*.assets
+*.resource
+*.unity3d
+*.save
+*.bak
+defaultES2File.txt
+items.txt
+trophies.txt
+meshsave.txt
+options.txt
+# Local caches and credentials
+**/__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example

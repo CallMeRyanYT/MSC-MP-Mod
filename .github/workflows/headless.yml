@@ -1,0 +1,26 @@
+name: Headless checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  headless:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Pure logic on modern .NET Framework
+        shell: powershell
+        run: ./scripts/test-headless.ps1
+      - name: Deployment and package fixtures
+        shell: powershell
+        run: ./tests/Tooling.Tests.ps1
+      - name: Profile recovery fixtures
+        shell: powershell
+        run: ./tests/TestProfile.Tests.ps1
