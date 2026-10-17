@@ -26,6 +26,8 @@ namespace MSCMP.Integration
         internal Func<ulong, Vector3?> AcceptedPosition;
         internal void SetWorldPresentation(Func<ulong, bool> seated, Func<ulong, bool> holding)
         { avatars.Seated = seated; avatars.Holding = holding; }
+        internal void SetSeatPresentation(Func<ulong, Vector3?> position, Func<ulong, float> yaw)
+        { avatars.SeatPosition = position; avatars.SeatYaw = yaw; }
         internal Vector3? CarryPosition(ulong playerId) { return avatars == null ? null : avatars.CarryPosition(playerId); }
         internal bool IsActive { get { return Current(); } }
 

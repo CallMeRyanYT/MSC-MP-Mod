@@ -12,6 +12,23 @@ namespace MSCMP.Integration
         private Behaviour motor;
         private Behaviour input;
         private Camera camera;
+        private bool passenger, savedController, savedMotor, savedInput;
+        internal void BeginPassenger()
+        {
+            if (passenger) return;
+            savedController = controller.enabled; savedMotor = motor.enabled; savedInput = input.enabled;
+            passenger = true; HoldPassenger();
+        }
+        internal void HoldPassenger() { if (passenger) { controller.enabled = false; motor.enabled = false; input.enabled = false; } }
+        internal void EndPassenger(Vector3 position)
+        {
+            if (!passenger) return;
+            passenger = false;
+            if (player != null) player.position = position;
+            if (controller != null) controller.enabled = savedController;
+            if (motor != null) motor.enabled = savedMotor;
+            if (input != null) input.enabled = savedInput;
+        }
         internal Transform Root { get { return player; } }
         internal Camera View { get { return camera; } }
         internal void PlaceAt(Vector3 position)
@@ -112,7 +129,7 @@ namespace MSCMP.Integration
 
         public void Dispose()
         {
-            // No controller state is changed, so there is nothing to restore.
+            if (passenger && player != null) EndPassenger(player.position);
             player = null;
             controller = null;
             motor = null;

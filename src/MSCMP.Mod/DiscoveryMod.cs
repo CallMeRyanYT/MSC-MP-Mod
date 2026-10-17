@@ -35,7 +35,7 @@ namespace MSCMP
         public override string ID { get { return "MSCMP"; } }
         public override string Name { get { return "MSC-MP experimental multiplayer"; } }
         public override string Author { get { return "MSC-MP contributors"; } }
-        public override string Version { get { return "0.4.0"; } }
+        public override string Version { get { return "0.5.0"; } }
         public override string Description
         {
             get { return "Experimental LAN/tailnet multiplayer: characters, 22 shared items and Hayosiko driver/body. Disposable profile required. AI-assisted implementation."; }
@@ -139,6 +139,7 @@ namespace MSCMP
         {
             if (!initialized || isDisabled)
                 return;
+            if (networkPanel != null) networkPanel.SaveShared(true);
             Record("loader.after-save", "Observed only; this callback cannot prevent or isolate game saves.", true);
             WriteSnapshot("latest.log");
         }

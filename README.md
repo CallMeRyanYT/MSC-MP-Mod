@@ -2,9 +2,9 @@
 
 Cooperative multiplayer development for **My Summer Car**.
 
-**v0.4.0 expands shared pickup/drop/throw to 22 persistent items, adds movement correction and action recovery, and retains Hayosiko driver/body synchronization. These game adapters are implemented and built, but not verified in an actual multiplayer game. This is not full-game multiplayer. Use disposable test profiles.**
+**v0.5.0 adds a front passenger in the Hayosiko and host-owned shared save/resume for the supported world. The owner reported the previous build working; these new passenger and save integrations still need in-game verification. Use disposable profiles.**
 
-Shared mode requires the disposable-profile marker and the host's world baseline before interaction. Dynamic consumables, item use, passenger seats, other vehicles, assembly, progression and coherent vanilla saves remain unfinished. See [vehicle binding scope](docs/VEHICLE_BINDING_EVIDENCE.md).
+Shared mode covers 22 persistent pickup items and the Hayosiko. Native Save & Quit now captures the shared checkpoint before releasing native saving. An offline tool bundles the disposable native files, checkpoint and protected PlayerPrefs. It does not add live synchronization for unsupported progression or vehicles. See [passenger and shared-save guide](docs/SHARED_SAVES.md).
 
 [Download experimental build](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases) · [Install and playtest with a friend](docs/INSTALL.md) · [Report a problem](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues/new/choose) · [Feature status](docs/FEATURE_SUPPORT.md)
 
@@ -17,15 +17,15 @@ Shared mode requires the disposable-profile marker and the host's world baseline
 | Remote walking | Starts after the baseline; host-approved positions, correlated rejection correction and bounded movement history; game validation pending |
 | Error feedback | Automatic local mod-error reports, F7 capture and a player note |
 | 22 persistent items | Exclusive holder, pickup/drop/throw, compound colliders and host body simulation; special use actions gated. [Exact catalogue](docs/SHARED_ITEM_CATALOGUE.md) |
-| Hayosiko | One driver, validated controls, host physics, replicated body, seat cleanup and stale-input braking; doors/dashboard disabled |
-| Authority and replication | Automated synthetic-world tests, bounded late join and mod-only checkpoints |
-| Wider game | Dynamic items, item use, other vehicles, passengers, assembly, economy and coherent vanilla persistence remain unfinished |
+| Hayosiko | Driver plus one front passenger, seat conflicts, stationary entry/exit, host physics, replica seats and disconnect cleanup; doors/dashboard disabled |
+| Authority and replication | Bounded late join, host checkpoint save/resume, stable item IDs and fresh session identity |
+| Wider game | Dynamic items, item use, other vehicles, assembly and live economy/progression sync remain unfinished |
 
 This is an early development project. See the [known limitations](docs/KNOWN_ISSUES.md).
 
 ## Give it to a friend
 
-1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.4.0-experimental.zip**, not GitHub's source-code ZIP.
+1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.5.0-experimental.zip**, not GitHub's source-code ZIP.
 2. Each player needs their own My Summer Car installation and MSCLoader. The inspected target is **Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410**.
 3. Follow [installation and save isolation](docs/INSTALL.md) on each PC. Both players must use the same package and compatible game/mod files.
 4. Load the disposable game first. Both enable **Shared world**. One player chooses **Host shared world**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
@@ -49,7 +49,7 @@ Use the pause/menu screen to click panel controls. Keys can be changed in MSCLoa
 
 Legacy automated checks cover authority, three-client UDP fanout, world bootstrap, driver controls, character messages, feedback and mod-only persistence, plus deployment/package and profile-recovery fixtures. The fanout regression sends 100,800 addressed payloads across sequence wrap; it fails against the previous socket source. A metadata audit checks the built DLL against the actual shipped game libraries. These checks do not prove working multiplayer inside the game. Exact current build and test evidence is in the ignored build manifest and test results.
 
-Observed v0.2.0 single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. Two-PC connections, character rendering, shared gameplay and complete runtime save restoration remain unverified. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
+Observed v0.2.0 single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. The owner subsequently reported the 0.4.0 build working, without a per-scenario test record. The new 0.5.0 passenger and save/reload behavior still requires the final game checks. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
 
 ## Development
 
@@ -71,8 +71,8 @@ For pure-logic checks without a game installation, run `.\scripts\test-headless.
 ## Next milestones
 
 - Validate two actual game clients, both character options, scene transitions and profile restoration.
-- Connect one inspected item family to authoritative pickup/drop/throw, with contention and late-join tests.
-- Add vehicles, seats, assembly and wider world systems only after those integration gates pass.
+- Verify passenger travel, save/reload and host save transfer using the final checklist.
+- Extend supported vehicle families, assembly and wider world systems with inspected game bindings.
 
 [Compatibility](COMPATIBILITY.md) · [Architecture](ARCHITECTURE.md) · [Protocol](PROTOCOL.md) · [Testing](docs/TESTING.md) · [Changelog](CHANGELOG.md) · [Project brief](docs/PROJECT_BRIEF.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 

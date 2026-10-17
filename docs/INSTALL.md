@@ -1,10 +1,10 @@
 # Install and test with a friend
 
-This experimental release implements a shared coffee cup and Hayosiko driver/body adapter, plus male/female characters and local error reports. Actual multiplayer game behavior is unverified. Other items/vehicles, passengers, assembly, progression and coherent world saves are unfinished.
+This experimental release covers 22 persistent pickup items, Hayosiko driver plus one passenger, male/female characters, local error reports and host shared save/resume. The owner reported the previous build working; the new passenger/save integrations need final in-game checks. Other vehicles, dynamic items, assembly and live progression remain unfinished. See [SHARED_SAVES](SHARED_SAVES.md) for saving, resuming and offline host transfer.
 
 ## Updating from 0.2.x
 
-Both players must replace their old DLL with v0.4.0 while the game is closed. It includes the earlier runtime API fixes and a legacy socket fix for packets reaching the wrong connection. Keep your existing test-profile journal and backup; use the original folder to restore that active profile, and do not prepare another profile from the new ZIP.
+Both players must replace their old DLL with v0.5.0 while the game is closed. It includes the earlier runtime API fixes and a legacy socket fix for packets reaching the wrong connection. Keep your existing test-profile journal and backup; use the original folder to restore that active profile, and do not prepare another profile from the new ZIP.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ Each player needs their own game, [MSCLoader](https://github.com/piotrulos/MSCMo
 
 ## Install
 
-1. Close the game. Download **MSC-MP-Mod-0.4.0-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
+1. Close the game. Download **MSC-MP-Mod-0.5.0-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
 2. Extract it into a permanent testing folder. Keep that folder: the save-isolation tool stores its recovery journal there.
 3. Copy only `Mods/MSCMP.Mod.dll` into the Mods folder selected by your MSCLoader installation. Back up an existing MSCMP DLL before replacing it. Never copy files into the game's Managed folder.
 4. Retain the included third-party license/notices. Follow save isolation below **before starting a new game**.

@@ -56,6 +56,20 @@ namespace MSCMP.Persistence
             }
         }
 
+        public ulong ReserveGeneration()
+        {
+            lock (sync)
+            {
+                Directory.CreateDirectory(directory);
+                using (FileStream writerLock = OpenWriterLock())
+                {
+                    ulong previous = ReadGeneration(File.Exists(CurrentPath) || File.Exists(PreviousPath));
+                    if (previous == UInt64.MaxValue) throw new FormatException("Session generation space exhausted.");
+                    ulong next = previous + 1; WriteGeneration(next); return next;
+                }
+            }
+        }
+
         // Diagnostic reading preserves the checkpoint exactly as recorded. It is not a live
         // session restore. Runtime startup must use RecoverForHost to reserve a new generation.
         public CheckpointReadResult ReadCheckpoint()

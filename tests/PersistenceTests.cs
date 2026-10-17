@@ -222,12 +222,42 @@ internal static class PersistenceTests
         Reject(delegate() { new CheckpointStore(interruptedDirectory, Limits).ReadCheckpoint(); }, "A complete-looking temporary file is not mistaken for a committed checkpoint.");
     }
 
+    private static void LiveRestore(string root)
+    {
+        CheckpointStore store = new CheckpointStore(Path.Combine(root, "live-restore"), Limits);
+        ulong generation = store.ReserveGeneration();
+        AuthorityLimits bounds = new AuthorityLimits(3, 3, 4, 100000, 8, 64, 64);
+        AuthorityWorld old = new AuthorityWorld(generation, bounds, 8, 64);
+        old.ConnectPlayer(1, 1, Origin, true);
+        EntityState cup = old.RegisterAuthoredItem("cup", "cup", Origin);
+        old.Process(new AuthorityCommand(CommandKind.Pickup, generation, 1, 1, 1, cup.Id, cup.Revision, cup.OwnershipEpoch, Origin, Origin));
+        EntityState van = old.RegisterAuthoredItem("van", "van", new WorldVector(4, 0, 0));
+        old.UpdateFreeMotion(generation, van.Id, van.OwnershipEpoch, 1, van.Position, new WorldVector(20, 0, 0), WorldRotation.Identity, Origin);
+        store.Save(old.CaptureSnapshot());
+        WorldSnapshot saved = store.RecoverForHost();
+        AuthorityWorld resumed = new AuthorityWorld(saved.Generation, bounds, 8, 64);
+        resumed.RestoreEntities(saved);
+        Expect(resumed.GetPlayer(1) == null, "Offline identities grant no connection permission");
+        Expect(resumed.GetEntity(cup.Id).Lifecycle == EntityLifecycle.Free && resumed.GetEntity(cup.Id).HolderId == 0, "Held item resumes free");
+        Expect(resumed.GetEntity(van.Id).Velocity.Same(Origin) && resumed.GetEntity(van.Id).Position.Same(van.Position), "Van resumes stationary at saved position");
+        resumed.ConnectPlayer(1, 1, Origin, true);
+        Expect(resumed.GetPlayer(1).HandEntityId == 0 && resumed.GetEntity(cup.Id).AuthoredKey == "cup", "New host empty-handed with stable entity identity");
+        EntityState later = resumed.RegisterAuthoredItem("later", "cup", Origin);
+        Expect(later.Id > van.Id, "Restored IDs never recycled");
+        store.Save(resumed.CaptureSnapshot());
+        ulong next = store.ReserveGeneration();
+        Expect(next > resumed.Generation && store.ReadCheckpoint().Snapshot.Generation == resumed.Generation, "Fresh host lease preserves previous save until explicit save");
+        AuthorityWorld invalid = new AuthorityWorld(next, bounds, 8, 64);
+        EntityState bad = new EntityState(next, 1, "duplicate", "cup", EntityLifecycle.Free, 1, 1, 0, 0, Origin, Origin);
+        Reject(delegate { invalid.RestoreEntities(new WorldSnapshot(next, 1, 0, new EntityState[] { bad, bad }, new PlayerState[0])); }, "Duplicate restore rejected before mutation");
+        Expect(invalid.EntityCount == 0 && invalid.Watermark == 0, "Invalid restore leaves empty authority");
+    }
     private static int Main()
     {
         try
         {
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "persistence-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-            CodecRoundTripAndBounds(); StoreAtomicityAndRecovery(root); FailureAndBounds(root);
+            CodecRoundTripAndBounds(); StoreAtomicityAndRecovery(root); FailureAndBounds(root); LiveRestore(root);
             Console.WriteLine("PASS: " + assertions + " bounded checkpoint, atomic publication, corruption, and recovery assertions. Tests touched generated checkpoint fixtures only; vanilla save isolation remains unverified.");
             return 0;
         }

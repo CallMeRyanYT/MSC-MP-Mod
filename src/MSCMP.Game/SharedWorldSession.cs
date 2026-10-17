@@ -4,6 +4,7 @@ using HutongGames.PlayMaker;
 using MSCMP.Core;
 using MSCMP.Network;
 using MSCMP.Sync;
+using MSCMP.Persistence;
 using UnityEngine;
 
 namespace MSCMP.Integration
@@ -20,6 +21,7 @@ namespace MSCMP.Integration
         private WorldSyncSession world;
         private VehicleBinding van;
         private VehicleSession vehicle;
+        private PassengerBinding passenger;
         private ulong vehicleId;
         private List<SharedItemBinding> items;
         private PlayMakerFSM saveItems;
@@ -42,7 +44,18 @@ namespace MSCMP.Integration
         internal string Status { get { return status; } }
         internal bool Ready { get { return !disposed && !failed && world != null && world.Ready && items != null && items.Count != 0 && items[0].EntityId != 0 && vehicle != null && vehicle.Ready; } }
         internal bool LocallyDriving { get { return Ready && vehicle.Driver == network.LocalPlayerId; } }
-        internal void RequestDriverSeat() { if (Ready) van.RequestSeat(LocallyDriving); }
+        internal bool LocallySeated { get { return Ready && vehicle.SeatOf(network.LocalPlayerId) >= 0; } }
+        internal bool LocallyPassenger { get { return Ready && vehicle.Passenger == network.LocalPlayerId; } }
+        internal void RequestDriverSeat() { if (Ready && !LocallyPassenger) van.RequestSeat(LocallyDriving); }
+        internal void RequestPassengerSeat()
+        {
+            if (!Ready || LocallyDriving) return;
+            if (LocallyPassenger && !passenger.PrepareExit()) { status = "No clear passenger exit. Move the van to open ground."; return; }
+            vehicle.RequestPassenger(LocallyPassenger);
+        }
+        internal bool IsSeated(ulong id) { return Ready && vehicle.SeatOf(id) >= 0; }
+        internal Vector3? SeatPosition(ulong id) { return IsSeated(id) ? (Vector3?)van.SeatFeet(vehicle.SeatOf(id)) : null; }
+        internal float SeatYaw(ulong id) { return van.SeatYaw; }
         internal Func<ulong, Vector3?> CarryPosition;
         internal bool IsDriver(ulong id) { return Ready && vehicle.Driver == id; }
         internal bool IsHolding(ulong id)
@@ -52,7 +65,7 @@ namespace MSCMP.Integration
             return state != null && state.HandEntityId != 0;
         }
 
-        internal SharedWorldSession(DiagnosticSession active, int sceneGeneration, Action<string, string> recorder)
+        internal SharedWorldSession(DiagnosticSession active, int sceneGeneration, Action<string, string> recorder, WorldSnapshot restored)
         {
             network = active; generation = sceneGeneration; record = recorder;
             try
@@ -73,26 +86,67 @@ namespace MSCMP.Integration
                 {
                     // Native ray is one metre; root-to-item bound includes the camera height.
                     authority = new AuthorityWorld(network.SessionGeneration, new AuthorityLimits(3, 3, 4, 100000, 8, 64, 64), 128, 4096);
+                    if (restored != null)
+                    {
+                        ValidateRestore(restored);
+                        authority.RestoreEntities(restored);
+                        foreach (PlayerState saved in restored.Players) if (saved.Id == 1) { position = Vector(saved.Position); player.PlaceAt(position); }
+                    }
                     authority.ConnectPlayer(1, 1, Vector(position), true);
                     foreach (SharedItemBinding item in items)
                     {
-                        EntityState entity = authority.RegisterAuthoredItem(item.Key, item.Archetype, Vector(item.Body.position));
+                        EntityState entity = restored == null ? authority.RegisterAuthoredItem(item.Key, item.Archetype, Vector(item.Body.position)) : RestoredEntity(authority, restored, item.Key);
+                        if (restored != null) RestoreBody(item.Body, entity);
                         item.EntityId = entity.Id;
                         authority.UpdateFreeMotion(authority.Generation, entity.Id, entity.OwnershipEpoch, 1, Vector(item.Body.position), Vector(item.Body.velocity), Rotation(item.Body.rotation), Vector(item.Body.angularVelocity));
                     }
-                    EntityState vanEntity = authority.RegisterAuthoredItem(VehicleBinding.Key, VehicleBinding.Archetype, Vector(van.Body.position)); vehicleId = vanEntity.Id;
+                    EntityState vanEntity = restored == null ? authority.RegisterAuthoredItem(VehicleBinding.Key, VehicleBinding.Archetype, Vector(van.Body.position)) : RestoredEntity(authority, restored, VehicleBinding.Key); vehicleId = vanEntity.Id;
+                    if (restored != null) RestoreBody(van.Body, vanEntity);
                     authority.UpdateFreeMotion(authority.Generation, vanEntity.Id, vanEntity.OwnershipEpoch, 1, Vector(van.Body.position), Vector(van.Body.velocity), Rotation(van.Body.rotation), Vector(van.Body.angularVelocity));
-                    authority.InteractionAllowed = delegate(AuthorityCommand command) { return FindItem(command.EntityId) != null && (vehicle == null || vehicle.Driver != command.PlayerId); };
+                    authority.InteractionAllowed = delegate(AuthorityCommand command) { return FindItem(command.EntityId) != null && (vehicle == null || vehicle.SeatOf(command.PlayerId) < 0); };
                 }
                 world = new WorldSyncSession(network, authority, Vector(position));
                 world.ValidateSnapshot = ValidateMapping;
                 world.Fault += OnFault; world.ReceivedResult += OnResult; world.PoseReceipt += OnPoseReceipt;
                 vehicle = new VehicleSession(network, world, van, record); vehicle.EntityId = vehicleId;
+                passenger = new PassengerBinding(player, van);
+                van.CanEnterDriver = delegate { return !LocallyPassenger; };
                 network.PoseReceived += OnPose;
                 record("world.started", "disposable profile; items=" + items.Count + "; role=" + (network.IsHost ? "host" : "client"));
             }
             catch { Dispose(); throw; }
         }
+
+        internal void Save(CheckpointStore store)
+        {
+            if (!network.IsHost || !Ready) throw new InvalidOperationException("Only a ready host can save the shared world.");
+            if (vehicle.Driver != 0 || vehicle.Passenger != 0) throw new InvalidOperationException("Everyone must leave the van before saving.");
+            DisposableSessionGuard.RequireActive();
+            foreach (SharedItemBinding item in items) PublishMotion(item.EntityId, item.Body);
+            PublishMotion(vehicleId, van.Body);
+            // Main-thread capture: no network action or physics tick can interleave.
+            store.Save(world.Authority.CaptureSnapshot());
+            status = "Shared items and van saved. Use the game's Save & Quit for native progression.";
+            record("world.saved", "host checkpoint committed; native save requires Save & Quit");
+        }
+        private void ValidateRestore(WorldSnapshot snapshot)
+        {
+            if (snapshot.Entities.Length != items.Count + 1) throw new InvalidOperationException("Saved item catalogue differs from this build.");
+            List<AuthoredCandidate> candidates = new List<AuthoredCandidate>();
+            foreach (SharedItemBinding item in items) candidates.Add(new AuthoredCandidate(item.Key, item.Archetype, item.Object));
+            candidates.Add(new AuthoredCandidate(VehicleBinding.Key, VehicleBinding.Archetype, van.Body));
+            AuthoredMapping.Resolve(snapshot.Entities, candidates.ToArray());
+            bool hostFound = false;
+            foreach (PlayerState saved in snapshot.Players) if (saved.Id == 1 && saved.Position.Within(100000)) hostFound = true;
+            if (!hostFound) throw new InvalidOperationException("Saved host position is missing.");
+        }
+        private static EntityState RestoredEntity(AuthorityWorld authority, WorldSnapshot snapshot, string key)
+        {
+            foreach (EntityState entity in snapshot.Entities) if (entity.AuthoredKey == key) return authority.GetEntity(entity.Id);
+            throw new InvalidOperationException("Saved authored entity is missing.");
+        }
+        private static void RestoreBody(Rigidbody body, EntityState state)
+        { body.position = Vector(state.Position); body.rotation = Rotation(state.Rotation); body.velocity = Vector3.zero; body.angularVelocity = Vector3.zero; }
 
         private void ValidateMapping(WorldSnapshot snapshot)
         {
@@ -129,7 +183,7 @@ namespace MSCMP.Integration
         private void OnPose(PoseMessage pose)
         {
             if (!network.IsHost || world == null || !Ready) return;
-            if (vehicle.Driver == pose.PlayerId) return;
+            if (vehicle.SeatOf(pose.PlayerId) >= 0) return;
             PlayerState state = world.Authority.GetPlayer(pose.PlayerId);
             if (state == null || !state.Ready) return;
             bool accepted = world.Authority.AcceptPlayerPose(network.SessionGeneration, pose.PlayerId, pose.ConnectionGeneration, checked(state.PoseSequence + 1), new WorldVector(pose.X, pose.Y, pose.Z));
@@ -143,13 +197,14 @@ namespace MSCMP.Integration
             if (Application.loadedLevelName != "GAME" || !network.IsRunning || cup.ItemObject == null) { Dispose(); return; }
             world.Poll();
             vehicle.Poll(panelVisible);
+            passenger.SetSeated(LocallyPassenger);
             if (!Ready) { status = failed ? status : "Waiting for the host's item map and world baseline"; return; }
             if (!wasReady) { wasReady = true; status = "Shared items and van ready (" + items.Count + " items)"; record("world.ready", "authored map and baseline ready"); }
             float now = Time.realtimeSinceStartup;
             Vector3 position; float yaw;
             bool walking = player.TrySample(generation, out position, out yaw);
-            if (LocallyDriving) { poseHistory.Clear(); correction = null; }
-            if (walking && !LocallyDriving && correction != null)
+            if (LocallySeated) { poseHistory.Clear(); correction = null; }
+            if (walking && !LocallySeated && correction != null)
             {
                 WorldVector corrected;
                 if (poseHistory.Receive(correction.PoseSequence, correction.PoseAccepted, correction.Position, Vector(position), out corrected))
@@ -159,25 +214,26 @@ namespace MSCMP.Integration
                 }
                 correction = null;
             }
-            if ((walking || (LocallyDriving && player.TrySampleSeated(out position, out yaw))) && now >= nextPose)
+            if ((walking || (LocallySeated && player.TrySampleSeated(out position, out yaw))) && now >= nextPose)
             {
                 nextPose = now + 0.1f;
-                if (network.IsHost && !LocallyDriving)
+                if (network.IsHost && !LocallySeated)
                 {
                     PlayerState host = world.Authority.GetPlayer(1);
                     if (!world.Authority.AcceptPlayerPose(network.SessionGeneration, 1, 1, checked(host.PoseSequence + 1), Vector(position)))
                     { player.PlaceAt(Vector(host.Position)); position = Vector(host.Position); }
                 }
-                if (network.SendPose(position.x, position.y, position.z, yaw) && !network.IsHost && !LocallyDriving)
+                if (network.SendPose(position.x, position.y, position.z, yaw) && !network.IsHost && !LocallySeated)
                     poseHistory.Sent(network.LastSentPoseSequence, Vector(position));
             }
-            if (network.IsHost && vehicle.Driver != 0)
+            if (network.IsHost && now >= nextDriverPose)
             {
-                PlayerState driver = world.Authority.GetPlayer(vehicle.Driver);
-                if (driver != null && now >= nextDriverPose)
+                nextDriverPose = now + 0.1f;
+                foreach (ulong id in vehicle.Authority.Occupants)
                 {
-                    nextDriverPose = now + 0.1f;
-                    world.Authority.AcceptPlayerPose(network.SessionGeneration, driver.Id, driver.ConnectionGeneration, checked(driver.PoseSequence + 1), Vector(van.Body.position));
+                    PlayerState occupant = world.Authority.GetPlayer(id);
+                    if (occupant != null) world.Authority.AcceptPlayerPose(network.SessionGeneration, id, occupant.ConnectionGeneration,
+                        checked(occupant.PoseSequence + 1), Vector(van.SeatFeet(vehicle.SeatOf(id))));
                 }
             }
             foreach (SharedItemBinding item in items)
@@ -218,7 +274,7 @@ namespace MSCMP.Integration
             if (pendingRequest != 0 && pendingResult == null && now >= retryAt)
             { retryAt = now + 1; world.RetryRequest(pendingRequest); }
             if (pendingRequest != 0 && now - requestAt > 5) status = "Waiting for the host's action result; ownership has not been guessed";
-            if (!walking || LocallyDriving || panelVisible || Time.timeScale == 0 || pendingRequest != 0) return;
+            if (!walking || LocallySeated || panelVisible || Time.timeScale == 0 || pendingRequest != 0) return;
             PlayerState local = network.IsHost ? world.Authority.GetPlayer(network.LocalPlayerId) : world.Replica.GetPlayer(network.LocalPlayerId);
             SharedItemBinding held = FindItem(local.HandEntityId);
             bool own = held != null;
@@ -287,7 +343,7 @@ namespace MSCMP.Integration
             try { if (world != null) { world.Fault -= OnFault; world.ReceivedResult -= OnResult; world.PoseReceipt -= OnPoseReceipt; world.Dispose(); } }
             finally
             {
-                try { if (vehicle != null) vehicle.Dispose(); else if (van != null) van.Dispose(); }
+                try { if (passenger != null) passenger.Dispose(); if (vehicle != null) vehicle.Dispose(); else if (van != null) van.Dispose(); }
                 catch (Exception error) { record("vehicle.cleanup-error", error.ToString()); }
                 if (items != null) foreach (SharedItemBinding item in items) item.Dispose();
                 if (changed)

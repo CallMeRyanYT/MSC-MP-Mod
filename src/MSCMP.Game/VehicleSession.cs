@@ -15,7 +15,7 @@ namespace MSCMP.Integration
         private readonly Action<string, string> record;
         private readonly Dictionary<ulong, VehicleMessage> replies = new Dictionary<ulong, VehicleMessage>();
         private readonly VehicleAuthority authority;
-        private ulong revision = 1, driver, request, inputSequence;
+        private ulong revision = 1, driver, passenger, request, inputSequence;
         private bool baseline, disposed, queued, pending;
         private int requestedSeat;
         private float nextRequest, nextInput, nextState;
@@ -26,12 +26,15 @@ namespace MSCMP.Integration
         internal bool Ready { get { return !disposed && world.Ready && baseline; } }
         internal VehicleAuthority Authority { get { return authority; } }
         internal ulong Driver { get { return network.IsHost ? authority.Driver : driver; } }
+        internal ulong Passenger { get { return network.IsHost ? authority.Occupants[1] : passenger; } }
+        internal int SeatOf(ulong player) { return player == 0 ? -1 : Driver == player ? 0 : Passenger == player ? 1 : -1; }
+        internal void RequestPassenger(bool exit) { if (!pending && !queued) QueueSeat(exit ? -1 : 1); }
         private long Now { get { return (long)(Time.realtimeSinceStartup * 1000); } }
 
         internal VehicleSession(DiagnosticSession network, WorldSyncSession world, VehicleBinding binding, Action<string, string> record)
         {
             this.network = network; this.world = world; this.binding = binding; this.record = record;
-            if (network.IsHost) { authority = new VehicleAuthority(1, binding.GearCount); baseline = true; }
+            if (network.IsHost) { authority = new VehicleAuthority(2, binding.GearCount); baseline = true; }
             binding.SeatRequested = QueueSeat;
             binding.ApprovedInput = delegate { return authority == null ? VehicleInput.Stopped : authority.ReadInput(Now); };
             binding.Failure = delegate(Exception error) { record("vehicle.error", error.ToString()); network.Leave(); };
@@ -74,13 +77,13 @@ namespace MSCMP.Integration
                     if (incoming.PlayerId != 1 || (message.Kind != VehicleMessageKind.State && message.Kind != VehicleMessageKind.Result)) throw new FormatException("Invalid vehicle host message.");
                     if (message.Revision >= revision)
                     {
-                        if (message.Revision == revision && baseline && message.Driver != driver) throw new FormatException("Conflicting driver revision.");
+                        if (message.Revision == revision && baseline && (message.Driver != driver || message.Passenger != passenger)) throw new FormatException("Conflicting seat revision.");
                         if (message.Revision > revision) { inputSequence = 0; gearLatch = -1; startLatch = false; }
-                        revision = message.Revision; driver = message.Driver; baseline = true;
+                        revision = message.Revision; driver = message.Driver; passenger = message.Passenger; baseline = true;
                         if (message.Kind == VehicleMessageKind.State) binding.SetReplicaGear(message.Gear);
                     }
                     if (message.Kind == VehicleMessageKind.Result && pending && message.Sequence == request)
-                    { pending = false; binding.CompleteSeat(requestedSeat, message.Outcome == SeatOutcome.Accepted); record("vehicle.seat-result", message.Outcome.ToString()); }
+                    { pending = false; binding.CompleteSeat(requestedSeat, message.Outcome == SeatOutcome.Accepted && SeatOf(network.LocalPlayerId) == requestedSeat); record("vehicle.seat-result", message.Outcome.ToString()); }
                 }
             }
             catch (Exception error) { record("vehicle.error", error.GetType().Name); network.DisconnectPlayer(incoming.PlayerId, "Invalid vehicle message"); }
@@ -90,7 +93,7 @@ namespace MSCMP.Integration
             EntityState entity = world.Authority.GetEntity(EntityId);
             SeatOutcome outcome = entity == null ? SeatOutcome.NotReady : authority.Request(world.Authority.GetPlayer(player), connection,
                 message.Sequence, message.Revision, message.Seat, entity.Position, SharedWorldSession.Vector(binding.Body.velocity));
-            VehicleMessage response = new VehicleMessage { Kind = VehicleMessageKind.Result, Revision = authority.Revision, Sequence = message.Sequence, Driver = authority.Driver, Outcome = outcome };
+            VehicleMessage response = new VehicleMessage { Kind = VehicleMessageKind.Result, Revision = authority.Revision, Sequence = message.Sequence, Driver = authority.Driver, Passenger = authority.Occupants[1], Outcome = outcome };
             if (player == 1) { binding.CompleteSeat(message.Seat, outcome == SeatOutcome.Accepted); record("vehicle.seat-result", outcome.ToString()); }
             else replies[player] = response;
             nextState = 0;
@@ -101,16 +104,17 @@ namespace MSCMP.Integration
             float now = Time.realtimeSinceStartup;
             if (network.IsHost)
             {
-                if (authority.Driver != 0)
+                foreach (ulong occupantId in authority.Occupants)
                 {
-                    PlayerState occupant = world.Authority.GetPlayer(authority.Driver);
-                    if (occupant == null || !occupant.Connected) authority.Disconnect(authority.Driver);
+                    if (occupantId == 0) continue;
+                    PlayerState occupant = world.Authority.GetPlayer(occupantId);
+                    if (occupant == null || !occupant.Connected) authority.Disconnect(occupantId);
                 }
                 foreach (ulong peer in new List<ulong>(replies.Keys)) if (network.SendApplication(peer, VehicleMessages.Encode(replies[peer]))) replies.Remove(peer);
                 if (now >= nextState)
                 {
                     nextState = now + 0.2f;
-                    network.BroadcastApplication(VehicleMessages.Encode(new VehicleMessage { Kind = VehicleMessageKind.State, Revision = authority.Revision, Driver = authority.Driver, Gear = binding.CurrentGear }));
+                    network.BroadcastApplication(VehicleMessages.Encode(new VehicleMessage { Kind = VehicleMessageKind.State, Revision = authority.Revision, Driver = authority.Driver, Passenger = authority.Occupants[1], Gear = binding.CurrentGear }));
                 }
             }
             if (!Ready) return;

@@ -1,6 +1,6 @@
-# Mod checkpoint foundation
+# Shared checkpoint persistence
 
-This module persists only the immutable `WorldSnapshot` records owned by MSCMP. It does not discover, read, redirect, back up, or write My Summer Car's save files. It is not evidence that vanilla saves and mod state can yet be captured together, or that a client cannot overwrite its single-player save. Those game-integration gates remain unverified.
+The pure persistence module persists only the immutable `WorldSnapshot` records owned by MSCMP. It does not discover, read, redirect, back up, or write My Summer Car's save files. It is not evidence that vanilla saves and mod state can yet be captured together, or that a client cannot overwrite its single-player save. The 0.5.0 game adapter now integrates host save/resume and native Save & Quit; the offline bundle tool handles only a prepared disposable profile. See [SHARED_SAVES](SHARED_SAVES.md). Runtime save/reload verification remains pending.
 
 ## Implemented APIs
 
@@ -10,7 +10,7 @@ This module persists only the immutable `WorldSnapshot` records owned by MSCMP. 
 - `CheckpointStore.RecoverForHost` persists a new session generation under the filesystem limits below, normalizes offline ownership, publishes that normalized checkpoint, and only then returns it. Every successful recovery receives a generation greater than every previously reserved generation in that store.
 - `CheckpointRecovery.Rebase` provides the pure normalization operation. Standalone callers must supply a strictly newer generation that they have already reserved durably. Use the store recovery method for runtime startup.
 
-The code targets the verified legacy C# 3 / .NET Framework 3.5 profile and uses no Unity or game-owned assemblies. It is a foundation awaiting integration with a verified world restore adapter.
+The code targets the verified legacy C# 3 / .NET Framework 3.5 profile and uses no Unity or game-owned assemblies. The game adapter validates the exact authored catalogue before installing normalized entities into a fresh authority and places the host at its saved position. Peers reconnect as new sessions.
 
 ## Binary format, version 2
 

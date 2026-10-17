@@ -1,6 +1,8 @@
 using System;
 using System.Globalization;
 using MSCMP.Network;
+using MSCMP.Core;
+using MSCMP.Persistence;
 using MSCMP.Integration;
 using UnityEngine;
 
@@ -16,6 +18,11 @@ namespace MSCMP
         private AvatarPreview preview;
         private SharedWorldSession shared;
         private bool sharedMode = true;
+        private bool resumeShared = true;
+        private CheckpointStore saveStore;
+        private CheckpointStore nativeSaveStore;
+        private NativeSaveBridge nativeSaveBridge;
+        private bool nativeSaving;
         private bool sharedAvatarAttempted;
         private CharacterPreview characterPreview;
         private bool characterPreviewFailed;
@@ -73,10 +80,11 @@ namespace MSCMP
                     if (!AvatarPreview.TryCreate(session, sceneGeneration, characterStyle, out preview, out reason)) record("world.avatar-unavailable", reason);
                     if (preview != null)
                     {
-                        preview.Seated = delegate { return shared != null && shared.LocallyDriving; };
+                        preview.Seated = delegate { return shared != null && shared.LocallySeated; };
                         preview.SendLocalPose = false;
                         preview.AcceptedPosition = shared.AcceptedPosition;
-                        preview.SetWorldPresentation(shared.IsDriver, shared.IsHolding);
+                        preview.SetWorldPresentation(shared.IsSeated, shared.IsHolding);
+                        preview.SetSeatPresentation(shared.SeatPosition, shared.SeatYaw);
                         shared.CarryPosition = preview.CarryPosition;
                     }
                 }
@@ -98,10 +106,11 @@ namespace MSCMP
             {
                 GUILayout.Label("MSC-MP | Multiplayer");
                 GUILayout.Label("Use the game's menu or pause menu to click these controls.", wrappedLabel);
-                GUILayout.Label("Experimental shared pickup for 22 items and Hayosiko driver/body. Item use and progression are not synchronized. Disposable profile required.", wrappedLabel);
+                GUILayout.Label("Experimental shared pickup for 22 items and Hayosiko driver/passenger. Item use and progression are not synchronized. Disposable profile required.", wrappedLabel);
                 bool running = session != null && session.IsRunning;
                 GUI.enabled = !running;
                 sharedMode = GUILayout.Toggle(sharedMode, "Shared world (both players must choose the same mode)");
+                resumeShared = GUILayout.Toggle(resumeShared, "Resume saved shared items and van when hosting");
                 GUILayout.Label("Display name");
                 displayName = GUILayout.TextField(displayName, 24);
                 GUI.enabled = true;
@@ -164,7 +173,11 @@ namespace MSCMP
                 GUILayout.Label(shared == null ? "Shared world inactive" : shared.Status, wrappedLabel);
                 GUI.enabled = shared != null && shared.Ready;
                 if (GUILayout.Button(shared != null && shared.LocallyDriving ? "Leave van driver seat" : "Request van driver seat (stand nearby)")) shared.RequestDriverSeat();
+                if (GUILayout.Button(shared != null && shared.LocallyPassenger ? "Leave van passenger seat" : "Request van passenger seat (stand nearby)")) shared.RequestPassengerSeat();
+                GUI.enabled = shared != null && shared.Ready && session != null && session.IsHost;
+                if (GUILayout.Button("Save shared items and van")) SaveShared(false);
                 GUI.enabled = true;
+                GUILayout.Label("The host owns the save. Use the game's Save & Quit for native progression; friends rejoin the host's restored world.", wrappedLabel);
                 GUILayout.Label("Problem note (up to 240 characters)");
                 reportNote = GUILayout.TextField(reportNote, 240);
                 GUI.enabled = reportProblem != null;
@@ -182,16 +195,68 @@ namespace MSCMP
                 { notice = "Use a UDP port between 1024 and 65535."; return; }
                 if (String.IsNullOrEmpty(displayName) || System.Text.Encoding.UTF8.GetByteCount(displayName) > 32)
                 { notice = "Enter a display name of 1-32 UTF-8 bytes."; return; }
+                nativeSaving = false; nativeSaveStore = null;
                 Leave("new-session");
                 if (sharedMode && !sceneReady) { notice = "Load the disposable game before starting a shared session."; return; }
                 session = new DiagnosticSession(RuntimeCompatibility.Create(sharedMode), displayName);
                 session.Event += OnEvent;
-                if (host) session.Host(port); else session.Join(address, port);
-                if (sharedMode) shared = new SharedWorldSession(session, sceneGeneration, record);
+                WorldSnapshot restored = null;
+                if (host && sharedMode)
+                {
+                    saveStore = SharedSave.Open();
+                    if (resumeShared && SharedSave.Exists(saveStore)) restored = saveStore.RecoverForHost();
+                    session.Host(port, restored == null ? saveStore.ReserveGeneration() : restored.Generation);
+                }
+                else if (host) session.Host(port); else session.Join(address, port);
+                if (sharedMode) shared = new SharedWorldSession(session, sceneGeneration, record, restored);
+                if (sharedMode) nativeSaveBridge = new NativeSaveBridge(BeginNativeSave);
                 notice = sharedMode ? "Shared world starting. Hide this panel with F8 to pick up/drop with left click or throw with right click." : "Diagnostic transport active.";
                 record("network.started", host ? "host diagnostic endpoint" : "client diagnostic endpoint");
             }
             catch (Exception error) { Fail("start", error); }
+        }
+
+        private void BeginNativeSave()
+        {
+            nativeSaving = true;
+            try
+            {
+                SharedSave.InvalidateNativeReceipt(SharedSave.Open());
+                if (shared != null && session != null && session.IsHost && saveStore != null)
+                { shared.Save(saveStore); nativeSaveStore = saveStore; }
+            }
+            catch (Exception error) { nativeSaveStore = null; record("world.save-error", error.ToString()); }
+            finally
+            {
+                // Ends network mutation and restores ITEMS/van FSMs BEFORE the
+                // game's save broadcast; otherwise the loader OnSave hook is gated.
+                Leave("native-save-and-quit");
+            }
+        }
+        internal void SaveShared(bool nativeSave)
+        {
+            if (nativeSave)
+            {
+                if (nativeSaveStore != null)
+                {
+                    try { SharedSave.MarkNativeSave(nativeSaveStore); record("world.native-save-confirmed", "native callback observed; offline bundle requires closed game"); }
+                    catch (Exception error) { record("world.save-error", error.ToString()); }
+                    finally { nativeSaveStore = null; }
+                }
+                return;
+            }
+            if (shared == null || session == null) return;
+            try
+            {
+                if (!session.IsHost || saveStore == null) return;
+                shared.Save(saveStore);
+                notice = "Shared items and van saved. Native progression uses the game's Save & Quit.";
+            }
+            catch (Exception error)
+            {
+                notice = "Shared save failed: " + error.Message;
+                record("world.save-error", error.ToString());
+            }
         }
 
         private void Perform(bool reliable)
@@ -263,6 +328,7 @@ namespace MSCMP
 
         internal void Leave(string reason)
         {
+            if (!nativeSaving && nativeSaveBridge != null) { nativeSaveBridge.Dispose(); nativeSaveBridge = null; }
             sharedAvatarAttempted = false;
             StopPreview();
             if (shared != null) { SharedWorldSession previousWorld = shared; shared = null; previousWorld.Dispose(); }
@@ -313,6 +379,6 @@ namespace MSCMP
             characterPreviewFailed = false;
         }
 
-        public void Dispose() { Leave("scene-or-mod-teardown"); StopCharacterPreview(); }
+        public void Dispose() { nativeSaving = false; Leave("scene-or-mod-teardown"); StopCharacterPreview(); }
     }
 }

@@ -75,6 +75,7 @@ namespace MSCMP.Core
             {
                 if (existing >= 0 || occupants[seat] != 0) return SeatOutcome.Occupied;
                 if (player.HandEntityId != 0) return SeatOutcome.HoldingItem;
+                if (!velocity.IsFinite || velocity.LengthSquared > 9) return SeatOutcome.Moving;
                 if (!position.IsFinite || WorldVector.DistanceSquared(player.Position, position) > 36) return SeatOutcome.TooFar;
                 occupants[seat] = player.Id;
             }

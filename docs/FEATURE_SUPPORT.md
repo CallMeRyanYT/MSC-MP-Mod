@@ -2,9 +2,9 @@
 
 **Implemented code and headless tests are distinct from verified in-game support.** No milestone has been promoted on the strength of a compiler result alone.
 
-## 0.4.0 experimental source and package
+## 0.5.0 experimental source and package
 
-The table describes current source. It includes a disposable-profile-only shared session, 22 authored items plus van mapping, host body simulation, full orientation/spin in world snapshots, custom catalogue pickup/drop/throw, guarded Hayosiko driver entry/exit, connection-bound controls, and automatic character startup. Native pickup/item use and unsupported van FSMs are gated. All game adapters await in-game validation. [Exact van scope](VEHICLE_BINDING_EVIDENCE.md).
+The table describes current source. It includes a disposable-profile-only shared session, 22 authored items plus van mapping, host body simulation, full orientation/spin in world snapshots, custom catalogue pickup/drop/throw, guarded Hayosiko driver entry/exit, connection-bound controls, and automatic character startup. Native pickup/item use and unsupported van FSMs are gated. The owner reported 0.4.0 working; new passenger/save integrations await in-game validation. [Exact van scope](VEHICLE_BINDING_EVIDENCE.md).
 
 | Feature | Implemented evidence | Runtime/support status |
 | --- | --- | --- |
@@ -15,10 +15,10 @@ The table describes current source. It includes a disposable-profile-only shared
 | Error feedback | Automatic mod-error capture, F7/manual note, bounded/redacted atomic local reports and quiet five-minute monitor | Real Unity callback/button/save-result check pending |
 | Pickup/hold/drop/throw | Atomic host transactions, replay/epochs/races and 22 gated persistent item adapters | Exact catalogue in SHARED_ITEM_CATALOGUE.md; runtime behavior unverified |
 | Late join/catch-up/reconnect | Immutable snapshots, bounded chunks/tail, Ready barrier and stale-generation rejection | Headless verified; vanilla bootstrap and dynamic factories unavailable |
-| Mod checkpoint recovery | Versioned hashed snapshots, atomic backup, recovery-generation lease, offline normalization | Own data only; not a vanilla+mod coherent save |
+| Mod checkpoint recovery | Versioned hashed snapshots, atomic backup, recovery-generation lease, offline normalization | Integrated host resume for the supported items and van; native bundle workflow in SHARED_SAVES.md, runtime verification pending |
 | Disposable profile preparation | Whole-directory journal/recovery, typed PlayerPrefs backup, fixture regressions and real Prepare operation | Original ten-file backup hash-verified; Cloud off; disposable profile active; game-write/restore gate pending |
 | Four participants | Host+3clients in local headless UDP tests; max3remote preview figures | No four-player game verification |
-| Vehicle seats/controls/physics | One-driver authority, control validation, stale-input braking, Hayosiko body/entry adapter and transform smoothing | Hayosiko body/driver only; runtime behavior unverified |
+| Vehicle seats/controls/physics | Driver plus passenger authority, driver-only controls, speed-limited entry/exit, camera/seat follow and disconnect cleanup | Hayosiko driver + one passenger; new runtime behavior unverified |
 | Satsuma assembly/fasteners | Design only | Unavailable |
 | Needs, death/respawn, money, shops/jobs | Design only | Unavailable |
 | Time/weather/sleep/NPCs/traffic | Design only | Unavailable |

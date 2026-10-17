@@ -34,6 +34,8 @@ namespace MSCMP.Integration
         private readonly Dictionary<int, CharacterStyle> appearances = new Dictionary<int, CharacterStyle>();
         private GameObject container;
         internal Func<ulong, bool> Seated, Holding;
+        internal Func<ulong, Vector3?> SeatPosition;
+        internal Func<ulong, float> SeatYaw;
         internal Vector3? CarryPosition(ulong player)
         { Avatar avatar = player <= Int32.MaxValue ? Find((int)player) : null; return avatar == null || avatar.Root == null ? (Vector3?)null : avatar.Character.CarryPosition; }
 
@@ -120,6 +122,12 @@ namespace MSCMP.Integration
                     ? Mathf.Clamp01((target - left.ReceivedAt) / (right.ReceivedAt - left.ReceivedAt)) : 0;
                 avatar.Root.transform.position = Vector3.Lerp(left.Position, right.Position, amount);
                 avatar.Root.transform.rotation = Quaternion.Euler(0, Mathf.LerpAngle(left.Yaw, right.Yaw, amount), 0);
+                Vector3? seat = SeatPosition == null ? null : SeatPosition((ulong)avatar.PlayerId);
+                if (seat.HasValue)
+                {
+                    avatar.Root.transform.position = seat.Value;
+                    avatar.Root.transform.rotation = Quaternion.Euler(0, SeatYaw((ulong)avatar.PlayerId), 0);
+                }
                 float speed = 0;
                 if (avatar.Count > 1 && now - latest.ReceivedAt <= 0.25f)
                 {

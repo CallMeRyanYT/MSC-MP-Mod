@@ -74,7 +74,8 @@ internal static class NetworkTests
         using (DiagnosticSession host = new DiagnosticSession(Compatibility(), "Host"))
         using (DiagnosticSession client = new DiagnosticSession(Compatibility(), "Client"))
         {
-            host.Host(0); Check(host.LocalPort > 0, "OS assigned host port");
+            host.Host(0, 12345); Check(host.LocalPort > 0, "OS assigned host port");
+            Check(host.SessionGeneration == 12345, "Persisted host generation used with a fresh session identity");
             // Exercise the actual UDP parser with malformed datagrams, then prove liveness.
             using (UdpClient injector = new UdpClient())
             {

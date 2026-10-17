@@ -109,10 +109,16 @@ namespace MSCMP.Network
         }
 
         public void Host(int port)
+        { Host(port, 0); }
+
+        // A persistent host supplies a generation reserved by its checkpoint store.
+        // The random session ID still changes on every start, including copied saves.
+        public void Host(int port, ulong reservedGeneration)
         {
             Leave(); IsHost = true; resumes.Clear(); nextPlayer = 1; nextGeneration = 0;
             SessionId = RandomIdentity(); SessionGeneration = BitConverter.ToUInt64(RandomIdentity().ToByteArray(), 0);
             if (SessionGeneration == 0) SessionGeneration = 1;
+            if (reservedGeneration != 0) SessionGeneration = reservedGeneration;
             LocalPlayerId = 1; transport.Start(port, 3); Status = "Diagnostic host listening on UDP " + LocalPort;
             Emit("Listening", Status, null, 0);
         }

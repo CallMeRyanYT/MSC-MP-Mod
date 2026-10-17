@@ -24,3 +24,6 @@ jobs:
       - name: Profile recovery fixtures
         shell: powershell
         run: ./tests/TestProfile.Tests.ps1
+      - name: Shared-save bundle recovery fixtures
+        shell: powershell
+        run: ./tests/SharedSave.Tests.ps1

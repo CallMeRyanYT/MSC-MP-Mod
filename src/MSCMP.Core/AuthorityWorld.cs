@@ -99,6 +99,39 @@ namespace MSCMP.Core
             }
         }
 
+        // Install normalized checkpoint entities before connecting any new peers.
+        // Old player identities, credentials, seats and request histories never return.
+        public void RestoreEntities(WorldSnapshot snapshot)
+        {
+            lock (sync)
+            {
+                if (snapshot == null || snapshot.Generation != generation || entities.Count != 0 || peers.Count != 0 || watermark != 0)
+                    throw new InvalidOperationException("Restore requires an empty world in the reserved generation.");
+                EntityState[] restored = snapshot.Entities;
+                if (restored.Length > limits.Entities) throw new FormatException("Restore capacity exceeded.");
+                Dictionary<ulong, bool> ids = new Dictionary<ulong, bool>();
+                Dictionary<string, bool> keys = new Dictionary<string, bool>(StringComparer.Ordinal);
+                ulong next = 1;
+                foreach (EntityState state in restored)
+                {
+                    if (state == null || state.Generation != generation || state.Id == UInt64.MaxValue || state.HolderId != 0
+                        || state.Lifecycle != EntityLifecycle.Free || !state.Position.Within(limits.WorldCoordinate)
+                        || String.IsNullOrEmpty(state.AuthoredKey) || ids.ContainsKey(state.Id) || keys.ContainsKey(state.AuthoredKey))
+                        throw new FormatException("Unsupported or duplicate restored entity.");
+                    ids.Add(state.Id, true); keys.Add(state.AuthoredKey, true); next = Math.Max(next, state.Id + 1);
+                }
+                foreach (EntityState state in restored)
+                {
+                    // A stopped world is safe to resume even if the save captured motion.
+                    EntityState stopped = new EntityState(generation, state.Id, state.AuthoredKey, state.Archetype, EntityLifecycle.Free,
+                        state.Revision, state.OwnershipEpoch, 0, 0, state.Position, WorldVector.Zero, state.Rotation, WorldVector.Zero);
+                    entities.Add(state.Id, stopped); authoredKeys.Add(state.AuthoredKey, state.Id);
+                    Commit(CommitKind.Spawn, stopped, null, 0, 0);
+                }
+                nextEntityId = next;
+            }
+        }
+
         // A verified host factory calls this only after successfully preparing a supported item.
         public EntityState SpawnItem(string archetype, WorldVector position)
         {

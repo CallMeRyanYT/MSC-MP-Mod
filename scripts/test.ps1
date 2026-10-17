@@ -64,5 +64,7 @@ Write-Host "PASS: $($scripts.Count) PowerShell scripts parse under Windows Power
 if (!$?) { throw 'Tooling regression tests failed.' }
 & (Join-Path $script:RepositoryRoot 'tests\TestProfile.Tests.ps1')
 if (!$?) { throw 'Test-profile recovery tests failed.' }
-Write-JsonFile ([pscustomobject]@{ testedUtc = [DateTime]::UtcNow.ToString('o'); assemblySha256 = $manifest.sha256; lifecycle = 'passed'; authority = 'passed'; network = 'passed'; transportFanout = 'passed'; worldSync = 'passed'; vehicle = 'passed'; avatarRelay = 'passed'; feedbackBuffer = 'passed'; feedbackReporter = 'passed'; persistence = 'passed'; profileRecovery = 'passed'; legacyAssemblyAudit = 'passed'; tooling = 'passed'; inGame = 'awaiting manual test' }) (Join-Path $outputRoot 'results.json')
+& (Join-Path $script:RepositoryRoot 'tests\SharedSave.Tests.ps1')
+if (!$?) { throw 'Shared-save recovery tests failed.' }
+Write-JsonFile ([pscustomobject]@{ testedUtc = [DateTime]::UtcNow.ToString('o'); assemblySha256 = $manifest.sha256; lifecycle = 'passed'; authority = 'passed'; network = 'passed'; transportFanout = 'passed'; worldSync = 'passed'; vehicle = 'passed'; avatarRelay = 'passed'; feedbackBuffer = 'passed'; feedbackReporter = 'passed'; persistence = 'passed'; profileRecovery = 'passed'; sharedSaveRecovery = 'passed'; legacyAssemblyAudit = 'passed'; tooling = 'passed'; inGame = 'awaiting manual test' }) (Join-Path $outputRoot 'results.json')
 Write-Host 'Automated checks passed. Real game initialization/teardown and all multiplayer gates remain unverified.'

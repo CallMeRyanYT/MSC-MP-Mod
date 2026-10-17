@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 experimental - 2026-10-17
+
+- Add an independent Hayosiko front passenger seat, host-owned occupancy, seat conflict/replay checks, boarding and exit speed limits, passenger camera following, seat-anchored remote avatars and controller cleanup.
+- Add host-owned shared checkpoint save/resume in the disposable profile, stable restored entity IDs, fresh session identity and durable generation reservation. Restore empty seats/hands and stopped bodies; peers rejoin through the baseline barrier.
+- Hook all seven inspected native Save & Quit controls before saving. Capture the shared checkpoint, stop network mutation, release gated native save FSMs, and confirm the loader's save callback before allowing an offline bundle.
+- Add an offline shared-save bundle tool with native files, checkpoint, typed PlayerPrefs, hash validation, preserved prior disposable profile and interrupted-restore rollback. Original personal-save backups and their journal remain untouched.
+- Add passenger, live authority restore and shared-save fixture regressions. The owner reported the previous build working; the new game integrations remain awaiting final manual checks.
+
 ## 0.4.0 experimental - 2026-10-17
 
 - Expanded shared pickup/drop/throw from one cup to 22 persistent items using inspected save references, exact catalogue matching, single-body checks, compound colliders and scoped native-use/trigger suppression.

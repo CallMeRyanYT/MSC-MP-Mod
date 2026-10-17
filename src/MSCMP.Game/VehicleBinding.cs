@@ -27,6 +27,17 @@ namespace MSCMP.Integration
         private FsmEvent[] originalEvents;
         private FsmTransition[] originalGlobal;
         private VehicleFixedStep step;
+        private Transform driverHead, passengerMass;
+        internal Func<bool> CanEnterDriver;
+        internal Vector3 SeatHead(int seat)
+        {
+            if (seat == 0) return driverHead.position;
+            Vector3 local = Body.transform.InverseTransformPoint(passengerMass.position);
+            local.y = Body.transform.InverseTransformPoint(driverHead.position).y;
+            return Body.transform.TransformPoint(local);
+        }
+        internal Vector3 SeatFeet(int seat) { return SeatHead(seat) - Body.transform.up * 1.55f; }
+        internal float SeatYaw { get { return Body.rotation.eulerAngles.y; } }
         private bool originalKinematic, activated, disposed, locallySeated;
         private RigidbodyConstraints originalConstraints;
         internal Rigidbody Body { get; private set; }
@@ -77,10 +88,18 @@ namespace MSCMP.Integration
             {
                 if (f.FsmName != "PlayerTrigger") continue;
                 foreach (FsmGameObject v in f.FsmVariables.GameObjectVariables)
-                    if (v.Name == "DriverHeadPivot" && v.Value != null) { entry = f; entries++; }
+                    if (v.Name == "DriverHeadPivot" && v.Value != null) { entry = f; driverHead = v.Value.transform; entries++; }
             }
             if (entries != 1 || entry.FsmStates.Length != 9 || (entry.ActiveStateName != "Wait for player" && entry.ActiveStateName != "Press return"))
                 throw new InvalidOperationException("Van driver entry is missing, ambiguous or already occupied.");
+            // Authored front passenger mass locates the seat horizontally. The
+            // original driver camera supplies its eye height; no joint is enabled.
+            Transform root = persistence.transform;
+            for (int i = 0; i < root.childCount; i++)
+                if (root.GetChild(i).name == "MassPassenger")
+                { if (passengerMass != null) throw new InvalidOperationException("Ambiguous passenger anchor."); passengerMass = root.GetChild(i); }
+            if (passengerMass == null || (passengerMass.localPosition - new Vector3(0.381f, 0.741f, 1.064f)).sqrMagnitude > 0.01f)
+                throw new InvalidOperationException("Passenger anchor differs from the inspected van.");
             enterTransition = Transition(entry, "Press return", "Key DOWN", "Reset view");
             exitTransition = Transition(entry, "Check speed", "FINISHED", "Create player");
             originalStates = entry.Fsm.States; originalEvents = entry.Fsm.Events; originalGlobal = entry.Fsm.GlobalTransitions;
@@ -134,7 +153,11 @@ namespace MSCMP.Integration
         private sealed class SeatAction : FsmStateAction
         {
             internal VehicleBinding Binding; internal int Seat;
-            public override void OnEnter() { if (Binding.SeatRequested != null) Binding.SeatRequested(Seat); }
+            public override void OnEnter()
+            {
+                if (Seat == 0 && Binding.CanEnterDriver != null && !Binding.CanEnterDriver()) { Binding.CompleteSeat(Seat, false); return; }
+                if (Binding.SeatRequested != null) Binding.SeatRequested(Seat);
+            }
         }
         internal void CompleteSeat(int seat, bool accepted)
         {
