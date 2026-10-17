@@ -41,7 +41,7 @@ namespace MSCMP
             }
             mods.Sort(StringComparer.Ordinal);
             CompatibilityInfo result = new CompatibilityInfo();
-            result.ModVersion = "0.2.1";
+            result.ModVersion = "0.2.2";
             result.GameFingerprint = gameFingerprint;
             result.ContentManifest = HashText(String.Join("\n", mods.ToArray()));
             result.Capabilities = ProtocolCapabilities.DiagnosticNetworking | ProtocolCapabilities.AvatarAppearanceV2;

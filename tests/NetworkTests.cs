@@ -367,9 +367,35 @@ internal static class NetworkTests
             }
         }
     }
+    private static void ReconnectInsideDisconnectCallback()
+    {
+        LiteNetLib.EventBasedNetListener listener = new LiteNetLib.EventBasedNetListener();
+        LiteNetLib.NetManager manager = new LiteNetLib.NetManager(listener, 1, "MSCMP-DIAGNOSTICS-2");
+        manager.UnsyncedEvents = true;
+        LiteNetLib.NetPeer replacement = null;
+        try
+        {
+            Check(manager.Start(0), "callback reconnect socket opened");
+            // An unconnected loopback port keeps this deterministic: only the local
+            // disconnect callback may alter this in-progress peer.
+            using (UdpClient sink = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
+            {
+                int port = ((IPEndPoint)sink.Client.LocalEndPoint).Port;
+                LiteNetLib.NetPeer original = manager.Connect("127.0.0.1", port);
+                listener.PeerDisconnectedEvent += delegate(LiteNetLib.NetPeer peer, LiteNetLib.DisconnectInfo info)
+                { replacement = manager.Connect("127.0.0.1", port); };
+                manager.DisconnectPeer(original);
+                Check(replacement != null && !Object.ReferenceEquals(original, replacement), "disconnect callback creates a new peer rather than returning the retired peer");
+                Check(Object.ReferenceEquals(manager.Connect("127.0.0.1", port), replacement), "old cleanup does not remove callback replacement");
+                manager.DisconnectPeer(original);
+                Check(Object.ReferenceEquals(manager.Connect("127.0.0.1", port), replacement), "late duplicate disconnect cannot remove a replacement at the same endpoint");
+            }
+        }
+        finally { manager.Stop(); }
+    }
     public static int Main()
     {
-        try { Codec(); StalePackets(); Localhost(); BoundsAndTimeouts(); Impairment(); PeerRemovalRaces(); Console.WriteLine("PASS: " + assertions + " network assertions; real localhost UDP endpoints; not an MSC runtime proof."); return 0; }
+        try { ReconnectInsideDisconnectCallback(); Codec(); StalePackets(); Localhost(); BoundsAndTimeouts(); Impairment(); PeerRemovalRaces(); Console.WriteLine("PASS: " + assertions + " network assertions; real localhost UDP endpoints; not an MSC runtime proof."); return 0; }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
 }

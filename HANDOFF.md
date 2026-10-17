@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated 2026-10-17. Version0.2.1. Full requested scope is retained in `docs/PROJECT_BRIEF.md`.
+Updated 2026-10-17. Version0.2.2. Full requested scope is retained in `docs/PROJECT_BRIEF.md`.
 
 ## Delivered scope
 
@@ -21,7 +21,7 @@ The installed target is Steam build20171487 / Unity5.0.0f4 / MSCLoader1.4.2.410.
 
 Automated suites cover lifecycle/trace, authoritative contention/replay, real localhost UDP and impairment, world bootstrap/races/disconnect, avatar relay, checkpoint corruption/recovery, deployment/package allowlisting and test-profile crash recovery. These do not establish Unity/Mono runtime integration.
 
-Latest canonical run passed 4,459 C# assertions (26 lifecycle, 2,372 authority, 574 network, 502 sync, 245 avatars, 35 feedback buffer, 50 feedback file publication, 655 persistence), plus 16 deployment/package scenarios and 19 profile-recovery assertions. The feedback monitor is the local thread heartbeat `msc-mp-test-feedback`; it reads only this mod's reports, remains quiet for unchanged/absent reports, and does not deploy during play.
+Latest canonical run passed 4,463 C# assertions (26 lifecycle, 2,372 authority, 578 network, 502 sync, 245 avatars, 35 feedback buffer, 50 feedback file publication, 655 persistence), plus 16 deployment/package scenarios and 19 profile-recovery assertions. The feedback monitor is the local thread heartbeat `msc-mp-test-feedback`; it reads only this mod's reports, remains quiet for unchanged/absent reports, and does not deploy during play.
 
 Manual isolated game testing has produced partial menu/GAME initialization, hosting, feedback and binding observations; see docs/RUNTIME_EVIDENCE.md. A join attempt failed, and two-PC/rendering/save-restoration gates remain open. The developer checkout has a separate local recovery journal; this is not supplied to other testers. Every tester must prepare and restore their own profile using docs/INSTALL.md. Keep Cloud off until original files and PlayerPrefs are restored and verified.
 

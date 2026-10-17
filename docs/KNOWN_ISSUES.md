@@ -20,3 +20,5 @@ A duplicated entity/effect, dual holder/driver, ambiguous binding, partial readi
 A fresh modern-host headless run during repository setup failed at rapid reconnect setup round 3 in NetworkTests.PeerRemovalRaces. This is a connection-establishment timeout, not the earlier collection-removal exception. Rapid endpoint reuse remains an unresolved transport liveness limitation; end/restart a stalled diagnostic session. A previous successful legacy test run does not erase this observation.
 
 Version 0.2.0's receive-path TypeLoadException is addressed in v0.2.1 by replacing missing runtime APIs. Both peers must update. Static API audit and automated suites pass; actual game handshake confirmation is pending.
+
+The endpoint-cleanup race behind the observed rapid-reconnect setup failure is corrected in v0.2.2. The prior implementation fails the new deterministic callback-reconnect regression; the fix passes it and five consecutive UDP stress runs. This is not a guarantee against every endpoint-reuse or delayed-packet liveness problem.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 experimental - 2026-10-17
+
+- Fix a transport cleanup race: remove the exact retired peer before emitting disconnect callbacks, protect incoming lookup/state changes with the collection lock, and ignore duplicate teardown for a replaced peer.
+- Add a deterministic regression that reconnects inside a disconnect callback and proves old cleanup cannot remove the replacement. It fails on the previous implementation.
+- Five consecutive real UDP network stress runs passed after the fix. Canonical validation now has 4,463 C# assertions, including 578 network assertions.
+- Includes the v0.2.1 shipped-runtime compatibility fixes. Both players must update; real-game confirmation is pending.
+
 ## 0.2.1 experimental - 2026-10-17
 
 Compatibility hotfix for the reported host disconnect during a friend's connection attempt.

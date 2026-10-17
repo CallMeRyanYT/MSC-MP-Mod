@@ -50,7 +50,7 @@
         },
         {
           "path": "vendor/LiteNetLib/NetManager.cs",
-          "sha256": "24471aac4811496b4e9ffbf6c35fe9ce211a13e4099648df9388feef6131b9fe",
+          "sha256": "b28adc2f6f5f7dd355c8c139d3fabb42fac30dfa0b8be1654aad6b8acbefc675",
           "upstreamSha256": "ea737e63ec4713dd823c3fbab090762000ba2f967d4c375e5095b8fe907d7953"
         },
         {
