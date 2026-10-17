@@ -12,18 +12,18 @@ This module persists only the immutable `WorldSnapshot` records owned by MSCMP. 
 
 The code targets the verified legacy C# 3 / .NET Framework 3.5 profile and uses no Unity or game-owned assemblies. It is a foundation awaiting integration with a verified world restore adapter.
 
-## Binary format, version 1
+## Binary format, version 2
 
 All integers are unsigned little-endian. Floats are IEEE 754 32-bit values. There is no runtime-type serialization or executable payload.
 
 | Field | Encoding |
 | --- | --- |
 | Magic | Four ASCII bytes `MSCP` |
-| Schema version / flags | `uint16` version 1, `uint16` flags 0 |
+| Schema version / flags | `uint16` version 2, `uint16` flags 0 |
 | Payload length | `uint32`, exact bytes excluding the 12-byte header and trailing digest |
 | Generation / snapshot ID / commit watermark | Three `uint64` values |
 | Entity count / player count | Two `uint32` values, checked before allocation |
-| Entities | Sorted by network ID; ID, semantic revision, ownership epoch, motion sequence as `uint64`; lifecycle as `uint8`; holder ID as `uint64`; authored key and archetype as bounded strings; position and velocity as three floats each |
+| Entities | Sorted by network ID; ID, semantic revision, ownership epoch, motion sequence as `uint64`; lifecycle as `uint8`; holder ID as `uint64`; authored key and archetype as bounded strings; position and velocity as three floats each; unit quaternion as four floats; angular velocity as three floats |
 | Players | Sorted by player ID; ID, connection generation, semantic revision, pose sequence, hand entity ID as `uint64`; connected and ready as exact `uint8` zero/one; position as three floats |
 | String | `uint16` UTF-8 byte count, then strict UTF-8 bytes without terminator |
 | Integrity | SHA-256 over the entire header and payload, 32 trailing bytes |

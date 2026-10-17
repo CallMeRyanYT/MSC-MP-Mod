@@ -12,10 +12,10 @@ Reliable probes and application data each have a distinct monotonic ordered stre
 
 ## Authority world messages
 
-`src/MSCMP.Sync` transports a separate pure authority world. It is compiled and tested but **not attached to vanilla game mutations**.
+`src/MSCMP.Sync` transports a pure authority world. Version 0.3.0 explicitly attaches it to the coffee-cup and Hayosiko-body adapters in disposable shared mode; those Unity adapters are not yet runtime-verified. SharedWorldV2 capability bit 4 must match during admission, alongside networking bit 1 and avatar appearance bit 2. Diagnostic mode omits bit 4.
 
 - Commands contain kind, world generation, request sequence, entity ID, expected revision/ownership epoch and bounded vectors. Actor and connection IDs are injected from the accepted transport link.
-- Snapshots carry complete entity/player records, tombstones, snapshot ID and commit watermark. Replica graph validation precedes installation.
+- SMW2 snapshots carry complete entity/player records, tombstones, snapshot ID and commit watermark. Entity records include position/velocity, a validated unit quaternion and angular velocity. Authored mapping and replica graph validation precede readiness.
 - Baseline ACK, catch-up and ReadyRequest form an ordered readiness barrier. The Ready grant is queued before live commits. No client command is accepted by authority before readiness.
 - Commit records contain complete affected entity/player states in one transaction. Request results correlate outcomes without granting client authority.
 - Application blobs use explicit transfer ID/total/offset/count framing in350-byte chunks. At most128KiB per blob/queued byte budget,32queued blobs and one active receiver buffer per peer. Sender backpressure retains its cursor. Whole bootstrap has90seconds and at most3baselines; a partial blob also expires after120seconds. This is a deliberately small world slice, not general bulk save transfer.
@@ -23,12 +23,16 @@ Reliable probes and application data each have a distinct monotonic ordered stre
 
 ## Avatar preview
 
-Visual-only relay uses its own magic/version and fixed26-byte removal or42-byte pose messages. Host-bound peer IDs are relayed only by the host. Client preview accepts relay messages only from its accepted host connection. Per-actor generations, pose sequence checks and bounded removal tombstones prevent stale resurrection. Preview and the future world adapter are separate application consumers; they are not currently enabled together.
+Visual relay uses MAV2 magic/version and fixed 26-byte removal, 27-byte appearance or 42-byte pose messages. Host-bound peer IDs are relayed only by the host. Clients accept relays only from their accepted host connection. Per-actor generations, pose sequence checks and bounded removal tombstones prevent stale resurrection. World framing skips known avatar and vehicle namespaces; their own decoders validate them. An actual UDP regression verifies that interleaved namespaces preserve world readiness.
 
 Local poses are sampled at10Hz; original figures interpolate an eight-sample buffer100ms behind and hide after2seconds stale. This is not host-validated movement, collision or controller correction.
 
+## Vehicle messages
+
+SMV1 messages are bounded to 64 bytes and carry kind, seat revision and request/input sequence. State/result packets announce the authoritative driver; state also announces gear. Clients request seat 0 or exit -1 and send normalized controls. The host derives actor/connection from the envelope, validates readiness, distance, occupancy, held-item state, revision and freshness, and revokes input on disconnect or 500 ms without fresh input. This scope covers one Hayosiko driver; it is not a complete vehicle-state schema.
+
 ## Not implemented as game protocol
 
-Vanilla save bootstrap, dynamic game factories, host rigidbody replication, vehicle/seat controls, assembly/fastener transactions, needs/death, economy/jobs, time/weather/NPC simulation, host migration, public-server authentication and a large-world bulk channel remain gated. The complete intended semantics remain in `docs/PROJECT_BRIEF.md` and `ARCHITECTURE.md`.
+Vanilla save bootstrap, dynamic game factories, other item/vehicle families, passenger seats, assembly/fastener transactions, needs/death, economy/jobs, time/weather/NPC simulation, host migration, public-server authentication and a large-world bulk channel remain unfinished. The complete intended semantics remain in `docs/PROJECT_BRIEF.md` and `ARCHITECTURE.md`.
 
 Headless tests prove byte and domain behavior. Actual Mono loading, two-game-process exchange, save isolation and game convergence require independent runtime evidence.
