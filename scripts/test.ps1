@@ -48,6 +48,8 @@ foreach ($reference in $assembly.GetReferencedAssemblies()) {
     if ($reference.Name -eq 'System.Core' -and $reference.Version.ToString() -ne '3.5.0.0') { throw 'Unexpected System.Core target.' }
 }
 Write-Host 'PASS: compiled mod targets CLR 2 with only allowed legacy assembly dependencies.'
+& pwsh.exe -NoProfile -File (Join-Path $PSScriptRoot 'test-runtime-api.ps1') -AssemblyPath $artifact -GameManaged $configuration.Managed
+if ($LASTEXITCODE -ne 0) { throw 'Shipped runtime API audit failed.' }
 $scripts = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File)
 foreach ($file in $scripts) {
     $tokens = $null

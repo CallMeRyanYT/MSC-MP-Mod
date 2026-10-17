@@ -2,7 +2,7 @@
 
 Cooperative multiplayer development for **My Summer Car**.
 
-**v0.2.0 is an experimental networking and character-preview build. Shared items, driving, car assembly and world saves are not synchronized. Use disposable test profiles.**
+**v0.2.1 is an experimental networking and character-preview build. Shared items, driving, car assembly and world saves are not synchronized. Use disposable test profiles.**
 
 [Download experimental build](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases) · [Install and playtest with a friend](docs/INSTALL.md) · [Report a problem](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues/new/choose) · [Feature status](docs/FEATURE_SUPPORT.md)
 
@@ -22,7 +22,7 @@ This is an early development project. See the [known limitations](docs/KNOWN_ISS
 
 ## Give it to a friend
 
-1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.2.0-experimental.zip**, not GitHub's source-code ZIP.
+1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.2.1-experimental.zip**, not GitHub's source-code ZIP.
 2. Each player needs their own My Summer Car installation and MSCLoader. The inspected target is **Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410**.
 3. Follow [installation and save isolation](docs/INSTALL.md) on each PC. Both players must use the same package and compatible game/mod files.
 4. Load the disposable game first. One player chooses **Host diagnostics**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
@@ -44,9 +44,11 @@ Use the pause/menu screen to click panel controls. Keys can be changed in MSCLoa
 
 ## Validation
 
-The recorded legacy build passed **4,459 C# assertions**, **16 deployment/package scenarios** and **19 profile-recovery assertions**. Automated tests cover the pure logic and filesystem tools; they do not prove working multiplayer inside the game.
+The v0.2.1 compatibility fix passed **4,459 C# assertions**, **16 deployment/package scenarios** and **19 profile-recovery assertions**. Automated tests cover the pure logic and filesystem tools; they do not prove working multiplayer inside the game.
 
-Observed single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. Two-PC connections, character rendering, shared gameplay and complete runtime save restoration remain unverified. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
+The new runtime API audit resolves 239 types and 748 members against the shipped game libraries. It rejects the previous DLL, which failed when receiving a connection because the game lacks `System.IO.InvalidDataException`. Both players must update to v0.2.1; real-game confirmation of the fix is pending.
+
+Observed v0.2.0 single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. Two-PC connections, character rendering, shared gameplay and complete runtime save restoration remain unverified. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
 
 ## Development
 

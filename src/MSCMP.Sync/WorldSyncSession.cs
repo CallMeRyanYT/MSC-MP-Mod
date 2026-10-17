@@ -80,7 +80,7 @@ namespace MSCMP.Sync
         }
         private void StartBaseline(Link link)
         {
-            if (++link.Baselines > 3) throw new InvalidDataException("Bootstrap restart limit exceeded.");
+            if (++link.Baselines > 3) throw new FormatException("Bootstrap restart limit exceeded.");
             WorldSnapshot snapshot = authority.BeginJoin(link.Player, link.Connection);
             link.Snapshot = snapshot.SnapshotId; link.Cursor = snapshot.Watermark; link.Ready = false;
             Queue(link, new WorldMessage { Kind = WorldMessageKind.Snapshot, Snapshot = snapshot });
@@ -115,7 +115,7 @@ namespace MSCMP.Sync
             switch (message.Kind)
             {
                 case WorldMessageKind.SnapshotAck:
-                    if (link.Ready) throw new InvalidDataException("Already ready.");
+                    if (link.Ready) throw new FormatException("Already ready.");
                     SendCatchUp(link, message.SnapshotId, message.Watermark); break;
                 case WorldMessageKind.ReadyRequest:
                     ReadyGrant grant = authority.ConfirmReady(link.Player, link.Connection, message.SnapshotId, message.Watermark);
@@ -126,20 +126,20 @@ namespace MSCMP.Sync
                         Queue(link, new WorldMessage { Kind = WorldMessageKind.Ready, Grant = grant });
                         link.Ready = true; link.Cursor = grant.Commit.Sequence;
                     }
-                    else throw new InvalidDataException("Invalid readiness request.");
+                    else throw new FormatException("Invalid readiness request.");
                     break;
                 case WorldMessageKind.Command:
                     CommandResult result = authority.Process(message.Command);
                     Queue(link, new WorldMessage { Kind = WorldMessageKind.Result, Outcome = result.Outcome, RequestSequence = result.RequestSequence, Watermark = result.Watermark });
                     break;
-                default: throw new InvalidDataException("Client attempted an authoritative message.");
+                default: throw new FormatException("Client attempted an authoritative message.");
             }
         }
         private void SendCatchUp(Link link, ulong snapshot, ulong watermark)
         {
             CatchUpBatch batch = authority.ReadCatchUp(link.Player, link.Connection, snapshot, watermark);
             if (batch.Status == CatchUpStatus.RestartRequired) StartBaseline(link);
-            else if (batch.Status != CatchUpStatus.Success) throw new InvalidDataException("Invalid snapshot acknowledgement.");
+            else if (batch.Status != CatchUpStatus.Success) throw new FormatException("Invalid snapshot acknowledgement.");
             else Queue(link, new WorldMessage { Kind = WorldMessageKind.CatchUp, CatchUp = batch });
         }
         private void ReceiveClient(Link link, WorldMessage message)
@@ -147,23 +147,23 @@ namespace MSCMP.Sync
             switch (message.Kind)
             {
                 case WorldMessageKind.Snapshot:
-                    if (++link.Baselines > 3) throw new InvalidDataException("Bootstrap restart limit exceeded.");
+                    if (++link.Baselines > 3) throw new FormatException("Bootstrap restart limit exceeded.");
                     link.Ready = false;
-                    if (replica.LoadSnapshot(message.Snapshot) != ApplyOutcome.Applied) throw new InvalidDataException("Invalid world baseline.");
+                    if (replica.LoadSnapshot(message.Snapshot) != ApplyOutcome.Applied) throw new FormatException("Invalid world baseline.");
                     clientSnapshot = message.Snapshot.SnapshotId;
                     Queue(link, new WorldMessage { Kind = WorldMessageKind.SnapshotAck, SnapshotId = clientSnapshot, Watermark = replica.Watermark }); break;
                 case WorldMessageKind.CatchUp:
-                    if (replica.ApplyCatchUp(message.CatchUp) != ApplyOutcome.Applied) throw new InvalidDataException("Invalid catch-up.");
+                    if (replica.ApplyCatchUp(message.CatchUp) != ApplyOutcome.Applied) throw new FormatException("Invalid catch-up.");
                     Queue(link, new WorldMessage { Kind = WorldMessageKind.ReadyRequest, SnapshotId = clientSnapshot, Watermark = replica.Watermark }); break;
                 case WorldMessageKind.Ready:
-                    if (!replica.ApplyReady(message.Grant, network.LocalPlayerId, link.Connection)) throw new InvalidDataException("Invalid ready grant.");
+                    if (!replica.ApplyReady(message.Grant, network.LocalPlayerId, link.Connection)) throw new FormatException("Invalid ready grant.");
                     link.Ready = true; break;
                 case WorldMessageKind.Commit:
                     ApplyOutcome outcome = replica.Apply(message.Commit);
-                    if (outcome != ApplyOutcome.Applied && outcome != ApplyOutcome.DuplicateOrStale) throw new InvalidDataException("Invalid live commit."); break;
+                    if (outcome != ApplyOutcome.Applied && outcome != ApplyOutcome.DuplicateOrStale) throw new FormatException("Invalid live commit."); break;
                 case WorldMessageKind.Result:
                     Action<WorldMessage> callback = ReceivedResult; if (callback != null) callback(message); break;
-                default: throw new InvalidDataException("Host sent an invalid world message.");
+                default: throw new FormatException("Host sent an invalid world message.");
             }
         }
         public void Poll()
@@ -173,12 +173,12 @@ namespace MSCMP.Sync
             {
                 try
                 {
-                    if (!link.Ready && Now > link.JoinDeadline) throw new InvalidDataException("Bootstrap deadline exceeded.");
+                    if (!link.Ready && Now > link.JoinDeadline) throw new FormatException("Bootstrap deadline exceeded.");
                     link.Receiver.CheckTimeout(Now);
                     if (authority != null && link.Ready && link.Sender.PendingCount < 16)
                     {
                         CatchUpBatch live = authority.ReadEventsSince(link.Cursor);
-                        if (live.Status != CatchUpStatus.Success) throw new InvalidDataException("Live history expired; reconnect required.");
+                        if (live.Status != CatchUpStatus.Success) throw new FormatException("Live history expired; reconnect required.");
                         foreach (CommitEvent commit in live.Events)
                         {
                             // Bounded backpressure: advance only once this event is queued.
@@ -210,7 +210,7 @@ namespace MSCMP.Sync
             return requestSequence;
         }
         private static void Queue(Link link, WorldMessage message)
-        { if (!link.Sender.Enqueue(WorldMessages.Encode(message))) throw new InvalidDataException("World send queue full."); }
+        { if (!link.Sender.Enqueue(WorldMessages.Encode(message))) throw new FormatException("World send queue full."); }
         private void Fail(ulong player, string reason)
         {
             Link link; if (links.TryGetValue(player, out link)) Remove(player, link.Connection);

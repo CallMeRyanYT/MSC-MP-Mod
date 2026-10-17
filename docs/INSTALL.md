@@ -2,13 +2,17 @@
 
 This release tests networking and character previews. It does not synchronize items, driving, assembly or world saves.
 
+## Updating from 0.2.0
+
+Both players must replace their old DLL with v0.2.1 while the game is closed. Version 0.2.0 can stop networking when receiving packets because it references a missing runtime exception type. Keep your existing test-profile journal and backup; use the original folder to restore that active profile, and do not prepare another profile from the new ZIP.
+
 ## Requirements
 
 Each player needs their own game, [MSCLoader](https://github.com/piotrulos/MSCModLoader), and the exact same MSC-MP release ZIP. The inspected target is Steam build 20171487, Unity 5.0.0f4 and MSCLoader 1.4.2.410. Different game/mod fingerprints can reject a connection. No Unity editor or development tools are required to install the mod.
 
 ## Install
 
-1. Close the game. Download **MSC-MP-Mod-0.2.0-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
+1. Close the game. Download **MSC-MP-Mod-0.2.1-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
 2. Extract it into a permanent testing folder. Keep that folder: the save-isolation tool stores its recovery journal there.
 3. Copy only `Mods/MSCMP.Mod.dll` into the Mods folder selected by your MSCLoader installation. Back up an existing MSCMP DLL before replacing it. Never copy files into the game's Managed folder.
 4. Retain the included third-party license/notices. Follow save isolation below **before starting a new game**.

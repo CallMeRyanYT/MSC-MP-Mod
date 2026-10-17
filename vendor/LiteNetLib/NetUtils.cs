@@ -240,9 +240,7 @@ namespace LiteNetLib
 #elif WINRT
                     Debug.WriteLine(str, args);
 #else
-                    Console.ForegroundColor = color;
                     Console.WriteLine(str, args);
-                    Console.ForegroundColor = ConsoleColor.Gray;
 #endif
                 }
                 else

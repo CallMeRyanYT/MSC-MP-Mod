@@ -119,16 +119,16 @@ namespace MSCMP.Network
                 using (MemoryStream stream = new MemoryStream(data, false))
                 using (BinaryReader reader = new BinaryReader(stream, Utf8))
                 {
-                    if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid protocol signature");
-                    if (reader.ReadUInt16() != Version) throw new InvalidDataException("Protocol version differs");
+                    if (reader.ReadUInt32() != Magic) throw new FormatException("Invalid protocol signature");
+                    if (reader.ReadUInt16() != Version) throw new FormatException("Protocol version differs");
                     WireMessage m = new WireMessage(); m.Kind = (MessageKind)reader.ReadByte();
-                    if (reader.ReadByte() != 0) throw new InvalidDataException("Unknown header flags");
+                    if (reader.ReadByte() != 0) throw new FormatException("Unknown header flags");
                     m.SessionId = ReadGuid(reader); m.SessionGeneration = reader.ReadUInt64();
                     m.ConnectionGeneration = reader.ReadUInt64(); m.Sequence = reader.ReadUInt32();
                     switch (m.Kind)
                     {
                         case MessageKind.Hello:
-                            if (m.SessionId != Guid.Empty || m.SessionGeneration != 0 || m.ConnectionGeneration != 0) throw new InvalidDataException("Hello claims a session");
+                            if (m.SessionId != Guid.Empty || m.SessionGeneration != 0 || m.ConnectionGeneration != 0) throw new FormatException("Hello claims a session");
                             m.Compatibility = ReadCompatibility(reader); m.Text = ReadText(reader, 32); m.Nonce = ReadGuid(reader); m.ReconnectToken = ReadGuid(reader); break;
                         case MessageKind.Welcome:
                             m.Compatibility = ReadCompatibility(reader); m.Nonce = ReadGuid(reader); m.PlayerId = reader.ReadUInt64(); m.ReconnectToken = ReadGuid(reader); break;
@@ -139,15 +139,15 @@ namespace MSCMP.Network
                         case MessageKind.Pose: m.X = reader.ReadSingle(); m.Y = reader.ReadSingle(); m.Z = reader.ReadSingle(); m.Yaw = reader.ReadSingle(); ValidatePose(m); break;
                         case MessageKind.Application:
                             int size = reader.ReadUInt16();
-                            if (size < 1 || size > MaximumApplicationBytes) throw new InvalidDataException("Application payload exceeds bound");
+                            if (size < 1 || size > MaximumApplicationBytes) throw new FormatException("Application payload exceeds bound");
                             m.Payload = ReadExact(reader, size); break;
-                        default: throw new InvalidDataException("Unknown message type");
+                        default: throw new FormatException("Unknown message type");
                     }
-                    if (stream.Position != stream.Length) throw new InvalidDataException("Trailing message bytes");
+                    if (stream.Position != stream.Length) throw new FormatException("Trailing message bytes");
                     message = m; return true;
                 }
             }
-            catch (InvalidDataException ex) { error = ex.Message; return false; }
+            catch (FormatException ex) { error = ex.Message; return false; }
             catch (IOException ex) { error = ex.Message; return false; }
             catch (ArgumentException ex) { error = ex.Message; return false; }
         }
@@ -175,7 +175,7 @@ namespace MSCMP.Network
         }
         private static string ReadText(BinaryReader reader, int max)
         {
-            int length = reader.ReadUInt16(); if (length > max) throw new InvalidDataException("String length exceeds bound");
+            int length = reader.ReadUInt16(); if (length > max) throw new FormatException("String length exceeds bound");
             string value = Utf8.GetString(ReadExact(reader, length)); ValidateText(value, max); return value;
         }
         private static void WriteCompatibility(BinaryWriter writer, CompatibilityInfo c)

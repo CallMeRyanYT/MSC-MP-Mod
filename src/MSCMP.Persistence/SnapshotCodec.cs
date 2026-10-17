@@ -36,17 +36,17 @@ namespace MSCMP.Persistence
             internal BoundedMemoryStream(int maximum) : base(Math.Min(maximum, 4096)) { this.maximum = maximum; }
             public override void Write(byte[] buffer, int offset, int count)
             {
-                if (count < 0 || Position > maximum - (long)count) throw new InvalidDataException("Checkpoint exceeds its byte budget.");
+                if (count < 0 || Position > maximum - (long)count) throw new FormatException("Checkpoint exceeds its byte budget.");
                 base.Write(buffer, offset, count);
             }
             public override void WriteByte(byte value)
             {
-                if (Position >= maximum) throw new InvalidDataException("Checkpoint exceeds its byte budget.");
+                if (Position >= maximum) throw new FormatException("Checkpoint exceeds its byte budget.");
                 base.WriteByte(value);
             }
             public override void SetLength(long value)
             {
-                if (value < 0 || value > maximum) throw new InvalidDataException("Checkpoint exceeds its byte budget.");
+                if (value < 0 || value > maximum) throw new FormatException("Checkpoint exceeds its byte budget.");
                 base.SetLength(value);
             }
         }
@@ -91,22 +91,22 @@ namespace MSCMP.Persistence
         public static WorldSnapshot Decode(byte[] bytes, CheckpointLimits limits)
         {
             if (limits == null) throw new ArgumentNullException("limits");
-            if (bytes == null || bytes.Length < HeaderBytes + 32 + HashBytes || bytes.Length > limits.MaxBytes) throw new InvalidDataException("Invalid checkpoint byte length.");
+            if (bytes == null || bytes.Length < HeaderBytes + 32 + HashBytes || bytes.Length > limits.MaxBytes) throw new FormatException("Invalid checkpoint byte length.");
             try
             {
                 using (MemoryStream stream = new MemoryStream(bytes, false))
                 using (BinaryReader reader = new BinaryReader(stream, Utf8))
                 {
-                    if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != Version || reader.ReadUInt16() != 0) throw new InvalidDataException("Unsupported checkpoint magic, schema version, or flags.");
+                    if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != Version || reader.ReadUInt16() != 0) throw new FormatException("Unsupported checkpoint magic, schema version, or flags.");
                     uint payloadLength = reader.ReadUInt32();
                     int bodyLength = bytes.Length - HashBytes;
-                    if (payloadLength != (uint)(bodyLength - HeaderBytes)) throw new InvalidDataException("Checkpoint payload length does not match its envelope.");
-                    if (!HashMatches(bytes, bodyLength)) throw new InvalidDataException("Checkpoint integrity checksum failed.");
+                    if (payloadLength != (uint)(bodyLength - HeaderBytes)) throw new FormatException("Checkpoint payload length does not match its envelope.");
+                    if (!HashMatches(bytes, bodyLength)) throw new FormatException("Checkpoint integrity checksum failed.");
                     ulong generation = reader.ReadUInt64(), snapshotId = reader.ReadUInt64(), watermark = reader.ReadUInt64();
                     uint entityCount = reader.ReadUInt32(), playerCount = reader.ReadUInt32();
-                    if (entityCount > limits.MaxEntities || playerCount > limits.MaxPlayers) throw new InvalidDataException("Checkpoint record count exceeds configured limits.");
+                    if (entityCount > limits.MaxEntities || playerCount > limits.MaxPlayers) throw new FormatException("Checkpoint record count exceeds configured limits.");
                     // Minimum fixed bytes are checked before allocating attacker-controlled arrays.
-                    if ((long)entityCount * 69 + (long)playerCount * 54 > bodyLength - stream.Position) throw new InvalidDataException("Checkpoint record counts cannot fit its payload.");
+                    if ((long)entityCount * 69 + (long)playerCount * 54 > bodyLength - stream.Position) throw new FormatException("Checkpoint record counts cannot fit its payload.");
                     EntityState[] entities = new EntityState[(int)entityCount];
                     PlayerState[] players = new PlayerState[(int)playerCount];
                     for (int i = 0; i < entities.Length; i++)
@@ -123,24 +123,24 @@ namespace MSCMP.Persistence
                         bool connected = ReadBoolean(reader), ready = ReadBoolean(reader); WorldVector position = ReadVector(reader);
                         players[i] = new PlayerState(id, connection, revision, pose, hand, connected, ready, position);
                     }
-                    if (stream.Position != bodyLength) throw new InvalidDataException("Checkpoint contains truncated records or trailing payload bytes.");
+                    if (stream.Position != bodyLength) throw new FormatException("Checkpoint contains truncated records or trailing payload bytes.");
                     WorldSnapshot snapshot = new WorldSnapshot(generation, snapshotId, watermark, entities, players);
                     Validate(snapshot, limits);
                     return snapshot;
                 }
             }
-            catch (InvalidDataException) { throw; }
-            catch (EndOfStreamException error) { throw new InvalidDataException("Checkpoint is truncated.", error); }
-            catch (ArgumentException error) { throw new InvalidDataException("Checkpoint contains invalid values or text.", error); }
-            catch (OverflowException error) { throw new InvalidDataException("Checkpoint numeric bounds exceeded.", error); }
+            catch (FormatException) { throw; }
+            catch (EndOfStreamException error) { throw new FormatException("Checkpoint is truncated.", error); }
+            catch (ArgumentException error) { throw new FormatException("Checkpoint contains invalid values or text.", error); }
+            catch (OverflowException error) { throw new FormatException("Checkpoint numeric bounds exceeded.", error); }
         }
 
         public static void Validate(WorldSnapshot snapshot, CheckpointLimits limits)
         {
-            if (snapshot == null || limits == null) throw new InvalidDataException("A checkpoint snapshot and limits are required.");
+            if (snapshot == null || limits == null) throw new FormatException("A checkpoint snapshot and limits are required.");
             EntityState[] entities = snapshot.Entities; PlayerState[] players = snapshot.Players;
-            if (entities.Length > limits.MaxEntities || players.Length > limits.MaxPlayers) throw new InvalidDataException("Checkpoint record count exceeds configured limits.");
-            if (new ReplicaWorld(snapshot.Generation).LoadSnapshot(snapshot) != ApplyOutcome.Applied) throw new InvalidDataException("Checkpoint entity/player graph is incoherent.");
+            if (entities.Length > limits.MaxEntities || players.Length > limits.MaxPlayers) throw new FormatException("Checkpoint record count exceeds configured limits.");
+            if (new ReplicaWorld(snapshot.Generation).LoadSnapshot(snapshot) != ApplyOutcome.Applied) throw new FormatException("Checkpoint entity/player graph is incoherent.");
             for (int i = 0; i < entities.Length; i++)
             {
                 CheckText(entities[i].AuthoredKey, limits); CheckText(entities[i].Archetype, limits);
@@ -148,27 +148,27 @@ namespace MSCMP.Persistence
         }
         private static void CheckText(string text, CheckpointLimits limits)
         {
-            try { if (Utf8.GetByteCount(text) > limits.MaxStringBytes) throw new InvalidDataException("Checkpoint string exceeds its UTF-8 byte limit."); }
-            catch (EncoderFallbackException error) { throw new InvalidDataException("Checkpoint string is not valid Unicode.", error); }
+            try { if (Utf8.GetByteCount(text) > limits.MaxStringBytes) throw new FormatException("Checkpoint string exceeds its UTF-8 byte limit."); }
+            catch (EncoderFallbackException error) { throw new FormatException("Checkpoint string is not valid Unicode.", error); }
         }
         private static void WriteText(BinaryWriter writer, string value, CheckpointLimits limits)
         {
             byte[] bytes = Utf8.GetBytes(value);
-            if (bytes.Length > limits.MaxStringBytes) throw new InvalidDataException("Checkpoint string exceeds its UTF-8 byte limit.");
+            if (bytes.Length > limits.MaxStringBytes) throw new FormatException("Checkpoint string exceeds its UTF-8 byte limit.");
             writer.Write((ushort)bytes.Length); writer.Write(bytes);
         }
         private static string ReadText(BinaryReader reader, CheckpointLimits limits, int bodyLength)
         {
             ushort length = reader.ReadUInt16();
-            if (length > limits.MaxStringBytes || reader.BaseStream.Position + length > bodyLength) throw new InvalidDataException("Invalid checkpoint string length.");
+            if (length > limits.MaxStringBytes || reader.BaseStream.Position + length > bodyLength) throw new FormatException("Invalid checkpoint string length.");
             byte[] bytes = reader.ReadBytes(length);
-            if (bytes.Length != length) throw new InvalidDataException("Truncated checkpoint text.");
+            if (bytes.Length != length) throw new FormatException("Truncated checkpoint text.");
             return Utf8.GetString(bytes);
         }
         private static bool ReadBoolean(BinaryReader reader)
         {
             byte value = reader.ReadByte();
-            if (value > 1) throw new InvalidDataException("Invalid checkpoint Boolean encoding.");
+            if (value > 1) throw new FormatException("Invalid checkpoint Boolean encoding.");
             return value != 0;
         }
         private static void WriteVector(BinaryWriter writer, WorldVector vector) { writer.Write(vector.X); writer.Write(vector.Y); writer.Write(vector.Z); }

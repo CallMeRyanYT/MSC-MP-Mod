@@ -35,7 +35,7 @@ namespace MSCMP
         public override string ID { get { return "MSCMP"; } }
         public override string Name { get { return "MSC-MP diagnostics"; } }
         public override string Author { get { return "MSC-MP contributors"; } }
-        public override string Version { get { return "0.2.0"; } }
+        public override string Version { get { return "0.2.1"; } }
         public override string Description
         {
             get { return "Lifecycle and LAN transport diagnostics. Shared gameplay is not enabled. AI-assisted implementation."; }

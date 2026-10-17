@@ -90,7 +90,7 @@
         },
         {
           "path": "vendor/LiteNetLib/NetUtils.cs",
-          "sha256": "542a4fd7a1a58626e02fb9719d952183977dda9116fa561ff35537f2e5dc746d",
+          "sha256": "90b2b6d7e9e9d30eaac9b514a3efbb8d455026f59df449a0783c324a2bf2807b",
           "upstreamSha256": "542a4fd7a1a58626e02fb9719d952183977dda9116fa561ff35537f2e5dc746d"
         },
         {

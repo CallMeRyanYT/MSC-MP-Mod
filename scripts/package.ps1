@@ -22,7 +22,7 @@ Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $staging 'build-man
 foreach ($name in @('dependencies.lock.json', 'vendor\LiteNetLib\LICENSE.txt', 'vendor\LiteNetLib\PATCHES.md', 'scripts\test-profile.ps1')) {
     Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot $name) -Destination (Join-Path $staging $name)
 }
-$output = Join-Path $script:RepositoryRoot ('artifacts\MSC-MP-Mod-0.2.0-experimental-' + $stamp + '.zip')
+$output = Join-Path $script:RepositoryRoot ('artifacts\MSC-MP-Mod-0.2.1-experimental-' + $stamp + '.zip')
 Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $output
 Write-Host "Created diagnostic-only package: $output"
 Write-Host 'Allowlist includes this mod DLL, hashes, license/patch notices, player documentation and the profile-recovery tool. No game data or personal saves.'

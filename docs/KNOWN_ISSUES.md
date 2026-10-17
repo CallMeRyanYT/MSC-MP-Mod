@@ -1,6 +1,6 @@
 # Known limitations and open gates
 
-Version0.2.0 is an experimental diagnostic/visual-preview build. It is not a complete playable multiplayer release.
+Version0.2.1 is an experimental diagnostic/visual-preview build. It is not a complete playable multiplayer release.
 
 - **Partial single-game evidence only.** Menu/GAME loader callbacks, hosting and manual reporting were observed. The join attempt failed; two-PC exchange, Tailscale, avatar rendering and complete teardown remain unverified. See RUNTIME_EVIDENCE.md.
 - **Personal-save isolation not proven through full runtime restoration.** Every tester must prepare a disposable profile, keep Steam Cloud off during testing, and restore/verify with the same journal afterward. The game has mesh-damage writers on disable, ordinary ES2 writers and PlayerPrefs, so a post-save hook alone is insufficient.
@@ -18,3 +18,5 @@ The upstream collection-removal exception observed in automated stress was patch
 A duplicated entity/effect, dual holder/driver, ambiguous binding, partial readiness or damaged client save blocks release of the affected scope. Record actual build hashes and paired logs, and retain the original progress.
 
 A fresh modern-host headless run during repository setup failed at rapid reconnect setup round 3 in NetworkTests.PeerRemovalRaces. This is a connection-establishment timeout, not the earlier collection-removal exception. Rapid endpoint reuse remains an unresolved transport liveness limitation; end/restart a stalled diagnostic session. A previous successful legacy test run does not erase this observation.
+
+Version 0.2.0's receive-path TypeLoadException is addressed in v0.2.1 by replacing missing runtime APIs. Both peers must update. Static API audit and automated suites pass; actual game handshake confirmation is pending.

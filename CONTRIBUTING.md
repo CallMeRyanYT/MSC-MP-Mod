@@ -17,3 +17,5 @@ Use the bug-report template with versions, steps, expected/actual behavior and r
 ## Licensing
 
 The repository does not yet declare a license for the original MSC-MP source. Do not assume a broad redistribution grant from the dependency's license. Vendored LiteNetLib retains its MIT license and documented patches; see THIRD_PARTY_NOTICES.md. Do not contribute proprietary game code or assets.
+
+The canonical test pipeline also requires PowerShell 7 and a local Mono.Cecil.dll (available in the local ILSpy inspection tool). Run scripts/test-runtime-api.ps1 with -CecilPath for a custom location. This audit reads the compiled mod and owned game libraries as metadata, resolving types/members without launching game code. It is separate from the headless CI checks.

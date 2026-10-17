@@ -35,7 +35,7 @@ namespace MSCMP.Sync
                         WorldSnapshot s = message.Snapshot;
                         writer.Write(s.Generation); writer.Write(s.SnapshotId); writer.Write(s.Watermark);
                         EntityState[] entities = s.Entities; PlayerState[] players = s.Players;
-                        if (entities.Length > 4096 || players.Length > 64) throw new InvalidDataException("World transfer capacity exceeded.");
+                        if (entities.Length > 4096 || players.Length > 64) throw new FormatException("World transfer capacity exceeded.");
                         writer.Write(entities.Length); writer.Write(players.Length);
                         foreach (EntityState entity in entities) WriteEntity(writer, entity);
                         foreach (PlayerState player in players) WritePlayer(writer, player);
@@ -46,7 +46,7 @@ namespace MSCMP.Sync
                         CatchUpBatch batch = message.CatchUp; writer.Write((byte)batch.Status);
                         writer.Write(batch.SnapshotId); writer.Write(batch.FromWatermark); writer.Write(batch.ToWatermark);
                         CommitEvent[] events = batch.Events;
-                        if (events.Length > 4096) throw new InvalidDataException("Catch-up capacity exceeded.");
+                        if (events.Length > 4096) throw new FormatException("Catch-up capacity exceeded.");
                         writer.Write(events.Length); foreach (CommitEvent commit in events) WriteCommit(writer, commit); break;
                     case WorldMessageKind.Ready:
                         writer.Write((byte)message.Grant.Status); writer.Write(message.Grant.SnapshotId);
@@ -59,19 +59,19 @@ namespace MSCMP.Sync
                         WriteVector(writer, command.ReleasePosition); WriteVector(writer, command.ReleaseVelocity); break;
                     case WorldMessageKind.Result:
                         writer.Write((byte)message.Outcome); writer.Write(message.RequestSequence); writer.Write(message.Watermark); break;
-                    default: throw new InvalidDataException("Unknown world message.");
+                    default: throw new FormatException("Unknown world message.");
                 }
-                if (stream.Length > ReliableBlobSender.MaximumBlob) throw new InvalidDataException("World message exceeds transfer bound.");
+                if (stream.Length > ReliableBlobSender.MaximumBlob) throw new FormatException("World message exceeds transfer bound.");
                 return stream.ToArray();
             }
         }
         public static WorldMessage Decode(byte[] bytes, ulong boundPlayer, ulong boundConnection)
         {
-            if (bytes == null || bytes.Length < 5 || bytes.Length > ReliableBlobSender.MaximumBlob) throw new InvalidDataException("Invalid world message length.");
+            if (bytes == null || bytes.Length < 5 || bytes.Length > ReliableBlobSender.MaximumBlob) throw new FormatException("Invalid world message length.");
             using (MemoryStream stream = new MemoryStream(bytes, false))
             using (BinaryReader reader = new BinaryReader(stream))
             {
-                if (reader.ReadUInt32() != 0x31574D53) throw new InvalidDataException("Unknown world message format.");
+                if (reader.ReadUInt32() != 0x31574D53) throw new FormatException("Unknown world message format.");
                 WorldMessage message = new WorldMessage(); message.Kind = (WorldMessageKind)reader.ReadByte();
                 switch (message.Kind)
                 {
@@ -101,26 +101,26 @@ namespace MSCMP.Sync
                         message.Command = new AuthorityCommand(kind, world, boundPlayer, boundConnection, sequence, entity, revision, ownership, ReadVector(reader), ReadVector(reader)); break;
                     case WorldMessageKind.Result:
                         message.Outcome = (CommandOutcome)EnumByte(reader, typeof(CommandOutcome)); message.RequestSequence = reader.ReadUInt64(); message.Watermark = reader.ReadUInt64(); break;
-                    default: throw new InvalidDataException("Unknown world message kind.");
+                    default: throw new FormatException("Unknown world message kind.");
                 }
-                if (stream.Position != stream.Length) throw new InvalidDataException("Trailing world message bytes.");
+                if (stream.Position != stream.Length) throw new FormatException("Trailing world message bytes.");
                 return message;
             }
         }
         private static int Count(BinaryReader reader, int maximum)
-        { int value = reader.ReadInt32(); if (value < 0 || value > maximum) throw new InvalidDataException("Count outside bound."); return value; }
+        { int value = reader.ReadInt32(); if (value < 0 || value > maximum) throw new FormatException("Count outside bound."); return value; }
         private static int EnumByte(BinaryReader reader, Type type)
-        { int value = reader.ReadByte(); if (!Enum.IsDefined(type, value)) throw new InvalidDataException("Unknown enum value."); return value; }
+        { int value = reader.ReadByte(); if (!Enum.IsDefined(type, value)) throw new FormatException("Unknown enum value."); return value; }
         private static bool Boolean(BinaryReader reader)
-        { byte value = reader.ReadByte(); if (value > 1) throw new InvalidDataException("Invalid boolean."); return value == 1; }
+        { byte value = reader.ReadByte(); if (value > 1) throw new FormatException("Invalid boolean."); return value == 1; }
         private static void WriteText(BinaryWriter writer, string value)
-        { byte[] bytes = Utf8.GetBytes(value); if (bytes.Length > 1024) throw new InvalidDataException("Identity text too long."); writer.Write((ushort)bytes.Length); writer.Write(bytes); }
+        { byte[] bytes = Utf8.GetBytes(value); if (bytes.Length > 1024) throw new FormatException("Identity text too long."); writer.Write((ushort)bytes.Length); writer.Write(bytes); }
         private static string ReadText(BinaryReader reader)
-        { int length = reader.ReadUInt16(); if (length > 1024 || length > reader.BaseStream.Length - reader.BaseStream.Position) throw new InvalidDataException("Identity text too long."); return Utf8.GetString(reader.ReadBytes(length)); }
+        { int length = reader.ReadUInt16(); if (length > 1024 || length > reader.BaseStream.Length - reader.BaseStream.Position) throw new FormatException("Identity text too long."); return Utf8.GetString(reader.ReadBytes(length)); }
         private static void WriteVector(BinaryWriter writer, WorldVector vector)
-        { if (!vector.IsFinite) throw new InvalidDataException("Non-finite vector."); writer.Write(vector.X); writer.Write(vector.Y); writer.Write(vector.Z); }
+        { if (!vector.IsFinite) throw new FormatException("Non-finite vector."); writer.Write(vector.X); writer.Write(vector.Y); writer.Write(vector.Z); }
         private static WorldVector ReadVector(BinaryReader reader)
-        { WorldVector value = new WorldVector(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); if (!value.IsFinite) throw new InvalidDataException("Non-finite vector."); return value; }
+        { WorldVector value = new WorldVector(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); if (!value.IsFinite) throw new FormatException("Non-finite vector."); return value; }
         private static void WriteEntity(BinaryWriter writer, EntityState e)
         {
             writer.Write(e.Generation); writer.Write(e.Id); WriteText(writer, e.AuthoredKey); WriteText(writer, e.Archetype);

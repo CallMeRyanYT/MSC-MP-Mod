@@ -85,3 +85,7 @@ Client save isolation is **not implemented or proved**. A second game folder, a 
 | Two/four-player gameplay | Milestone acceptance scenarios in actual game processes | Not tested |
 
 See [bindings evidence](docs/BINDINGS.md) for the distinction between observed API members and unverified world integration.
+
+## v0.2.1 shipped-runtime API correction
+
+The real game reported TypeLoadException for System.IO.InvalidDataException during packet reception in v0.2.0. Inspection of the shipped libraries confirms it is absent; System.FormatException exists in mscorlib and now handles malformed data. A new metadata audit rejects the old DLL and resolves all 239 type and 748 member references in v0.2.1 against the game libraries. It also exposed and removed unsupported FileStream/FileOptions and Console.ForegroundColor calls. This checks static API presence, not Mono execution or assembly-binding policy. Both peers need v0.2.1; runtime handshake confirmation remains pending.

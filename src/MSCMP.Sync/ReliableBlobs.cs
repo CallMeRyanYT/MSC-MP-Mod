@@ -63,27 +63,27 @@ namespace MSCMP.Sync
         public byte[] Receive(byte[] frame, long nowMilliseconds)
         {
             CheckTimeout(nowMilliseconds);
-            if (frame == null || frame.Length < 23 || frame.Length > ReliableBlobSender.ChunkSize + 22) throw new InvalidDataException("Invalid chunk length.");
+            if (frame == null || frame.Length < 23 || frame.Length > ReliableBlobSender.ChunkSize + 22) throw new FormatException("Invalid chunk length.");
             using (MemoryStream stream = new MemoryStream(frame, false))
             using (BinaryReader reader = new BinaryReader(stream))
             {
-                if (reader.ReadUInt32() != 0x31424D53) throw new InvalidDataException("Unknown chunk format.");
+                if (reader.ReadUInt32() != 0x31424D53) throw new FormatException("Unknown chunk format.");
                 ulong transfer = reader.ReadUInt64(); int total = reader.ReadInt32(); int offset = reader.ReadInt32(); int count = reader.ReadUInt16();
                 if (transfer != expectedTransfer || total < 1 || total > ReliableBlobSender.MaximumBlob || count < 1 || count > ReliableBlobSender.ChunkSize
-                    || frame.Length != count + 22 || offset != received || offset > total - count) throw new InvalidDataException("Invalid chunk sequence or bound.");
+                    || frame.Length != count + 22 || offset != received || offset > total - count) throw new FormatException("Invalid chunk sequence or bound.");
                 if (buffer == null) { buffer = new byte[total]; started = nowMilliseconds; }
-                if (total != buffer.Length) throw new InvalidDataException("Chunk changed the transfer size.");
+                if (total != buffer.Length) throw new FormatException("Chunk changed the transfer size.");
                 Buffer.BlockCopy(frame, 22, buffer, received, count); received += count;
                 if (received != buffer.Length) return null;
                 byte[] result = buffer; buffer = null; received = 0;
-                if (expectedTransfer == UInt64.MaxValue) throw new InvalidDataException("Transfer identity exhausted.");
+                if (expectedTransfer == UInt64.MaxValue) throw new FormatException("Transfer identity exhausted.");
                 expectedTransfer++; return result;
             }
         }
         public void CheckTimeout(long nowMilliseconds)
         {
             if (buffer != null && (nowMilliseconds < started || nowMilliseconds - started > 120000))
-            { buffer = null; received = 0; throw new InvalidDataException("Incomplete world transfer timed out; reconnect."); }
+            { buffer = null; received = 0; throw new FormatException("Incomplete world transfer timed out; reconnect."); }
         }
     }
 }

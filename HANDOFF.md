@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated 2026-10-17. Version0.2.0. Full requested scope is retained in `docs/PROJECT_BRIEF.md`.
+Updated 2026-10-17. Version0.2.1. Full requested scope is retained in `docs/PROJECT_BRIEF.md`.
 
 ## Delivered scope
 

@@ -14,7 +14,7 @@ internal static class PersistenceTests
     private static void Reject(TestAction action, string message)
     {
         bool rejected = false;
-        try { action(); } catch (InvalidDataException) { rejected = true; } catch (IOException) { rejected = true; } catch (ArgumentException) { rejected = true; }
+        try { action(); } catch (FormatException) { rejected = true; } catch (IOException) { rejected = true; } catch (ArgumentException) { rejected = true; }
         Expect(rejected, message);
     }
     private static AuthorityWorld World()

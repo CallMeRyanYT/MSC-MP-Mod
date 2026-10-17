@@ -12,7 +12,7 @@ internal static class SyncTests
     private static int assertions;
     private static void Check(bool value, string message) { assertions++; if (!value) throw new Exception(message); }
     private static void Refused(Action action, string message)
-    { bool refused = false; try { action(); } catch (ArgumentException) { refused = true; } catch (InvalidDataException) { refused = true; } catch (EndOfStreamException) { refused = true; } Check(refused, message); }
+    { bool refused = false; try { action(); } catch (ArgumentException) { refused = true; } catch (FormatException) { refused = true; } catch (EndOfStreamException) { refused = true; } Check(refused, message); }
     private static CompatibilityInfo Compatibility()
     { return new CompatibilityInfo { ModVersion = "0.2.0-sync-test", GameFingerprint = new string('a', 64), ContentManifest = new string('b', 64), Capabilities = 1 }; }
     private static AuthorityWorld World(ulong generation)
