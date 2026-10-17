@@ -33,12 +33,12 @@ namespace MSCMP
         private float nextExport;
 
         public override string ID { get { return "MSCMP"; } }
-        public override string Name { get { return "MSC-MP diagnostics"; } }
+        public override string Name { get { return "MSC-MP experimental multiplayer"; } }
         public override string Author { get { return "MSC-MP contributors"; } }
-        public override string Version { get { return "0.2.2"; } }
+        public override string Version { get { return "0.3.0"; } }
         public override string Description
         {
-            get { return "Lifecycle and LAN transport diagnostics. Shared gameplay is not enabled. AI-assisted implementation."; }
+            get { return "Experimental LAN/tailnet multiplayer: characters, coffee cup and Hayosiko driver/body. Disposable profile required. AI-assisted implementation."; }
         }
         public override Game SupportedGames { get { return Game.MySummerCar; } }
 
@@ -65,7 +65,7 @@ namespace MSCMP
             overlayKey = Keybind.Add("mscmp.overlay", "Toggle discovery overlay", KeyCode.F8);
             inspectKey = Keybind.Add("mscmp.inspect", "Inspect aimed object (read only)", KeyCode.F9);
             exportKey = Keybind.Add("mscmp.export", "Export diagnostic snapshot", KeyCode.F10);
-            Settings.AddText("Discovery only. Multiplayer is unavailable. Use a disposable test save.", false);
+            Settings.AddText("Experimental cup and Hayosiko sync. Other gameplay is not synchronized. Use a disposable test profile.", false);
         }
 
         private void InitializeDiagnostics()
@@ -94,7 +94,7 @@ namespace MSCMP
                     FeedbackContext, delegate { return trace.Snapshot(); });
             Record("mod.initialized", "run=" + diagnosticRun + " mod=" + Version + " loader=" + ModLoader.MSCLoader_Ver
                 + " unity=" + Application.unityVersion + " pointerBits=" + (IntPtr.Size * 8), true);
-            Record("coverage", "diagnostics; networking=probe-only; shared-gameplay=unavailable; save-isolation=unverified", true);
+            Record("coverage", "experimental; shared=cup,Hayosiko-driver-body; runtime-validation=pending; disposable-profile-required", true);
         }
 
         private void OnMenuLoad() { ObserveCallback("loader.menu", false); }
@@ -218,7 +218,7 @@ namespace MSCMP
             if (networkPanel != null && initialized && !stopped && !isDisabled)
             {
                 networkPanel.SetSceneContext(lifetime.Generation, lifetime.Ready && ModLoader.CurrentScene == CurrentScene.Game);
-                networkPanel.Poll();
+                networkPanel.Poll(overlayVisible);
             }
             // Loader Update is independent of our scene-owned object. A direct GAME reload
             // may not replay initialization. Do not recover in MainMenu: the loader resets
@@ -338,8 +338,8 @@ namespace MSCMP
 
         private void RefreshOverlay()
         {
-            overlayText = "MSC-MP " + Version + " | Discovery only\n"
-                + "Shared gameplay unavailable | Network probes available\n"
+            overlayText = "MSC-MP " + Version + " | Experimental\n"
+                + "Shared cup + Hayosiko | Full-game sync unfinished\n"
                 + "Scene: " + DiagnosticTrace.SafeText(Application.loadedLevelName, 64)
                 + " | Generation " + lifetime.Generation + "\n"
                 + "Loader OnLoad observed: " + lifetime.Ready + " | Gameplay bindings unverified\n"

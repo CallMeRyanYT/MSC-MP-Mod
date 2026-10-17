@@ -29,7 +29,9 @@ $syncSources = @(Get-ChildItem -LiteralPath (Join-Path $script:RepositoryRoot 's
 Invoke-LegacyTests 'SceneLifetimeTests' @((Join-Path $script:RepositoryRoot 'src\MSCMP.Mod\SceneLifetime.cs'), (Join-Path $script:RepositoryRoot 'src\MSCMP.Mod\DiagnosticTrace.cs'))
 Invoke-LegacyTests 'AuthorityTests' $coreSources
 Invoke-LegacyTests 'NetworkTests' $networkSources
+Invoke-LegacyTests 'TransportFanoutTests' $networkSources
 Invoke-LegacyTests 'SyncTests' @($coreSources + $networkSources + $syncSources)
+Invoke-LegacyTests 'VehicleTests' @($coreSources + $networkSources + $syncSources)
 Invoke-LegacyTests 'AvatarRelayTests' @((Join-Path $script:RepositoryRoot 'src\MSCMP.Game\CharacterStyle.cs'), (Join-Path $script:RepositoryRoot 'src\MSCMP.Game\AvatarRelay.cs'))
 Invoke-LegacyTests 'FeedbackBufferTests' @((Join-Path $script:RepositoryRoot 'src\MSCMP.Mod\FeedbackBuffer.cs'))
 Invoke-LegacyTests 'FeedbackReporterTests' @((Join-Path $script:RepositoryRoot 'src\MSCMP.Mod\FeedbackBuffer.cs'), (Join-Path $script:RepositoryRoot 'src\MSCMP.Mod\FeedbackReporter.cs'))
@@ -62,5 +64,5 @@ Write-Host "PASS: $($scripts.Count) PowerShell scripts parse under Windows Power
 if (!$?) { throw 'Tooling regression tests failed.' }
 & (Join-Path $script:RepositoryRoot 'tests\TestProfile.Tests.ps1')
 if (!$?) { throw 'Test-profile recovery tests failed.' }
-Write-JsonFile ([pscustomobject]@{ testedUtc = [DateTime]::UtcNow.ToString('o'); assemblySha256 = $manifest.sha256; lifecycle = 'passed'; authority = 'passed'; network = 'passed'; worldSync = 'passed'; avatarRelay = 'passed'; feedbackBuffer = 'passed'; feedbackReporter = 'passed'; persistence = 'passed'; profileRecovery = 'passed'; legacyAssemblyAudit = 'passed'; tooling = 'passed'; inGame = 'awaiting manual test' }) (Join-Path $outputRoot 'results.json')
+Write-JsonFile ([pscustomobject]@{ testedUtc = [DateTime]::UtcNow.ToString('o'); assemblySha256 = $manifest.sha256; lifecycle = 'passed'; authority = 'passed'; network = 'passed'; transportFanout = 'passed'; worldSync = 'passed'; vehicle = 'passed'; avatarRelay = 'passed'; feedbackBuffer = 'passed'; feedbackReporter = 'passed'; persistence = 'passed'; profileRecovery = 'passed'; legacyAssemblyAudit = 'passed'; tooling = 'passed'; inGame = 'awaiting manual test' }) (Join-Path $outputRoot 'results.json')
 Write-Host 'Automated checks passed. Real game initialization/teardown and all multiplayer gates remain unverified.'

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 experimental - 2026-10-17
+
+- Add an explicit disposable-profile-only game adapter for the persistent coffee cup and Hayosiko body, with baseline mapping before client interaction.
+- Add host pickup/drop/throw integration, body rotation/angular velocity in world and checkpoint schema 2, and independent avatar/world/vehicle routing.
+- Add guarded driver entry/exit, one-driver authority, request replay, bounded controls, stale-input braking, disconnect revocation and controller/scene cleanup. Actual game behavior remains unverified.
+- Add 162 vehicle authority/codec assertions, body orientation coverage, carrying/seated poses and independent world/vehicle/avatar routing checks.
+- Fix misaddressed UDP sends on legacy .NET by serializing socket send/receive operations. A three-client regression fails on the previous socket source and passes 100,800 payloads across sequence wrap with the fix. This resolves the reproduced bootstrap/commit stall mechanism; it is not a guarantee against all network failures.
+- This is development source, not completion of all items, vehicles, assembly, progression or vanilla saves. Manual game tests are deferred at the user's request.
+
 ## 0.2.2 experimental - 2026-10-17
 
 - Fix a transport cleanup race: remove the exact retired peer before emitting disconnect callbacks, protect incoming lookup/state changes with the collection lock, and ignore duplicate teardown for a replaced peer.

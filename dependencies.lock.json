@@ -75,7 +75,7 @@
         },
         {
           "path": "vendor/LiteNetLib/NetSocket.cs",
-          "sha256": "bc95aedbe437e49f0414efea35e11efce31b666528ca560c1d4f8ab1287c5f29",
+          "sha256": "dce4637e3d5bef7b9f1c80001e549cd7e92a4724e375de69c1ac3e3514ee0494",
           "upstreamSha256": "bc95aedbe437e49f0414efea35e11efce31b666528ca560c1d4f8ab1287c5f29"
         },
         {

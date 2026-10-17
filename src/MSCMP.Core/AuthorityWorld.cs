@@ -47,6 +47,9 @@ namespace MSCMP.Core
         private ulong nextSnapshotId = 1;
         private ulong watermark;
         private ulong hostPlayer;
+        // A game adapter can restrict an otherwise valid command (seated players,
+        // registered vehicle bodies, unsupported use state) before it commits.
+        public Func<AuthorityCommand, bool> InteractionAllowed;
 
         public AuthorityWorld(ulong generation, AuthorityLimits limits, int replayCapacity, int eventCapacity)
         {
@@ -137,6 +140,7 @@ namespace MSCMP.Core
         private CommandResult Execute(AuthorityCommand command, Peer peer)
         {
             if (!peer.State.Ready) return Result(command, CommandOutcome.NotReady, null, peer.State, null);
+            if (InteractionAllowed != null && !InteractionAllowed(command)) return Result(command, CommandOutcome.Unsupported, null, peer.State, null);
             EntityState entity;
             if (!entities.TryGetValue(command.EntityId, out entity)) return Result(command, CommandOutcome.UnknownEntity, null, peer.State, null);
             if (command.ExpectedRevision != entity.Revision) return Result(command, CommandOutcome.StaleRevision, entity, peer.State, null);
@@ -187,11 +191,18 @@ namespace MSCMP.Core
 
         public bool UpdateFreeMotion(ulong worldGeneration, ulong entityId, ulong ownershipEpoch, ulong motionSequence, WorldVector position, WorldVector velocity)
         {
+            EntityState entity = GetEntity(entityId);
+            return entity != null && UpdateFreeMotion(worldGeneration, entityId, ownershipEpoch, motionSequence, position, velocity, entity.Rotation, entity.AngularVelocity);
+        }
+
+        public bool UpdateFreeMotion(ulong worldGeneration, ulong entityId, ulong ownershipEpoch, ulong motionSequence, WorldVector position, WorldVector velocity, WorldRotation rotation, WorldVector angularVelocity)
+        {
             lock (sync)
             {
                 EntityState entity;
                 if (worldGeneration != generation || !entities.TryGetValue(entityId, out entity) || entity.Lifecycle != EntityLifecycle.Free || entity.OwnershipEpoch != ownershipEpoch || motionSequence <= entity.MotionSequence || !position.Within(limits.WorldCoordinate) || !velocity.IsFinite) return false;
-                EntityState changed = entity.Move(motionSequence, position, velocity);
+                if (!rotation.IsValid || !angularVelocity.IsFinite) return false;
+                EntityState changed = entity.Move(motionSequence, position, velocity, rotation, angularVelocity);
                 Commit(CommitKind.EntityMotion, changed, null, 0, 0); entities[entityId] = changed;
                 return true;
             }

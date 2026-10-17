@@ -2,7 +2,9 @@
 
 Cooperative multiplayer development for **My Summer Car**.
 
-**v0.2.2 is an experimental networking and character-preview build. Shared items, driving, car assembly and world saves are not synchronized. Use disposable test profiles.**
+**v0.3.0 adds experimental coffee-cup pickup/drop/throw and Hayosiko driver/body synchronization. These game adapters are implemented and built, but not verified in an actual multiplayer game. This is not full-game multiplayer. Use disposable test profiles.**
+
+Shared mode requires the disposable-profile marker and the host's world baseline before interaction. Other items, passenger seats, other vehicles, assembly, progression and coherent vanilla saves remain unfinished. See [vehicle binding scope](docs/VEHICLE_BINDING_EVIDENCE.md).
 
 [Download experimental build](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases) · [Install and playtest with a friend](docs/INSTALL.md) · [Report a problem](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues/new/choose) · [Feature status](docs/FEATURE_SUPPORT.md)
 
@@ -10,23 +12,24 @@ Cooperative multiplayer development for **My Summer Car**.
 
 | Area | Current state |
 | --- | --- |
-| Host / Join / Leave | Private LAN/tailnet diagnostics, compatibility checks, ping and reliable probes |
-| Characters | Original low-poly male/female meshes, selectable portraits and procedural walking; visual verification still needed |
-| Remote walking | Optional pose preview after connection acceptance; actual two-PC game validation pending |
+| Host / Join / Leave | Private LAN/tailnet sessions, matching-build checks, ping and reliable probes |
+| Characters | Original low-poly male/female meshes, portraits, walking, carrying and seated poses; visual verification still needed |
+| Remote walking | Starts automatically when the shared baseline is ready; actual two-PC game validation pending |
 | Error feedback | Automatic local mod-error reports, F7 capture and a player note |
-| Game bindings | Read-only walking-player and coffee-cup inspection |
-| Authority and replication | Automated tests with synthetic entities, bounded late-join snapshots and recovery |
-| Shared gameplay | Items, vehicles, assembly, economy and vanilla world persistence are not integrated |
+| Coffee cup | Exclusive holder, pickup/drop/throw and host body simulation; drinking/pouring disabled in shared mode |
+| Hayosiko | One driver, validated controls, host physics, replicated body, seat cleanup and stale-input braking; doors/dashboard disabled |
+| Authority and replication | Automated synthetic-world tests, bounded late join and mod-only checkpoints |
+| Wider game | Other items/vehicles, passengers, assembly, economy and coherent vanilla persistence remain unfinished |
 
 This is an early development project. See the [known limitations](docs/KNOWN_ISSUES.md).
 
 ## Give it to a friend
 
-1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.2.2-experimental.zip**, not GitHub's source-code ZIP.
+1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.3.0-experimental.zip**, not GitHub's source-code ZIP.
 2. Each player needs their own My Summer Car installation and MSCLoader. The inspected target is **Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410**.
 3. Follow [installation and save isolation](docs/INSTALL.md) on each PC. Both players must use the same package and compatible game/mod files.
-4. Load the disposable game first. One player chooses **Host diagnostics**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
-5. Confirm acceptance and try ping/probes before enabling **Experimental walking avatars** on both PCs.
+4. Load the disposable game first. Both enable **Shared world**. One player chooses **Host shared world**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
+5. Wait for **Shared cup and van ready**. Follow the [end-of-build checklist](docs/PLAYER_CHECKS.md) when ready to test.
 
 Hosting with zero peers is normal until someone joins. A scene change closes the session, so host again after entering the game. `127.0.0.1` refers to your own PC, not your friend's. LAN play needs no router port forwarding; private tailnet setup is described in the guide.
 
@@ -44,9 +47,7 @@ Use the pause/menu screen to click panel controls. Keys can be changed in MSCLoa
 
 ## Validation
 
-The v0.2.2 compatibility fix passed **4,463 C# assertions**, **16 deployment/package scenarios** and **19 profile-recovery assertions**. Automated tests cover the pure logic and filesystem tools; they do not prove working multiplayer inside the game.
-
-The new runtime API audit resolves 239 types and 748 members against the shipped game libraries. It rejects the previous DLL, which failed when receiving a connection because the game lacks `System.IO.InvalidDataException`. Both players must update to v0.2.2; real-game confirmation of the fix is pending.
+Legacy automated checks cover authority, three-client UDP fanout, world bootstrap, driver controls, character messages, feedback and mod-only persistence, plus deployment/package and profile-recovery fixtures. The fanout regression sends 100,800 addressed payloads across sequence wrap; it fails against the previous socket source. A metadata audit checks the built DLL against the actual shipped game libraries. These checks do not prove working multiplayer inside the game. Exact current build and test evidence is in the ignored build manifest and test results.
 
 Observed v0.2.0 single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. Two-PC connections, character rendering, shared gameplay and complete runtime save restoration remain unverified. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
 

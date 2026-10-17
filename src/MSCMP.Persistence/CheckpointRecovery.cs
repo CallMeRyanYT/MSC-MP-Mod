@@ -23,7 +23,7 @@ namespace MSCMP.Persistence
                     EntityState old = entities[i]; bool held = old.Lifecycle == EntityLifecycle.Held;
                     entities[i] = new EntityState(newGeneration, old.Id, old.AuthoredKey, old.Archetype, held ? EntityLifecycle.Free : old.Lifecycle,
                         held ? checked(old.Revision + 1) : old.Revision, held ? checked(old.OwnershipEpoch + 1) : old.OwnershipEpoch, 0, 0,
-                        held ? previousPlayers[old.HolderId].Position : old.Position, held ? WorldVector.Zero : old.Velocity);
+                        held ? previousPlayers[old.HolderId].Position : old.Position, held ? WorldVector.Zero : old.Velocity, old.Rotation, held ? WorldVector.Zero : old.AngularVelocity);
                 }
                 for (int i = 0; i < players.Length; i++)
                 {

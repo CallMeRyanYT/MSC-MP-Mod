@@ -12,6 +12,22 @@ namespace MSCMP.Integration
         private Behaviour motor;
         private Behaviour input;
         private Camera camera;
+        internal Transform Root { get { return player; } }
+        internal Camera View { get { return camera; } }
+        internal void PlaceAt(Vector3 position)
+        {
+            if (player == null || controller == null) throw new InvalidOperationException("Player binding expired.");
+            bool wasEnabled = controller.enabled;
+            try { controller.enabled = false; player.position = position; }
+            finally { controller.enabled = wasEnabled; }
+        }
+        internal bool TrySampleSeated(out Vector3 position, out float yaw)
+        {
+            position = Vector3.zero; yaw = 0;
+            if (player == null || camera == null || !camera.enabled || !camera.gameObject.activeInHierarchy) return false;
+            position = player.position; yaw = player.eulerAngles.y;
+            return Valid(position.x) && Valid(position.y) && Valid(position.z) && Valid(yaw);
+        }
 
         private LocalPlayerBinding(int sceneGeneration, Transform root, CharacterController character,
             Behaviour playerMotor, Behaviour playerInput, Camera view)
@@ -76,6 +92,20 @@ namespace MSCMP.Integration
                 || !camera.enabled || !camera.gameObject.activeInHierarchy || Camera.main != camera) return false;
             position = player.position;
             yaw = player.eulerAngles.y;
+            return Valid(position.x) && Valid(position.y) && Valid(position.z) && Valid(yaw)
+                && Math.Abs(position.x) <= 100000 && Math.Abs(position.y) <= 100000 && Math.Abs(position.z) <= 100000;
+        }
+
+        internal bool TryInitialPose(int sceneGeneration, out Vector3 position, out float yaw)
+        {
+            if (TrySample(sceneGeneration, out position, out yaw)) return true;
+            // Hosting uses the pause menu, where native input may be disabled.
+            // Read the already resolved, unparented root only for initial placement.
+            // Movement and interaction still require a live walking pose afterward.
+            if (Time.timeScale != 0 || sceneGeneration != generation || Application.loadedLevelName != "GAME"
+                || player == null || player.parent != null || !player.gameObject.activeInHierarchy
+                || controller == null || motor == null || input == null || camera == null) return false;
+            position = player.position; yaw = player.eulerAngles.y;
             return Valid(position.x) && Valid(position.y) && Valid(position.z) && Valid(yaw)
                 && Math.Abs(position.x) <= 100000 && Math.Abs(position.y) <= 100000 && Math.Abs(position.z) <= 100000;
         }

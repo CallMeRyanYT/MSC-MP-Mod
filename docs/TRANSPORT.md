@@ -56,7 +56,7 @@ Pose fields must be finite; absolute coordinate limits are 100,000 and absolute 
 
 - At most three remote transport connections; at most 256 queued incoming events and 480 application bytes per data event.
 - Raw UDP ingress is checked before packet allocation: at most 512 bytes, no fragments/merged packets/NAT/discovery/MTU negotiation, control packet minima/exact sizes and sequence range checked. Fixed upstream MTU is 508 bytes.
-- At most 128 outgoing application messages per second across the transport, at most 128 queued reliable messages per peer, plus upstream's fixed 64-packet in-flight reliable window. A full send budget returns `false`, leaving a reliable probe's application sequence unchanged so retry does not create a gap.
+- At most 128 outgoing application messages per second per peer and 384 across the transport, at most 128 queued reliable messages per peer, plus upstream's fixed 64-packet in-flight reliable window. A full send budget returns `false`, leaving the application sequence unchanged so retry does not create a gap.
 - The sequenced outgoing queue retains at most one not-yet-sent packet, replacing obsolete poses. It never substitutes for reliable transactional delivery.
 - At most 256 application messages per peer per second. Queue overflow stops the whole diagnostic session with a visible error; it never silently drops accepted reliable application events.
 - Five transport connection attempts spaced 500 ms apart, 5-second transport inactivity timeout, 5-second application handshake timeout. A rejected peer is disconnected after a bounded 250-ms grace. These values do not guarantee delivery of a final rejection under total packet loss.

@@ -14,6 +14,9 @@ namespace MSCMP
         private readonly Action<string> reportProblem;
         private DiagnosticSession session;
         private AvatarPreview preview;
+        private SharedWorldSession shared;
+        private bool sharedMode = true;
+        private bool sharedAvatarAttempted;
         private CharacterPreview characterPreview;
         private bool characterPreviewFailed;
         private int sceneGeneration;
@@ -25,7 +28,7 @@ namespace MSCMP
         private string reportNote = String.Empty;
         private GUIStyle wrappedLabel;
         private CharacterStyle characterStyle = CharacterStyle.Male;
-        private string notice = "Private LAN / tailnet diagnostics. Gameplay is not shared.";
+        private string notice = "Load the disposable game, then Host or Join. Shared world requires matching modes.";
 
         internal NetworkPanel(Action<string, string> recordEvent, Action<string> reportProblem)
         {
@@ -45,21 +48,38 @@ namespace MSCMP
                 return "state=" + state + " role=" + (session.IsHost ? "host" : "client")
                     + " peers=" + session.AcceptedPeerCount + " port=" + session.LocalPort + " sent=" + session.SentBytes
                     + " received=" + session.ReceivedBytes + " queue=" + session.QueueDepth + " style=" + characterStyle
-                    + " avatarsActive=" + (preview != null && preview.IsActive);
+                    + " avatarsActive=" + (preview != null && preview.IsActive) + " sharedWorld=" + (shared != null) + " worldReady=" + (shared != null && shared.Ready);
             }
         }
 
         internal void SetSceneContext(int generation, bool ready)
         {
+            if (shared != null && (generation != sceneGeneration || !ready)) Leave("shared-scene-ended");
             if (generation != sceneGeneration || !ready) StopPreview();
             if (generation != sceneGeneration) StopCharacterPreview();
             sceneGeneration = generation; sceneReady = ready;
         }
 
-        internal void Poll()
+        internal void Poll(bool panelVisible)
         {
             if (session == null) return;
-            try { session.Poll(); if (preview != null) { preview.Poll(); if (!preview.IsActive) { preview.Dispose(); preview = null; } } }
+            try
+            {
+                session.Poll();
+                if (shared != null) shared.Poll(panelVisible);
+                if (shared != null && shared.Ready && preview == null && !sharedAvatarAttempted)
+                {
+                    sharedAvatarAttempted = true; string reason;
+                    if (!AvatarPreview.TryCreate(session, sceneGeneration, characterStyle, out preview, out reason)) record("world.avatar-unavailable", reason);
+                    if (preview != null)
+                    {
+                        preview.Seated = delegate { return shared != null && shared.LocallyDriving; };
+                        preview.SetWorldPresentation(shared.IsDriver, shared.IsHolding);
+                        shared.CarryPosition = preview.CarryPosition;
+                    }
+                }
+                if (preview != null) { preview.Poll(); if (!preview.IsActive) { preview.Dispose(); preview = null; } }
+            }
             catch (Exception error) { Fail("poll", error); }
         }
 
@@ -74,11 +94,12 @@ namespace MSCMP
             scroll = GUILayout.BeginScrollView(scroll);
             try
             {
-                GUILayout.Label("MSC-MP | Network diagnostics");
+                GUILayout.Label("MSC-MP | Multiplayer");
                 GUILayout.Label("Use the game's menu or pause menu to click these controls.", wrappedLabel);
-                GUILayout.Label("Network tests and optional visual avatars. Shared items and save transfer are unavailable.", wrappedLabel);
+                GUILayout.Label("Experimental shared cup and Hayosiko driver/body. Other items and progression are not synchronized. Disposable profile required.", wrappedLabel);
                 bool running = session != null && session.IsRunning;
                 GUI.enabled = !running;
+                sharedMode = GUILayout.Toggle(sharedMode, "Shared world (both players must choose the same mode)");
                 GUILayout.Label("Display name");
                 displayName = GUILayout.TextField(displayName, 24);
                 GUI.enabled = true;
@@ -101,8 +122,8 @@ namespace MSCMP
                 portText = GUILayout.TextField(portText, 5, GUILayout.Width(70));
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button("Host diagnostics")) Start(true);
-                if (GUILayout.Button("Join diagnostics")) Start(false);
+                if (GUILayout.Button(sharedMode ? "Host shared world" : "Host diagnostics")) Start(true);
+                if (GUILayout.Button("Join")) Start(false);
                 GUILayout.EndHorizontal();
                 running = session != null && session.IsRunning;
                 GUI.enabled = running;
@@ -138,6 +159,10 @@ namespace MSCMP
                 GUILayout.Label(session == null ? "Pongs: 0 | Reliable probes: 0"
                     : "Pongs: " + session.PongsReceived + " | Reliable probes: " + session.ProbesReceived, wrappedLabel);
                 GUILayout.Label(DiagnosticTrace.SafeText(notice, 180), wrappedLabel);
+                GUILayout.Label(shared == null ? "Shared world inactive" : shared.Status, wrappedLabel);
+                GUI.enabled = shared != null && shared.Ready;
+                if (GUILayout.Button(shared != null && shared.LocallyDriving ? "Leave van driver seat" : "Request van driver seat (stand nearby)")) shared.RequestDriverSeat();
+                GUI.enabled = true;
                 GUILayout.Label("Problem note (up to 240 characters)");
                 reportNote = GUILayout.TextField(reportNote, 240);
                 GUI.enabled = reportProblem != null;
@@ -156,10 +181,12 @@ namespace MSCMP
                 if (String.IsNullOrEmpty(displayName) || System.Text.Encoding.UTF8.GetByteCount(displayName) > 32)
                 { notice = "Enter a display name of 1-32 UTF-8 bytes."; return; }
                 Leave("new-session");
-                session = new DiagnosticSession(RuntimeCompatibility.Create(), displayName);
+                if (sharedMode && !sceneReady) { notice = "Load the disposable game before starting a shared session."; return; }
+                session = new DiagnosticSession(RuntimeCompatibility.Create(sharedMode), displayName);
                 session.Event += OnEvent;
                 if (host) session.Host(port); else session.Join(address, port);
-                notice = "Transport active. World gameplay remains unavailable.";
+                if (sharedMode) shared = new SharedWorldSession(session, sceneGeneration, record);
+                notice = sharedMode ? "Shared world starting. Hide this panel with F8 to pick up/drop with left click or throw with right click." : "Diagnostic transport active.";
                 record("network.started", host ? "host diagnostic endpoint" : "client diagnostic endpoint");
             }
             catch (Exception error) { Fail("start", error); }
@@ -234,7 +261,9 @@ namespace MSCMP
 
         internal void Leave(string reason)
         {
+            sharedAvatarAttempted = false;
             StopPreview();
+            if (shared != null) { SharedWorldSession previousWorld = shared; shared = null; previousWorld.Dispose(); }
             if (session == null) return;
             DiagnosticSession previous = session;
             session = null;

@@ -24,7 +24,7 @@ namespace MSCMP.Persistence
     // network chunking, authenticate senders, or capture vanilla game saves.
     public static class SnapshotCodec
     {
-        public const ushort Version = 1;
+        public const ushort Version = 2;
         public const int HeaderBytes = 12;
         public const int HashBytes = 32;
         private const uint Magic = 0x5043534d; // ASCII MSCP in little-endian order.
@@ -71,6 +71,7 @@ namespace MSCMP.Persistence
                     writer.Write((byte)entity.Lifecycle); writer.Write(entity.HolderId);
                     WriteText(writer, entity.AuthoredKey, limits); WriteText(writer, entity.Archetype, limits);
                     WriteVector(writer, entity.Position); WriteVector(writer, entity.Velocity);
+                    writer.Write(entity.Rotation.X); writer.Write(entity.Rotation.Y); writer.Write(entity.Rotation.Z); writer.Write(entity.Rotation.W); WriteVector(writer, entity.AngularVelocity);
                 }
                 for (int i = 0; i < players.Length; i++)
                 {
@@ -106,7 +107,7 @@ namespace MSCMP.Persistence
                     uint entityCount = reader.ReadUInt32(), playerCount = reader.ReadUInt32();
                     if (entityCount > limits.MaxEntities || playerCount > limits.MaxPlayers) throw new FormatException("Checkpoint record count exceeds configured limits.");
                     // Minimum fixed bytes are checked before allocating attacker-controlled arrays.
-                    if ((long)entityCount * 69 + (long)playerCount * 54 > bodyLength - stream.Position) throw new FormatException("Checkpoint record counts cannot fit its payload.");
+                    if ((long)entityCount * 97 + (long)playerCount * 54 > bodyLength - stream.Position) throw new FormatException("Checkpoint record counts cannot fit its payload.");
                     EntityState[] entities = new EntityState[(int)entityCount];
                     PlayerState[] players = new PlayerState[(int)playerCount];
                     for (int i = 0; i < entities.Length; i++)
@@ -115,7 +116,8 @@ namespace MSCMP.Persistence
                         EntityLifecycle lifecycle = (EntityLifecycle)reader.ReadByte(); ulong holder = reader.ReadUInt64();
                         string key = ReadText(reader, limits, bodyLength), archetype = ReadText(reader, limits, bodyLength);
                         WorldVector position = ReadVector(reader), velocity = ReadVector(reader);
-                        entities[i] = new EntityState(generation, id, key, archetype, lifecycle, revision, epoch, motion, holder, position, velocity);
+                        WorldRotation rotation = new WorldRotation(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                        entities[i] = new EntityState(generation, id, key, archetype, lifecycle, revision, epoch, motion, holder, position, velocity, rotation, ReadVector(reader));
                     }
                     for (int i = 0; i < players.Length; i++)
                     {

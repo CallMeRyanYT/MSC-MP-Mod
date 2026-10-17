@@ -42,6 +42,7 @@ namespace MSCMP.Network
         private readonly Queue<TransportEvent> events = new Queue<TransportEvent>();
         private readonly Dictionary<int, NetPeer> peers = new Dictionary<int, NetPeer>();
         private readonly Dictionary<NetPeer, int> identifiers = new Dictionary<NetPeer, int>();
+        private readonly Dictionary<int, int> sendsByPeer = new Dictionary<int, int>();
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private NetManager manager;
         private volatile bool running;
@@ -66,7 +67,7 @@ namespace MSCMP.Network
             manager.UnsyncedEvents = true; manager.DisconnectTimeout = 5000;
             manager.MaxConnectAttempts = 5; manager.ReconnectDelay = 500;
             manager.UpdateTime = 15; manager.PingInterval = 1000;
-            lock (sync) { events.Clear(); peers.Clear(); identifiers.Clear(); overflow = false; sentBytes = receivedBytes = 0; sentThisWindow = 0; }
+            lock (sync) { events.Clear(); peers.Clear(); identifiers.Clear(); sendsByPeer.Clear(); overflow = false; sentBytes = receivedBytes = 0; sentThisWindow = 0; }
             running = true;
             if (!manager.Start(port)) { running = false; manager.Stop(); throw new InvalidOperationException("Cannot open UDP port."); }
         }
@@ -98,8 +99,10 @@ namespace MSCMP.Network
             {
                 if (!running || !peers.TryGetValue(connection, out peer)) return false;
                 long now = clock.ElapsedMilliseconds;
-                if (now - sendWindow >= 1000) { sendWindow = now; sentThisWindow = 0; }
-                if (sentThisWindow >= 128 || peer.PacketsCountInReliableOrderedQueue >= MaximumReliableQueue) return false;
+                if (now - sendWindow >= 1000) { sendWindow = now; sentThisWindow = 0; sendsByPeer.Clear(); }
+                int peerSends; sendsByPeer.TryGetValue(connection, out peerSends);
+                if (sentThisWindow >= 384 || peerSends >= 128 || peer.PacketsCountInReliableOrderedQueue >= MaximumReliableQueue) return false;
+                sendsByPeer[connection] = peerSends + 1;
                 sentThisWindow++; sentBytes += data.Length;
             }
             peer.Send(data, sequenced ? SendOptions.Sequenced : SendOptions.ReliableOrdered);
@@ -124,7 +127,7 @@ namespace MSCMP.Network
         {
             running = false;
             if (manager != null) manager.Stop();
-            lock (sync) { events.Clear(); peers.Clear(); identifiers.Clear(); overflow = false; }
+            lock (sync) { events.Clear(); peers.Clear(); identifiers.Clear(); sendsByPeer.Clear(); overflow = false; }
         }
         public void Dispose() { Stop(); }
         private void Add(TransportEvent e)
@@ -160,6 +163,7 @@ namespace MSCMP.Network
                 int id;
                 if (!identifiers.TryGetValue(peer, out id)) return;
                 identifiers.Remove(peer);
+                sendsByPeer.Remove(id);
                 if (!peers.Remove(id))
                 { Add(new TransportEvent { Kind = TransportEventKind.Error, Detail = "Connection failed: " + info.Reason }); return; }
                 Add(new TransportEvent { Kind = TransportEventKind.Disconnected, Connection = id, Detail = info.Reason.ToString() });

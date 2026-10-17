@@ -33,6 +33,9 @@ namespace MSCMP.Integration
         private readonly Avatar[] avatars = new Avatar[MaximumRemotes];
         private readonly Dictionary<int, CharacterStyle> appearances = new Dictionary<int, CharacterStyle>();
         private GameObject container;
+        internal Func<ulong, bool> Seated, Holding;
+        internal Vector3? CarryPosition(ulong player)
+        { Avatar avatar = player <= Int32.MaxValue ? Find((int)player) : null; return avatar == null || avatar.Root == null ? (Vector3?)null : avatar.Character.CarryPosition; }
 
         internal RemoteAvatars(int sceneGeneration, int ownPlayerId)
         {
@@ -127,7 +130,7 @@ namespace MSCMP.Integration
                     // Teleports must not produce an implausible running animation.
                     if (elapsed > 0 && movement.magnitude < 5) speed = Mathf.Min(movement.magnitude / elapsed, 6);
                 }
-                avatar.Character.Animate(now, speed);
+                avatar.Character.Animate(now, speed, Seated != null && Seated((ulong)avatar.PlayerId), Holding != null && Holding((ulong)avatar.PlayerId));
                 avatar.Root.SetActive(true);
             }
         }

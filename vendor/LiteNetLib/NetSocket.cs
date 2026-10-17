@@ -60,7 +60,12 @@ namespace LiteNetLib
                 //Reading data
                 try
                 {
-                    result = socket.ReceiveFrom(receiveBuffer, 0, receiveBuffer.Length, SocketFlags.None, ref bufferEndPoint);
+                    // Legacy .NET shares a mutable cached SocketAddress between
+                    // ReceiveFrom and SendTo. recvfrom can otherwise overwrite a
+                    // concurrent send's destination with another peer's address.
+                    // Keep Poll and callbacks outside this per-socket lock.
+                    lock (socket)
+                        result = socket.ReceiveFrom(receiveBuffer, 0, receiveBuffer.Length, SocketFlags.None, ref bufferEndPoint);
                     if (!bufferNetEndPoint.EndPoint.Equals(bufferEndPoint))
                     {
                         bufferNetEndPoint = new NetEndPoint((IPEndPoint)bufferEndPoint);
@@ -182,12 +187,15 @@ namespace LiteNetLib
         {
             try
             {
-                int result = _udpSocketv4.SendTo(data, offset, size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
+                int result;
+                lock (_udpSocketv4)
+                    result = _udpSocketv4.SendTo(data, offset, size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
                 if (result <= 0)
                     return false;
                 if (IPv6Support)
                 {
-                    result = _udpSocketv6.SendTo(data, offset, size, SocketFlags.None, new IPEndPoint(MulticastAddressV6, port));
+                    lock (_udpSocketv6)
+                        result = _udpSocketv6.SendTo(data, offset, size, SocketFlags.None, new IPEndPoint(MulticastAddressV6, port));
                     if (result <= 0)
                         return false;
                 }
@@ -209,13 +217,15 @@ namespace LiteNetLib
                 {
                     if (!_udpSocketv4.Poll(SocketSendPollTime, SelectMode.SelectWrite))
                         return -1;
-                    result = _udpSocketv4.SendTo(data, offset, size, SocketFlags.None, remoteEndPoint.EndPoint);
+                    lock (_udpSocketv4)
+                        result = _udpSocketv4.SendTo(data, offset, size, SocketFlags.None, remoteEndPoint.EndPoint);
                 }
                 else if(IPv6Support)
                 {
                     if (!_udpSocketv6.Poll(SocketSendPollTime, SelectMode.SelectWrite))
                         return -1;
-                    result = _udpSocketv6.SendTo(data, offset, size, SocketFlags.None, remoteEndPoint.EndPoint);
+                    lock (_udpSocketv6)
+                        result = _udpSocketv6.SendTo(data, offset, size, SocketFlags.None, remoteEndPoint.EndPoint);
                 }
 
                 NetUtils.DebugWrite(ConsoleColor.Blue, "[S]Send packet to {0}, result: {1}", remoteEndPoint.EndPoint, result);

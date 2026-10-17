@@ -14,7 +14,7 @@ namespace MSCMP
     {
         private static string gameFingerprint;
 
-        internal static CompatibilityInfo Create()
+        internal static CompatibilityInfo Create(bool sharedWorld)
         {
             // Read real local files once, before admitting any peer. A packaged build's
             // compile-time fingerprint is not evidence of this machine's installed game.
@@ -41,10 +41,11 @@ namespace MSCMP
             }
             mods.Sort(StringComparer.Ordinal);
             CompatibilityInfo result = new CompatibilityInfo();
-            result.ModVersion = "0.2.2";
+            result.ModVersion = "0.3.0";
             result.GameFingerprint = gameFingerprint;
             result.ContentManifest = HashText(String.Join("\n", mods.ToArray()));
             result.Capabilities = ProtocolCapabilities.DiagnosticNetworking | ProtocolCapabilities.AvatarAppearanceV2;
+            if (sharedWorld) result.Capabilities |= ProtocolCapabilities.SharedWorldV2;
             // These capabilities permit diagnostic presentation only, never world readiness.
             return result;
         }

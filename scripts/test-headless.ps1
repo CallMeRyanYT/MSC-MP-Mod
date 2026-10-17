@@ -29,7 +29,9 @@ $persistence = @(Get-ChildItem -LiteralPath (Join-Path $headlessRoot 'src\MSCMP.
 Invoke-HeadlessSuite 'SceneLifetimeTests' @((Join-Path $headlessRoot 'src\MSCMP.Mod\SceneLifetime.cs'), (Join-Path $headlessRoot 'src\MSCMP.Mod\DiagnosticTrace.cs'))
 Invoke-HeadlessSuite 'AuthorityTests' $core
 Invoke-HeadlessSuite 'NetworkTests' $network
+Invoke-HeadlessSuite 'TransportFanoutTests' $network
 Invoke-HeadlessSuite 'SyncTests' @($core + $network + $sync)
+Invoke-HeadlessSuite 'VehicleTests' @($core + $network + $sync)
 Invoke-HeadlessSuite 'AvatarRelayTests' @((Join-Path $headlessRoot 'src\MSCMP.Game\CharacterStyle.cs'), (Join-Path $headlessRoot 'src\MSCMP.Game\AvatarRelay.cs'))
 Invoke-HeadlessSuite 'FeedbackBufferTests' @((Join-Path $headlessRoot 'src\MSCMP.Mod\FeedbackBuffer.cs'))
 Invoke-HeadlessSuite 'FeedbackReporterTests' @((Join-Path $headlessRoot 'src\MSCMP.Mod\FeedbackBuffer.cs'), (Join-Path $headlessRoot 'src\MSCMP.Mod\FeedbackReporter.cs'))

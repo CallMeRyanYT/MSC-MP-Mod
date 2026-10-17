@@ -119,6 +119,11 @@ namespace MSCMP.Integration
         }
 
         internal void Animate(float now, float speed)
+        { Animate(now, speed, false, false); }
+
+        internal Vector3 CarryPosition { get { return forearms[1].TransformPoint(new Vector3(0, -0.31f, 0.035f)); } }
+
+        internal void Animate(float now, float speed, bool seated, bool holding)
         {
             if (root == null || Single.IsNaN(now) || Single.IsInfinity(now)) return;
             if (Single.IsNaN(speed) || Single.IsInfinity(speed) || speed < 0) speed = 0;
@@ -137,6 +142,18 @@ namespace MSCMP.Integration
                 shins[side].localRotation = Quaternion.Euler(Mathf.Max(0, -Mathf.Sin(phase) * sign) * 28 * stride, 0, 0);
                 arms[side].localRotation = Quaternion.Euler(-swing * sign * 0.70f, 0, side == 0 ? -4 : 4);
                 forearms[side].localRotation = Quaternion.Euler(-7 - Mathf.Max(0, Mathf.Sin(phase) * sign) * 13 * stride, 0, 0);
+                if (seated)
+                {
+                    thighs[side].localRotation = Quaternion.Euler(-85, 0, 0);
+                    shins[side].localRotation = Quaternion.Euler(80, 0, 0);
+                    arms[side].localRotation = Quaternion.Euler(-55, 0, side == 0 ? -8 : 8);
+                    forearms[side].localRotation = Quaternion.Euler(-25, 0, 0);
+                }
+                else if (holding && side == 1)
+                {
+                    arms[side].localRotation = Quaternion.Euler(-35, 0, 5);
+                    forearms[side].localRotation = Quaternion.Euler(-70, 0, 0);
+                }
             }
         }
 

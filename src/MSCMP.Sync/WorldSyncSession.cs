@@ -34,6 +34,8 @@ namespace MSCMP.Sync
         private ulong acceptedWorldGeneration;
         public event Action<string> Fault;
         public event Action<WorldMessage> ReceivedResult;
+        // Game adapters prove authored bindings before acknowledging or applying a baseline.
+        public Action<WorldSnapshot> ValidateSnapshot;
         public AuthorityWorld Authority { get { return authority; } }
         public ReplicaWorld Replica { get { return replica; } }
         public bool Ready { get { return !disposed && network.IsRunning && acceptedWorldGeneration == network.SessionGeneration
@@ -95,6 +97,11 @@ namespace MSCMP.Sync
         private void OnApplication(ApplicationMessage application)
         {
             if (disposed) return;
+            // Avatar presentation shares the reliable application stream. Its own decoder
+            // validates MAV2; it must never enter the stateful world-chunk receiver.
+            byte[] payload = application.Payload;
+            if (VehicleMessages.Matches(payload)) return;
+            if (payload != null && payload.Length >= 4 && payload[0] == 0x4d && payload[1] == 0x41 && payload[2] == 0x56 && payload[3] == 0x32) return;
             Link link;
             if (!links.TryGetValue(application.PlayerId, out link) || link.Connection != application.ConnectionGeneration) return;
             try
@@ -149,6 +156,7 @@ namespace MSCMP.Sync
                 case WorldMessageKind.Snapshot:
                     if (++link.Baselines > 3) throw new FormatException("Bootstrap restart limit exceeded.");
                     link.Ready = false;
+                    if (ValidateSnapshot != null) ValidateSnapshot(message.Snapshot);
                     if (replica.LoadSnapshot(message.Snapshot) != ApplyOutcome.Applied) throw new FormatException("Invalid world baseline.");
                     clientSnapshot = message.Snapshot.SnapshotId;
                     Queue(link, new WorldMessage { Kind = WorldMessageKind.SnapshotAck, SnapshotId = clientSnapshot, Watermark = replica.Watermark }); break;

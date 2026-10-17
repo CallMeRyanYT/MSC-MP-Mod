@@ -9,6 +9,34 @@ using MSCMP.Sync;
 
 internal static class SyncTests
 {
+    private sealed class TracedTransport : INetworkTransport
+    {
+        internal readonly LiteNetTransport Inner = new LiteNetTransport();
+        private readonly Queue<string> trace = new Queue<string>();
+        public bool IsRunning { get { return Inner.IsRunning; } }
+        public int LocalPort { get { return Inner.LocalPort; } }
+        public int PeerCount { get { return Inner.PeerCount; } }
+        public int QueueDepth { get { return Inner.QueueDepth; } }
+        public long SentBytes { get { return Inner.SentBytes; } }
+        public long ReceivedBytes { get { return Inner.ReceivedBytes; } }
+        public void Start(int port, int maximum) { Inner.Start(port, maximum); }
+        public void Connect(string address, int port) { Inner.Connect(address, port); }
+        public void Disconnect(int connection) { Inner.Disconnect(connection); }
+        public void Stop() { Inner.Stop(); }
+        public void Dispose() { Inner.Dispose(); }
+        private void Trace(string direction, int connection, byte[] bytes)
+        {
+            WireMessage message; string error;
+            if (!ProtocolCodec.TryDecode(bytes, out message, out error)) return;
+            trace.Enqueue(direction + " link=" + connection + " kind=" + message.Kind + " generation=" + message.ConnectionGeneration + " sequence=" + message.Sequence);
+            if (trace.Count > 48) trace.Dequeue();
+        }
+        public bool Send(int connection, byte[] bytes, bool sequenced)
+        { bool sent = Inner.Send(connection, bytes, sequenced); if (sent) Trace("out", connection, bytes); return sent; }
+        public TransportEvent[] Poll()
+        { TransportEvent[] events = Inner.Poll(); foreach (TransportEvent e in events) if (e.Kind == TransportEventKind.Data) Trace("in", e.Connection, e.Data); return events; }
+        internal void Dump() { foreach (string line in trace) Console.Error.WriteLine(line); }
+    }
     private static int assertions;
     private static void Check(bool value, string message) { assertions++; if (!value) throw new Exception(message); }
     private static void Refused(Action action, string message)
@@ -76,6 +104,7 @@ internal static class SyncTests
         {
             Console.Error.WriteLine("Network at timeout: " + network.Status + " player=" + network.LocalPlayerId + " peers=" + network.AcceptedPeerCount);
             DumpLinks(network, "peers", new string[] { "PlayerId", "ApplicationIn", "ApplicationOut", "Generation" });
+            DumpTransport(network);
         }
         foreach (WorldSyncSession world in worlds)
         {
@@ -101,18 +130,36 @@ internal static class SyncTests
             Console.Error.WriteLine();
         }
     }
+    private static void DumpTransport(DiagnosticSession network)
+    {
+        System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        object transport = network.GetType().GetField("transport", flags).GetValue(network);
+        TracedTransport traced = transport as TracedTransport;
+        if (traced != null) { traced.Dump(); transport = traced.Inner; }
+        object manager = transport.GetType().GetField("manager", flags).GetValue(transport);
+        System.Collections.IDictionary peers = (System.Collections.IDictionary)transport.GetType().GetField("peers", flags).GetValue(transport);
+        foreach (object peer in peers.Values)
+        {
+            object channel = peer.GetType().GetField("_reliableOrderedChannel", flags).GetValue(peer);
+            Console.Error.Write("Reliable link resendDelay=" + peer.GetType().GetField("_resendDelay", flags).GetValue(peer) + " ");
+            foreach (string field in new string[] { "_localSeqence", "_localWindowStart", "_remoteSequence", "_remoteWindowStart" })
+                Console.Error.Write(field + "=" + channel.GetType().GetField(field, flags).GetValue(channel) + " ");
+            object head = channel.GetType().GetField("_headPendingPacket", flags).GetValue(channel);
+            Console.Error.WriteLine("pendingHead=" + (head != null));
+        }
+    }
     private static void UdpIntegration()
     {
         List<DiagnosticSession> networks = new List<DiagnosticSession>(); List<WorldSyncSession> syncs = new List<WorldSyncSession>();
         try
         {
-            DiagnosticSession host = new DiagnosticSession(Compatibility(), "Host"); networks.Add(host); host.Host(0);
+            DiagnosticSession host = new DiagnosticSession(Compatibility(), "Host", new TracedTransport()); networks.Add(host); host.Host(0);
             AuthorityWorld authority = World(host.SessionGeneration);
             for (int i = 0; i < 24; i++) authority.RegisterAuthoredItem("synthetic/" + i, "test-block", WorldVector.Zero);
             WorldSyncSession hostWorld = new WorldSyncSession(host, authority, WorldVector.Zero); syncs.Add(hostWorld);
-            DiagnosticSession a = new DiagnosticSession(Compatibility(), "Alice"); networks.Add(a); a.Join("127.0.0.1", host.LocalPort);
+            DiagnosticSession a = new DiagnosticSession(Compatibility(), "Alice", new TracedTransport()); networks.Add(a); a.Join("127.0.0.1", host.LocalPort);
             WorldSyncSession aw = new WorldSyncSession(a, null, WorldVector.Zero); syncs.Add(aw);
-            DiagnosticSession b = new DiagnosticSession(Compatibility(), "Bob"); networks.Add(b); b.Join("127.0.0.1", host.LocalPort);
+            DiagnosticSession b = new DiagnosticSession(Compatibility(), "Bob", new TracedTransport()); networks.Add(b); b.Join("127.0.0.1", host.LocalPort);
             WorldSyncSession bw = new WorldSyncSession(b, null, WorldVector.Zero); syncs.Add(bw);
             foreach (WorldSyncSession sync in syncs) sync.Fault += delegate(string reason) { Console.Error.WriteLine("World fault: " + reason); };
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return aw.Ready && bw.Ready && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Two clients installed baseline, catch-up and ready barrier over UDP");
@@ -136,6 +183,17 @@ internal static class SyncTests
             WorldSyncSession cw = new WorldSyncSession(c, null, WorldVector.Zero); syncs.Add(cw);
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return cw.Ready && cw.Replica.Watermark == authority.Watermark; }, "Fourth participant late joins held item");
             Check(cw.Replica.GetEntity(1).HolderId == holder && cw.Replica.GetPlayer(holder).HandEntityId == 1, "Late join preserves held relationship");
+            int routed = 0;
+            c.ApplicationReceived += delegate(ApplicationMessage m)
+            {
+                if (VehicleMessages.Matches(m.Payload) || (m.Payload.Length >= 4 && m.Payload[0] == 0x4d && m.Payload[1] == 0x41 && m.Payload[2] == 0x56 && m.Payload[3] == 0x32)) routed++;
+            };
+            Check(host.SendApplication(c.LocalPlayerId, VehicleMessages.Encode(new VehicleMessage { Kind = VehicleMessageKind.State, Revision = 1, Driver = holder, Gear = 1 })), "Vehicle state shares the application transport");
+            // The world layer treats avatar bytes as opaque. The avatar decoder owns
+            // their schema/validation; world chunk state must not consume these bytes.
+            Check(host.SendApplication(c.LocalPlayerId, new byte[] { 0x4d, 0x41, 0x56, 0x32, 2, 1 }), "Avatar namespace shares the application transport");
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return routed == 2; }, "Independent application namespaces delivered");
+            Check(cw.Ready && cw.Replica.Watermark == authority.Watermark, "Vehicle/avatar delivery preserves world readiness and watermark");
             holderWorld.Dispose(); holderNetwork.Leave(); syncs.Remove(holderWorld); networks.Remove(holderNetwork);
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return !authority.GetPlayer(holder).Connected && authority.GetEntity(1).Lifecycle == EntityLifecycle.Free && cw.Replica.Watermark == authority.Watermark; }, "Disconnect releases held item and converges");
             Check(cw.Replica.GetPlayer(holder).HandEntityId == 0, "Disconnect clears replicated hand");

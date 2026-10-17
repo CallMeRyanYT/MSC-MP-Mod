@@ -1,0 +1,17 @@
+# Hayosiko development adapter
+
+Target: installed Steam build 20171487, Unity 5.0.0f4. This is static binding evidence and implementation scope, **not a passed game test**.
+
+The authored level2 root has serialized identity 17078. Its serialized Rigidbody 90623 has mass 1500, gravity enabled and no constraints; the root is active. Its LOD FSM 108957 binds the owner to `defaultES2File.txt/VanTransform` through `UniqueTagPosition`, SaveTransform and LoadTransform. Runtime lookup requires one matching persistent claim and the inspected owner-bound actions. Names, current coordinates and discovery order are not network identity.
+
+The driver PlayerTrigger FSM 106915 has nine states and a DriverHeadPivot reference. The adapter intercepts `Press return / Key DOWN -> Reset view` and `Check speed / FINISHED -> Create player`. Added pending states wait for a correlated host result before continuing. The panel provides a nearby driver-seat request because native door interaction is currently gated. Cleanup restores the original state/event/transition arrays and component settings, and invokes the inspected Create player path for an occupied local seat.
+
+The inspected AxisCarController.GetInput supplies normalized configured axes and gear requests. CarController.Start caches Rigidbody, CarDynamics, Drivetrain and Axles. Its FixedUpdate applies steering/braking to Wheel instances and throttle/clutch/starter to Drivetrain. The adapter disables native controller updates, supplies validated host input, and invokes that existing fixed-step method from one scene-owned component. It does not patch PlayMaker action classes or redistribute gameplay code. Reflection-created calls still require runtime verification.
+
+One driver is supported. Entry requires a ready, current connection, an empty hand, the expected seat revision, a free seat and proximity within six metres of the vehicle body. Exit requires body speed no greater than three metres per second. Requests are connection-scoped and replay-protected. Controls require the current driver/revision and increasing input sequence. Missing input for 500 ms applies brake/handbrake and releases throttle and starter. Cranking remains active between input samples while held. Disconnect revokes the seat.
+
+The host simulates the van body and sends position, unit quaternion, velocity and angular velocity through the shared-world stream. Clients keep the body kinematic with frozen constraints and disable vehicle simulation. Child rigidbodies are also kinematic on clients. There is no claim of wheel, suspension, door, damage or trailer synchronization.
+
+Native vehicle FSMs other than the guarded driver entry are temporarily disabled during this experimental scope. Dashboard switches, doors, refuelling, ordinary vehicle save events, NPC ownership and fuel progression are therefore not supported. Hold `I` to crank the starter; normal configured driving axes are sampled. Both sides must use a disposable profile. The adapter refuses ambiguous/missing bindings rather than selecting a similar object.
+
+Client body presentation blends toward received transforms, snapping the first baseline or corrections greater than ten metres. This has no prediction, collision reconciliation or measured game latency guarantee. Open integration work includes actual startup/entry/driving/exit validation, suspension and door replication, passengers, other vehicles, fuel/electrical state, death handling and coherent vanilla persistence. Do not describe this as complete vehicle support.

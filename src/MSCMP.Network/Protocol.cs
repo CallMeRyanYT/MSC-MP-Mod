@@ -8,6 +8,7 @@ namespace MSCMP.Network
     {
         public const uint DiagnosticNetworking = 1;
         public const uint AvatarAppearanceV2 = 2;
+        public const uint SharedWorldV2 = 4;
     }
 
     public sealed class CompatibilityInfo

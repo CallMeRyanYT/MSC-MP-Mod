@@ -28,7 +28,7 @@ namespace MSCMP.Sync
             using (MemoryStream stream = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(stream))
             {
-                writer.Write((uint)0x31574D53); writer.Write((byte)message.Kind);
+                writer.Write((uint)0x32574D53); writer.Write((byte)message.Kind);
                 switch (message.Kind)
                 {
                     case WorldMessageKind.Snapshot:
@@ -71,7 +71,7 @@ namespace MSCMP.Sync
             using (MemoryStream stream = new MemoryStream(bytes, false))
             using (BinaryReader reader = new BinaryReader(stream))
             {
-                if (reader.ReadUInt32() != 0x31574D53) throw new FormatException("Unknown world message format.");
+                if (reader.ReadUInt32() != 0x32574D53) throw new FormatException("Unknown world message format.");
                 WorldMessage message = new WorldMessage(); message.Kind = (WorldMessageKind)reader.ReadByte();
                 switch (message.Kind)
                 {
@@ -126,13 +126,16 @@ namespace MSCMP.Sync
             writer.Write(e.Generation); writer.Write(e.Id); WriteText(writer, e.AuthoredKey); WriteText(writer, e.Archetype);
             writer.Write((byte)e.Lifecycle); writer.Write(e.Revision); writer.Write(e.OwnershipEpoch); writer.Write(e.MotionSequence); writer.Write(e.HolderId);
             WriteVector(writer, e.Position); WriteVector(writer, e.Velocity);
+            writer.Write(e.Rotation.X); writer.Write(e.Rotation.Y); writer.Write(e.Rotation.Z); writer.Write(e.Rotation.W); WriteVector(writer, e.AngularVelocity);
         }
         private static EntityState ReadEntity(BinaryReader reader)
         {
             ulong generation = reader.ReadUInt64(), id = reader.ReadUInt64(); string key = ReadText(reader), archetype = ReadText(reader);
             EntityLifecycle lifecycle = (EntityLifecycle)EnumByte(reader, typeof(EntityLifecycle));
             ulong revision = reader.ReadUInt64(), epoch = reader.ReadUInt64(), motion = reader.ReadUInt64(), holder = reader.ReadUInt64();
-            return new EntityState(generation, id, key, archetype, lifecycle, revision, epoch, motion, holder, ReadVector(reader), ReadVector(reader));
+            WorldVector position = ReadVector(reader), velocity = ReadVector(reader);
+            WorldRotation rotation = new WorldRotation(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            return new EntityState(generation, id, key, archetype, lifecycle, revision, epoch, motion, holder, position, velocity, rotation, ReadVector(reader));
         }
         private static void WritePlayer(BinaryWriter writer, PlayerState p)
         { writer.Write(p.Id); writer.Write(p.ConnectionGeneration); writer.Write(p.Revision); writer.Write(p.PoseSequence); writer.Write(p.HandEntityId); writer.Write(p.Connected); writer.Write(p.Ready); WriteVector(writer, p.Position); }

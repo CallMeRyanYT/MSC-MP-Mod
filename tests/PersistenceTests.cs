@@ -57,7 +57,7 @@ internal static class PersistenceTests
             {
                 reader.BaseStream.Position += 41;
                 ushort key = reader.ReadUInt16(); reader.BaseStream.Position += key;
-                ushort type = reader.ReadUInt16(); reader.BaseStream.Position += type + 24;
+                ushort type = reader.ReadUInt16(); reader.BaseStream.Position += type + 52;
             }
             return (int)reader.BaseStream.Position;
         }
@@ -101,7 +101,7 @@ internal static class PersistenceTests
         Reject(delegate() { SnapshotCodec.Decode(impossibleCount, Limits); }, "Counts must fit remaining payload bytes even when below the configured maximum.");
         byte[] invalidPlayers = Copy(encoded); Set32(invalidPlayers, 40, 65); Rehash(invalidPlayers);
         Reject(delegate() { SnapshotCodec.Decode(invalidPlayers, Limits); }, "A valid checksum cannot bypass player allocation limits.");
-        byte[] badVersion = Copy(encoded); badVersion[4] = 2; Rehash(badVersion);
+        byte[] badVersion = Copy(encoded); badVersion[4] = 255; Rehash(badVersion);
         Reject(delegate() { SnapshotCodec.Decode(badVersion, Limits); }, "Unsupported checkpoint schema is rejected explicitly.");
         byte[] badFlags = Copy(encoded); badFlags[6] = 1; Rehash(badFlags);
         Reject(delegate() { SnapshotCodec.Decode(badFlags, Limits); }, "Unknown flags cannot silently change interpretation.");
@@ -126,7 +126,7 @@ internal static class PersistenceTests
         using (BinaryReader reader = new BinaryReader(new MemoryStream(decodedDuplicate, false)))
         {
             reader.BaseStream.Position = 85; ushort keyLength = reader.ReadUInt16(); reader.BaseStream.Position += keyLength;
-            ushort typeLength = reader.ReadUInt16(); reader.BaseStream.Position += typeLength + 24; secondEntityOffset = (int)reader.BaseStream.Position;
+            ushort typeLength = reader.ReadUInt16(); reader.BaseStream.Position += typeLength + 52; secondEntityOffset = (int)reader.BaseStream.Position;
         }
         Set64(decodedDuplicate, secondEntityOffset, item.Id); Rehash(decodedDuplicate);
         Reject(delegate() { SnapshotCodec.Decode(decodedDuplicate, Limits); }, "Decoded duplicate identity records fail graph validation.");

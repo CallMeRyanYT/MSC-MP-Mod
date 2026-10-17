@@ -8,8 +8,8 @@ namespace MSCMP.Sync
     // Never enables transport-library fragmentation. A peer owns at most one receive buffer.
     public sealed class ReliableBlobSender
     {
-        // Small proven slice: at the shared 128 datagram/s limit, three concurrent
-        // transfers fit comfortably within the timeout. Larger worlds need a paced bulk channel.
+        // Small bounded slice: 128 datagrams/s per peer, 384 across three peers.
+        // Larger worlds need a paced bulk channel independent of live state.
         public const int MaximumBlob = 128 * 1024;
         public const int ChunkSize = 350;
         private readonly Queue<byte[]> pending = new Queue<byte[]>();

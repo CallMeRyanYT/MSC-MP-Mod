@@ -191,9 +191,9 @@ namespace MSCMP.Core
         private static bool EntityNotOlder(EntityState old, EntityState current)
         {
             if (old.Id != current.Id || old.Generation != current.Generation || old.AuthoredKey != current.AuthoredKey || old.Archetype != current.Archetype || current.Revision < old.Revision || current.OwnershipEpoch < old.OwnershipEpoch) return false;
-            if ((old.Lifecycle == EntityLifecycle.Consumed || old.Lifecycle == EntityLifecycle.Destroyed) && (!SameSemantic(old, current) || current.MotionSequence != old.MotionSequence || !current.Position.Same(old.Position) || !current.Velocity.Same(old.Velocity))) return false;
+            if ((old.Lifecycle == EntityLifecycle.Consumed || old.Lifecycle == EntityLifecycle.Destroyed) && (!SameSemantic(old, current) || current.MotionSequence != old.MotionSequence || !current.Position.Same(old.Position) || !current.Velocity.Same(old.Velocity) || !current.Rotation.Same(old.Rotation) || !current.AngularVelocity.Same(old.AngularVelocity))) return false;
             if (current.Revision == old.Revision && (!SameSemantic(old, current) || current.MotionSequence < old.MotionSequence)) return false;
-            if (current.Revision == old.Revision && current.MotionSequence == old.MotionSequence && (!current.Position.Same(old.Position) || !current.Velocity.Same(old.Velocity))) return false;
+            if (current.Revision == old.Revision && current.MotionSequence == old.MotionSequence && (!current.Position.Same(old.Position) || !current.Velocity.Same(old.Velocity) || !current.Rotation.Same(old.Rotation) || !current.AngularVelocity.Same(old.AngularVelocity))) return false;
             if (current.Revision > old.Revision && current.OwnershipEpoch <= old.OwnershipEpoch) return false;
             return true;
         }

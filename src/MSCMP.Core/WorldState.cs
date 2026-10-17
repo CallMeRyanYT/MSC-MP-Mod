@@ -23,6 +23,22 @@ namespace MSCMP.Core
         public bool Same(WorldVector other) { return X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z); }
     }
 
+    public struct WorldRotation
+    {
+        public readonly float X, Y, Z, W;
+        public WorldRotation(float x, float y, float z, float w) { X = x; Y = y; Z = z; W = w; }
+        public static WorldRotation Identity { get { return new WorldRotation(0, 0, 0, 1); } }
+        public bool IsValid
+        {
+            get
+            {
+                double length = (double)X * X + (double)Y * Y + (double)Z * Z + (double)W * W;
+                return WorldVector.Finite(X) && WorldVector.Finite(Y) && WorldVector.Finite(Z) && WorldVector.Finite(W) && Math.Abs(length - 1) < 0.002;
+            }
+        }
+        public bool Same(WorldRotation other) { return X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z) && W.Equals(other.W); }
+    }
+
     public enum EntityLifecycle { Free = 1, Held = 2, Consumed = 3, Destroyed = 4 }
     public enum CommandKind { Pickup = 1, Drop = 2, Throw = 3 }
     public enum CommitKind { Spawn = 1, Pickup = 2, Drop = 3, Throw = 4, Consume = 5, Destroy = 6, Connect = 7, Disconnect = 8, PlayerPose = 9, EntityMotion = 10, Ready = 11 }
@@ -62,13 +78,20 @@ namespace MSCMP.Core
         public readonly ulong HolderId;
         public readonly WorldVector Position;
         public readonly WorldVector Velocity;
+        public readonly WorldRotation Rotation;
+        public readonly WorldVector AngularVelocity;
 
         public EntityState(ulong generation, ulong id, string authoredKey, string archetype, EntityLifecycle lifecycle, ulong revision, ulong ownershipEpoch, ulong motionSequence, ulong holderId, WorldVector position, WorldVector velocity)
+            : this(generation, id, authoredKey, archetype, lifecycle, revision, ownershipEpoch, motionSequence, holderId, position, velocity, WorldRotation.Identity, WorldVector.Zero) { }
+
+        public EntityState(ulong generation, ulong id, string authoredKey, string archetype, EntityLifecycle lifecycle, ulong revision, ulong ownershipEpoch, ulong motionSequence, ulong holderId, WorldVector position, WorldVector velocity, WorldRotation rotation, WorldVector angularVelocity)
         {
             if (generation == 0 || id == 0 || revision == 0 || ownershipEpoch == 0 || !Enum.IsDefined(typeof(EntityLifecycle), lifecycle)) throw new ArgumentException("Invalid entity identity or lifecycle.");
             ValidateLabel(archetype, false); ValidateLabel(authoredKey, true);
             if (!position.IsFinite || !velocity.IsFinite || (lifecycle == EntityLifecycle.Held) != (holderId != 0)) throw new ArgumentException("Invalid entity state.");
             Generation = generation; Id = id; AuthoredKey = authoredKey ?? String.Empty; Archetype = archetype;
+            if (!rotation.IsValid || !angularVelocity.IsFinite) throw new ArgumentException("Invalid body orientation or angular velocity.");
+            Rotation = rotation; AngularVelocity = angularVelocity;
             Lifecycle = lifecycle; Revision = revision; OwnershipEpoch = ownershipEpoch; MotionSequence = motionSequence; HolderId = holderId; Position = position; Velocity = velocity;
         }
         internal static void ValidateLabel(string text, bool emptyAllowed)
@@ -78,12 +101,14 @@ namespace MSCMP.Core
         }
         internal EntityState Change(EntityLifecycle lifecycle, ulong holder, WorldVector position, WorldVector velocity)
         {
-            return new EntityState(Generation, Id, AuthoredKey, Archetype, lifecycle, checked(Revision + 1), checked(OwnershipEpoch + 1), 0, holder, position, velocity);
+            return new EntityState(Generation, Id, AuthoredKey, Archetype, lifecycle, checked(Revision + 1), checked(OwnershipEpoch + 1), 0, holder, position, velocity, Rotation, WorldVector.Zero);
         }
         internal EntityState Move(ulong sequence, WorldVector position, WorldVector velocity)
         {
-            return new EntityState(Generation, Id, AuthoredKey, Archetype, Lifecycle, Revision, OwnershipEpoch, sequence, HolderId, position, velocity);
+            return Move(sequence, position, velocity, Rotation, AngularVelocity);
         }
+        internal EntityState Move(ulong sequence, WorldVector position, WorldVector velocity, WorldRotation rotation, WorldVector angularVelocity)
+        { return new EntityState(Generation, Id, AuthoredKey, Archetype, Lifecycle, Revision, OwnershipEpoch, sequence, HolderId, position, velocity, rotation, angularVelocity); }
     }
 
     public sealed class PlayerState

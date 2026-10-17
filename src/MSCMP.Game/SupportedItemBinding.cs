@@ -32,6 +32,17 @@ namespace MSCMP.Integration
         internal GameObject ItemObject { get { return itemUse == null ? null : itemUse.gameObject; } }
         internal PlayMakerFSM PickupFsm { get { return pickup; } }
         internal PlayMakerFSM ItemUseFsm { get { return itemUse; } }
+        internal Rigidbody Body { get { return body; } }
+        internal BoxCollider Collider { get { return collider; } }
+
+        internal bool CanBeginSharedSession(out string reason)
+        {
+            reason = "Put down the native held item and wait for the cup to finish loading before starting multiplayer.";
+            if (pickup == null || itemUse == null || pickup.ActiveStateName != "Look for object" || !handEmpty.Value
+                || joint.connectedBody != null || !CupIdle(itemUse.ActiveStateName) || body.isKinematic
+                || !collider.enabled || collider.isTrigger || ItemObject.layer != 19 || ItemObject.tag != "PART") return false;
+            reason = String.Empty; return true;
+        }
 
         private SupportedItemBinding(int sceneGeneration, PlayMakerFSM item, PlayMakerFSM hand, Rigidbody itemBody, BoxCollider itemCollider, FixedJoint handJoint)
         {

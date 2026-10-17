@@ -21,6 +21,10 @@ namespace MSCMP.Integration
         private CharacterStyle selectedStyle;
         private bool appearanceQueued;
         private bool disposed;
+        internal Func<bool> Seated;
+        internal void SetWorldPresentation(Func<ulong, bool> seated, Func<ulong, bool> holding)
+        { avatars.Seated = seated; avatars.Holding = holding; }
+        internal Vector3? CarryPosition(ulong playerId) { return avatars == null ? null : avatars.CarryPosition(playerId); }
         internal bool IsActive { get { return Current(); } }
 
         private AvatarPreview(DiagnosticSession activeSession, int sceneGeneration, LocalPlayerBinding local, CharacterStyle style)
@@ -79,7 +83,7 @@ namespace MSCMP.Integration
             {
                 nextPoseAt = now + 0.1f;
                 Vector3 position; float yaw;
-                if (binding.TrySample(generation, out position, out yaw)) session.SendPose(position.x, position.y, position.z, yaw);
+                if (binding.TrySample(generation, out position, out yaw) || (Seated != null && Seated() && binding.TrySampleSeated(out position, out yaw))) session.SendPose(position.x, position.y, position.z, yaw);
             }
             avatars.Update(generation, now);
         }

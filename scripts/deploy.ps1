@@ -51,4 +51,4 @@ try {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
 }
 Write-Host 'Installed MSCMP.Mod.dll. No game assemblies, other mods, configuration, or saves were replaced.'
-Write-Host 'The in-game diagnostic test is still required; multiplayer is unavailable.'
+Write-Host 'Experimental shared cup/van adapters are installed; actual in-game multiplayer validation is still pending.'

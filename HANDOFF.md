@@ -1,36 +1,29 @@
 # Current handoff
 
-Updated 2026-10-17. Version0.2.2. Full requested scope is retained in `docs/PROJECT_BRIEF.md`.
+Updated 2026-10-17. Version 0.3.0 experimental. Full requested scope remains in docs/PROJECT_BRIEF.md; it has not all been implemented.
 
-## Delivered scope
+## Implemented scope
 
-- Legacy build/deploy/rollback/package pipeline and scene-owned diagnostics.
-- Pinned LiteNetLib0.7.7.2 source with documented packet/queue/disconnect fixes; protocol2 handshake, identity, bounded application messages, ping, probes and poses.
-- Host entity registry, single-hand item transactions, replay protection, epochs, tombstones, snapshot/catch-up/ready barrier and strict replica validation.
-- Bounded world message framing connecting the authority engine to real UDP. Headless tests use a host plus three clients and synthetic items.
-- Versioned hashed mod checkpoints, atomic backup/recovery and durable recovery-generation reservation.
-- Inspected walking-player and coffee-cup contracts, original faceted male/female characters, procedural walking and selectable portraits. Appearance v2 baselines are required before poses; failed removal sends are retried within bounds.
-- Local automatic error capture, F7/manual-note reports and a five-minute Codex feedback monitor. F6 checks read-only player/cup bindings.
-- Reversible whole-profile test preparation/recovery with typed PlayerPrefs backup, crash journal and isolated fixture tests.
-
-This is **not complete playable multiplayer**. No real item adapter, authoritative controller correction, vehicle/seat adapter, assembly/fastener integration, shared economy/world simulation, or coordinated vanilla+mod save restore is enabled.
+- Legacy build/deploy/rollback/package pipeline, scene-owned diagnostics, bounded local feedback and manual notes.
+- Private LAN/tailnet host/client networking, matching-build admission, per-connection generations and reliable application routing.
+- Host entity/hand authority, replay protection, authored identity, snapshots/catch-up/readiness and mod-only checkpoint schema 2 with body orientation/spin.
+- Disposable-profile-only game adapter for the persistent coffee cup: custom pickup, hold, drop and throw; host physics and client replicas. Native pickup/use is gated during the session.
+- Hayosiko body/driver adapter: guarded native entry/exit, one-driver authority, validated configured controls, held starter on I, stale-input braking, disconnect revocation, client body smoothing and scoped cleanup. Native van FSMs other than entry are gated. See docs/VEHICLE_BINDING_EVIDENCE.md.
+- Original male/female characters with selectable portraits and walking/carrying/seated poses. Automatic startup in shared mode; optional preview in diagnostic mode.
+- Native socket send/receive serialization fixes a reproduced legacy .NET cached-address race that delivered a packet to the wrong client. The old source fails the new regression; the fix passes 100,800 payloads across sequence wrap and a focused 144,000-payload run. Temporary wire traces and packet-pool instrumentation were removed.
 
 ## Evidence and boundaries
 
-The installed target is Steam build20171487 / Unity5.0.0f4 / MSCLoader1.4.2.410. `COMPATIBILITY.md` records static evidence. `artifacts/current/build-manifest.json` records the exact built DLL and source/reference hashes; `.local/tests/results.json` records the corresponding successful test run. `.local/deployment.json` identifies the installed owned DLL and rollback copy. Never infer the installed hash from a previous build.
+Installed target: Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410. COMPATIBILITY.md records static evidence. artifacts/current/build-manifest.json records exact source/reference/DLL hashes; .local/tests/results.json records corresponding automated results. .local/deployment.json identifies the installed owned DLL and rollback copy. Never infer current deployment from the source version alone.
 
-Automated suites cover lifecycle/trace, authoritative contention/replay, real localhost UDP and impairment, world bootstrap/races/disconnect, avatar relay, checkpoint corruption/recovery, deployment/package allowlisting and test-profile crash recovery. These do not establish Unity/Mono runtime integration.
+The legacy suites cover authority, actual localhost UDP/impairment/fanout, world bootstrap/races/multiplexing, vehicle controls, characters, feedback and checkpoint recovery. Tooling/profile fixtures use generated test directories. These are not Unity gameplay tests. Reflection-created vehicle calls and native FSM ordering still require actual game observations.
 
-Latest canonical run passed 4,463 C# assertions (26 lifecycle, 2,372 authority, 578 network, 502 sync, 245 avatars, 35 feedback buffer, 50 feedback file publication, 655 persistence), plus 16 deployment/package scenarios and 19 profile-recovery assertions. The feedback monitor is the local thread heartbeat `msc-mp-test-feedback`; it reads only this mod's reports, remains quiet for unchanged/absent reports, and does not deploy during play.
+Manual game tests are deferred until the user's end-of-build testing. Do not repeatedly ask for intermediate two-PC checks. The combined checklist is docs/PLAYER_CHECKS.md. Prior single-game evidence was limited to diagnostics; the old join attempt failed. No claim of successful two-PC gameplay, character rendering, vanilla save restoration or four-player game soak is established.
 
-Manual isolated game testing has produced partial menu/GAME initialization, hosting, feedback and binding observations; see docs/RUNTIME_EVIDENCE.md. A join attempt failed, and two-PC/rendering/save-restoration gates remain open. The developer checkout has a separate local recovery journal; this is not supplied to other testers. Every tester must prepare and restore their own profile using docs/INSTALL.md. Keep Cloud off until original files and PlayerPrefs are restored and verified.
+Personal saves and the original recovery backup must remain untouched. The local active disposable-profile journal belongs to this checkout and is not distributed. Other testers must prepare their own profile. Keep Cloud off until normal quit, restoration and verification. The five-minute feedback heartbeat remains read-only and does not deploy or control the game during play.
 
-## Exact next gate
+## Remaining work
 
-1. Prepare or verify the tester-specific disposable profile and backup against its journal; see `docs/INSTALL.md`. Do not replace an active recovery journal.
-2. Follow `docs/PLAYER_CHECKS.md`: confirm initialization, both portraits, Host/Leave, F6 bindings, F7/notes feedback and F8/F9/F10, then return/re-enter GAME and quit. Inspect lifecycle/feedback logs and restore/verify the profile.
-3. Repeat with two independently isolated game instances/PCs: matching diagnostics handshake, probes, ping, rejection, disconnect and original avatar preview.
-4. Only then wire one inspected item family. The active pickup FSM performs local mutation before its final picked state; post-event observation is insufficient. Mesh damage saves on disable independently of the toilet-save FSM.
-5. Pass actual pickup/throw/race/join/disconnect and save-restoration evidence before expanding vehicles, assembly or broader world systems.
+Other item families and item use, passenger seats, other vehicles, wheel/door/damage and fuel/electrical replication, Satsuma assembly/fasteners, shops/jobs/economy, needs/death, time/weather/NPCs, player correction and coherent vanilla+mod save/load remain unfinished. The existing mod-only checkpoint cannot restore a shared vanilla world. These gaps must remain visible in release notes rather than being counted as complete because the build passes.
 
-Milestones0 and1 remain runtime-unverified. The later pure-logic work is implemented ahead of those gates, not proof that the gameplay milestones have passed. There is no measured four-player game or performance/soak result. The public download is an experimental diagnostics prerelease, not a completed gameplay release.
+Commit and push completed repository changes, as requested by the user. Do not publish private game binaries, asset dumps, logs, local configuration, profile journals or saves. Package only the allowlisted mod DLL, documentation, license/notices and profile tool.
