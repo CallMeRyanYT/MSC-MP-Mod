@@ -22,3 +22,5 @@ A fresh modern-host headless run during repository setup failed at rapid reconne
 Version 0.2.0's receive-path TypeLoadException is addressed in v0.2.1 by replacing missing runtime APIs. Both peers must update. Static API audit and automated suites pass; actual game handshake confirmation is pending.
 
 The endpoint-cleanup race behind the observed rapid-reconnect setup failure is corrected in v0.2.2. The prior implementation fails the new deterministic callback-reconnect regression; the fix passes it and five consecutive UDP stress runs. This is not a guarantee against every endpoint-reuse or delayed-packet liveness problem.
+
+Repeated synthetic-world tests exposed an intermittent bootstrap stall: both peers can be accepted while one client never completes its baseline. A canonical rerun passes, but stress reproduced the stall. Timeout diagnostics now include controlled peer sequences and world queue state. This remains under investigation before shared gameplay is enabled.

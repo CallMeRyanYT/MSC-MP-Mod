@@ -36,3 +36,5 @@ The v0.2.0 GAME host stopped during packet reception with TypeLoadException for 
 ## v0.2.2 transport cleanup regression
 
 A deterministic reconnect-inside-disconnect-callback test fails before the cleanup fix and passes afterward, including duplicate teardown protection. Five consecutive UDP stress runs pass. The canonical suite passes 4,463 C# assertions, 16 tooling scenarios and 19 recovery assertions. Current DLL SHA-256: DC98DB55BAE14674DD596B381C9E7FCCCF2A7920E2F2E3CF8621DE446D4828BC. Two-PC game verification is still pending.
+
+Qualification: the first v0.2.2 canonical attempt timed out during synthetic-world bootstrap. A rerun passed the full suite; repeated world stress then reproduced the bootstrap stall. These later observations supersede any blanket interpretation of the successful suite result. The installed diagnostic flow does not start world replication.

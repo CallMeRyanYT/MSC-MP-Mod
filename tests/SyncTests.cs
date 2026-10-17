@@ -72,7 +72,34 @@ internal static class SyncTests
             if (done()) { Check(true, condition); return; }
             Thread.Sleep(10);
         }
+        foreach (DiagnosticSession network in networks)
+        {
+            Console.Error.WriteLine("Network at timeout: " + network.Status + " player=" + network.LocalPlayerId + " peers=" + network.AcceptedPeerCount);
+            DumpLinks(network, "peers", new string[] { "PlayerId", "ApplicationIn", "ApplicationOut", "Generation" });
+        }
+        foreach (WorldSyncSession world in worlds)
+        {
+            Console.Error.WriteLine("World at timeout: ready=" + world.Ready + " watermark=" + (world.Authority != null ? world.Authority.Watermark : (world.Replica != null ? world.Replica.Watermark : 0)));
+            DumpLinks(world, "links", new string[] { "Player", "Connection", "Ready", "Baselines" });
+        }
         throw new Exception("Timed out: " + condition);
+    }
+    private static void DumpLinks(object owner, string fieldName, string[] fields)
+    {
+        System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        System.Collections.IDictionary links = (System.Collections.IDictionary)owner.GetType().GetField(fieldName, flags).GetValue(owner);
+        foreach (object value in links.Values)
+        {
+            foreach (string field in fields) Console.Error.Write(field + "=" + value.GetType().GetField(field, flags).GetValue(value) + " ");
+            System.Reflection.FieldInfo sender = value.GetType().GetField("Sender", flags);
+            if (sender != null)
+            {
+                ReliableBlobSender queued = (ReliableBlobSender)sender.GetValue(value);
+                ReliableBlobReceiver received = (ReliableBlobReceiver)value.GetType().GetField("Receiver", flags).GetValue(value);
+                Console.Error.Write("pending=" + queued.PendingCount + " receiveAllocation=" + received.AllocatedBytes);
+            }
+            Console.Error.WriteLine();
+        }
     }
     private static void UdpIntegration()
     {
@@ -87,6 +114,7 @@ internal static class SyncTests
             WorldSyncSession aw = new WorldSyncSession(a, null, WorldVector.Zero); syncs.Add(aw);
             DiagnosticSession b = new DiagnosticSession(Compatibility(), "Bob"); networks.Add(b); b.Join("127.0.0.1", host.LocalPort);
             WorldSyncSession bw = new WorldSyncSession(b, null, WorldVector.Zero); syncs.Add(bw);
+            foreach (WorldSyncSession sync in syncs) sync.Fault += delegate(string reason) { Console.Error.WriteLine("World fault: " + reason); };
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return aw.Ready && bw.Ready && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Two clients installed baseline, catch-up and ready barrier over UDP");
             int results = 0, accepted = 0;
             aw.ReceivedResult += delegate(WorldMessage m) { results++; if (m.Outcome == CommandOutcome.Accepted) accepted++; };
