@@ -74,6 +74,8 @@ namespace MSCMP
                     if (preview != null)
                     {
                         preview.Seated = delegate { return shared != null && shared.LocallyDriving; };
+                        preview.SendLocalPose = false;
+                        preview.AcceptedPosition = shared.AcceptedPosition;
                         preview.SetWorldPresentation(shared.IsDriver, shared.IsHolding);
                         shared.CarryPosition = preview.CarryPosition;
                     }
@@ -96,7 +98,7 @@ namespace MSCMP
             {
                 GUILayout.Label("MSC-MP | Multiplayer");
                 GUILayout.Label("Use the game's menu or pause menu to click these controls.", wrappedLabel);
-                GUILayout.Label("Experimental shared cup and Hayosiko driver/body. Other items and progression are not synchronized. Disposable profile required.", wrappedLabel);
+                GUILayout.Label("Experimental shared pickup for 22 items and Hayosiko driver/body. Item use and progression are not synchronized. Disposable profile required.", wrappedLabel);
                 bool running = session != null && session.IsRunning;
                 GUI.enabled = !running;
                 sharedMode = GUILayout.Toggle(sharedMode, "Shared world (both players must choose the same mode)");

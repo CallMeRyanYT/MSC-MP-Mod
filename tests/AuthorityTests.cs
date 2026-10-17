@@ -270,11 +270,34 @@ internal static class AuthorityTests
         }
     }
 
+    private static void PlayerCorrections()
+    {
+        PlayerPoseHistory history = new PlayerPoseHistory(); WorldVector corrected;
+        history.Sent(1, new WorldVector(100, 0, 0)); history.Sent(2, new WorldVector(101, 0, 0));
+        Expect(history.Receive(1, false, Origin, new WorldVector(102, 0, 0), out corrected) && corrected.X == 2, "Rejected sample preserves two metres of subsequent walking.");
+        Expect(!history.Receive(2, false, Origin, corrected, out corrected), "Old in-flight rejection cannot apply correction twice.");
+        history.Sent(3, new WorldVector(2, 0, 0));
+        Expect(!history.Receive(3, true, new WorldVector(2, 0, 0), new WorldVector(3, 0, 0), out corrected) && history.Count == 0, "Accepted pose acknowledges history without rubber-banding.");
+        history.Sent(4, new WorldVector(2, 0, 0));
+        Expect(!history.Receive(4, false, new WorldVector(Single.NaN, 0, 0), Origin, out corrected), "Invalid receipt cannot mutate history.");
+        Expect(history.Receive(4, false, Origin, new WorldVector(100, 0, 0), out corrected) && corrected.Same(Origin), "Unbounded local delta snaps to accepted position.");
+        history.Clear(); history.Sent(UInt32.MaxValue, Origin); history.Sent(0, Origin);
+        Expect(!history.Receive(UInt32.MaxValue, true, Origin, Origin, out corrected), "Receipt before wrap accepted.");
+        Expect(history.Receive(0, false, new WorldVector(1, 0, 0), Origin, out corrected) && corrected.X == 1, "Receipt wrap advances rather than becoming permanently stale.");
+        history.Clear();
+        for (uint i = 0; i < 200; i++) history.Sent(i, Origin);
+        Expect(history.Count == 64 && !history.Receive(1, false, Origin, Origin, out corrected), "History stays bounded and ignores evicted samples.");
+        AuthorityWorld world = World(8, 32); EntityState item = world.SpawnItem("test-box", Origin);
+        Expect(!world.AcceptPlayerPose(7, 1, 1, 1, new WorldVector(1000, 0, 0)), "Host rejects overlong movement.");
+        Expect(world.AcceptPlayerPose(7, 1, 1, 2, Origin), "Corrected owner can submit a legitimate pose.");
+        Expect(world.Process(Command(world, CommandKind.Pickup, 1, 1, item, Origin, Origin)).Accepted, "Corrected owner can pick up an item at the host position.");
+    }
+
     private static int Main()
     {
         try
         {
-            ConcurrentPickupAndReplay(); ValidationAndLifecycle(); Mapping(); SnapshotCatchUpAndReadiness(); ReplicaFreshnessAndTombstones(); RepeatedContention();
+            PlayerCorrections(); ConcurrentPickupAndReplay(); ValidationAndLifecycle(); Mapping(); SnapshotCatchUpAndReadiness(); ReplicaFreshnessAndTombstones(); RepeatedContention();
             Console.WriteLine("PASS: " + assertions + " authority, identity, replay, lifecycle, and snapshot assertions. These are headless core tests, not in-game multiplayer evidence.");
             return 0;
         }

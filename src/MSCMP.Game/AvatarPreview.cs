@@ -22,6 +22,8 @@ namespace MSCMP.Integration
         private bool appearanceQueued;
         private bool disposed;
         internal Func<bool> Seated;
+        internal bool SendLocalPose = true;
+        internal Func<ulong, Vector3?> AcceptedPosition;
         internal void SetWorldPresentation(Func<ulong, bool> seated, Func<ulong, bool> holding)
         { avatars.Seated = seated; avatars.Holding = holding; }
         internal Vector3? CarryPosition(ulong playerId) { return avatars == null ? null : avatars.CarryPosition(playerId); }
@@ -79,7 +81,7 @@ namespace MSCMP.Integration
                 nextAppearanceAt = now + 1.0f;
                 if (AnnounceAppearance()) appearanceQueued = true;
             }
-            if (appearanceQueued && now >= nextPoseAt)
+            if (SendLocalPose && appearanceQueued && now >= nextPoseAt)
             {
                 nextPoseAt = now + 0.1f;
                 Vector3 position; float yaw;
@@ -143,6 +145,12 @@ namespace MSCMP.Integration
             if (!Current() || pose == null || pose.PlayerId == ownPlayer || (!session.IsHost && pose.PlayerId != 1)) return;
             AvatarRelayMessage message = new AvatarRelayMessage { Kind = AvatarRelayKind.Pose, PlayerId = pose.PlayerId,
                 ConnectionGeneration = pose.ConnectionGeneration, Sequence = pose.Sequence, X = pose.X, Y = pose.Y, Z = pose.Z, Yaw = pose.Yaw };
+            if (session.IsHost && AcceptedPosition != null)
+            {
+                Vector3? position = AcceptedPosition(pose.PlayerId);
+                if (!position.HasValue) return;
+                message.X = position.Value.x; message.Y = position.Value.y; message.Z = position.Value.z;
+            }
             // Encode validates finite/bounded pose and representable actor ID before touching Unity.
             byte[] payload;
             try { payload = AvatarRelayCodec.Encode(message); }

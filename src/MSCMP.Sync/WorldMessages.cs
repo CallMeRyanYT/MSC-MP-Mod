@@ -5,7 +5,7 @@ using MSCMP.Core;
 
 namespace MSCMP.Sync
 {
-    public enum WorldMessageKind : byte { Snapshot = 1, SnapshotAck = 2, CatchUp = 3, ReadyRequest = 4, Ready = 5, Commit = 6, Command = 7, Result = 8 }
+    public enum WorldMessageKind : byte { Snapshot = 1, SnapshotAck = 2, CatchUp = 3, ReadyRequest = 4, Ready = 5, Commit = 6, Command = 7, Result = 8, LiveBatch = 9, PoseReceipt = 10 }
     public sealed class WorldMessage
     {
         public WorldMessageKind Kind;
@@ -13,6 +13,10 @@ namespace MSCMP.Sync
         public CatchUpBatch CatchUp;
         public ReadyGrant Grant;
         public CommitEvent Commit;
+        public CommitEvent[] Commits;
+        public uint PoseSequence;
+        public bool PoseAccepted;
+        public WorldVector Position;
         public AuthorityCommand Command;
         public CommandOutcome Outcome;
         public ulong SnapshotId, Watermark, RequestSequence;
@@ -52,6 +56,11 @@ namespace MSCMP.Sync
                         writer.Write((byte)message.Grant.Status); writer.Write(message.Grant.SnapshotId);
                         writer.Write(message.Grant.Commit != null); if (message.Grant.Commit != null) WriteCommit(writer, message.Grant.Commit); break;
                     case WorldMessageKind.Commit: WriteCommit(writer, message.Commit); break;
+                    case WorldMessageKind.LiveBatch:
+                        if (message.Commits == null || message.Commits.Length < 1 || message.Commits.Length > 16) throw new FormatException("Live batch bound.");
+                        writer.Write(message.Commits.Length); foreach (CommitEvent entry in message.Commits) WriteCommit(writer, entry); break;
+                    case WorldMessageKind.PoseReceipt:
+                        writer.Write(message.PoseSequence); writer.Write(message.PoseAccepted); WriteVector(writer, message.Position); break;
                     case WorldMessageKind.Command:
                         AuthorityCommand command = message.Command;
                         writer.Write((byte)command.Kind); writer.Write(command.Generation); writer.Write(command.Sequence); writer.Write(command.EntityId);
@@ -95,6 +104,12 @@ namespace MSCMP.Sync
                         ulong readyId = reader.ReadUInt64(); CommitEvent readyCommit = Boolean(reader) ? ReadCommit(reader) : null;
                         message.Grant = new ReadyGrant(ready, readyId, readyCommit); break;
                     case WorldMessageKind.Commit: message.Commit = ReadCommit(reader); break;
+                    case WorldMessageKind.LiveBatch:
+                        int liveCount = Count(reader, 16); if (liveCount == 0) throw new FormatException("Empty live batch.");
+                        message.Commits = new CommitEvent[liveCount];
+                        for (int i = 0; i < liveCount; i++) message.Commits[i] = ReadCommit(reader); break;
+                    case WorldMessageKind.PoseReceipt:
+                        message.PoseSequence = reader.ReadUInt32(); message.PoseAccepted = Boolean(reader); message.Position = ReadVector(reader); break;
                     case WorldMessageKind.Command:
                         CommandKind kind = (CommandKind)EnumByte(reader, typeof(CommandKind));
                         ulong world = reader.ReadUInt64(), sequence = reader.ReadUInt64(), entity = reader.ReadUInt64(), revision = reader.ReadUInt64(), ownership = reader.ReadUInt64();

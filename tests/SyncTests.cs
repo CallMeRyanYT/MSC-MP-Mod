@@ -90,6 +90,23 @@ internal static class SyncTests
         WorldMessage command = WorldMessages.Decode(WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.Command, Command = forged }), 2, 3);
         Check(command.Command.PlayerId == 2 && command.Command.ConnectionGeneration == 3, "Wire cannot choose player or connection identity");
     }
+    private static void BatchCodec()
+    {
+        AuthorityWorld world = World(7); ulong before = world.Watermark;
+        for (int i = 0; i < 16; i++) world.SpawnItem("test-block", new WorldVector(i, 0, 0));
+        CommitEvent[] events = world.ReadEventsSince(before).Events;
+        byte[] bytes = WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.LiveBatch, Commits = events });
+        WorldMessage decoded = WorldMessages.Decode(bytes, 1, 1);
+        Check(decoded.Commits.Length == 16 && decoded.Commits[15].Entity.Position.X == 15, "Full live batch preserves records and order");
+        Refused(delegate { WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.LiveBatch, Commits = new CommitEvent[0] }); }, "Empty live batch refused");
+        Refused(delegate { WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.LiveBatch, Commits = new CommitEvent[17] }); }, "Oversized live batch refused before entries are read");
+        byte[] bomb = (byte[])bytes.Clone(); Buffer.BlockCopy(BitConverter.GetBytes(Int32.MaxValue), 0, bomb, 5, 4);
+        Refused(delegate { WorldMessages.Decode(bomb, 1, 1); }, "Untrusted batch count rejected before allocation");
+        byte[] receipt = WorldMessages.Encode(new WorldMessage { Kind = WorldMessageKind.PoseReceipt, PoseSequence = UInt32.MaxValue, PoseAccepted = false, Position = WorldVector.Zero });
+        for (int length = 0; length < receipt.Length; length++)
+        { byte[] cut = new byte[length]; Buffer.BlockCopy(receipt, 0, cut, 0, length); Refused(delegate { WorldMessages.Decode(cut, 1, 1); }, "Truncated receipt rejected"); }
+        receipt[9] = 2; Refused(delegate { WorldMessages.Decode(receipt, 1, 1); }, "Invalid receipt boolean rejected");
+    }
     private static void PumpUntil(DiagnosticSession[] networks, WorldSyncSession[] worlds, Func<bool> done, string condition)
     {
         Stopwatch watch = Stopwatch.StartNew();
@@ -163,12 +180,21 @@ internal static class SyncTests
             WorldSyncSession bw = new WorldSyncSession(b, null, WorldVector.Zero); syncs.Add(bw);
             foreach (WorldSyncSession sync in syncs) sync.Fault += delegate(string reason) { Console.Error.WriteLine("World fault: " + reason); };
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return aw.Ready && bw.Ready && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Two clients installed baseline, catch-up and ready barrier over UDP");
+            int receipts = 0;
+            aw.PoseReceipt += delegate(WorldMessage receipt) { Check(receipt.PoseSequence == 42 && !receipt.PoseAccepted && receipt.Position.X == 2, "Receipt retains correlation and authoritative position"); receipts++; };
+            hostWorld.SendPoseReceipt(a.LocalPlayerId, 42, false, new WorldVector(2, 0, 0));
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return receipts == 1; }, "Only affected client receives correction over UDP");
+            for (ulong id = 1; id <= 24; id++)
+                Check(authority.UpdateFreeMotion(authority.Generation, id, 1, 1, new WorldVector(0, 0, 0), WorldVector.Zero), "Shared catalogue body update");
+            PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Multi-batch catalogue updates converge in order");
             int results = 0, accepted = 0;
             aw.ReceivedResult += delegate(WorldMessage m) { results++; if (m.Outcome == CommandOutcome.Accepted) accepted++; };
             bw.ReceivedResult += delegate(WorldMessage m) { results++; if (m.Outcome == CommandOutcome.Accepted) accepted++; };
-            aw.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
+            ulong retry = aw.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
+            Check(aw.RetryRequest(retry), "Ambiguous action retry queues original request identity");
             bw.Request(CommandKind.Pickup, 1, WorldVector.Zero, WorldVector.Zero);
             PumpUntil(networks.ToArray(), syncs.ToArray(), delegate { return results == 2 && aw.Replica.Watermark == authority.Watermark && bw.Replica.Watermark == authority.Watermark; }, "Racing pickup replies and authoritative commit converge");
+            Check(!aw.RetryRequest(retry), "Correlated result clears retry storage");
             Check(accepted == 1 && authority.GetEntity(1).Lifecycle == EntityLifecycle.Held, "Exactly one UDP contender owns item");
             ulong holder = authority.GetEntity(1).HolderId;
             Check(aw.Replica.GetEntity(1).HolderId == holder && bw.Replica.GetEntity(1).HolderId == holder, "Both clients agree on holder");
@@ -231,7 +257,7 @@ internal static class SyncTests
     }
     public static int Main()
     {
-        try { Framing(); Codec(); UdpIntegration(); StalledBootstrap(); Console.WriteLine("Sync tests passed: " + assertions + " assertions; real localhost UDP with a host and three clients, synthetic world only."); return 0; }
+        try { Framing(); Codec(); BatchCodec(); UdpIntegration(); StalledBootstrap(); Console.WriteLine("Sync tests passed: " + assertions + " assertions; real localhost UDP with a host and three clients, synthetic world only."); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 }

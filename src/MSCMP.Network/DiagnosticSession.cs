@@ -74,6 +74,7 @@ namespace MSCMP.Network
         public event Action<SessionEvent> Event;
         public event Action<ApplicationMessage> ApplicationReceived;
         public event Action<PoseMessage> PoseReceived;
+        public uint LastSentPoseSequence { get; private set; }
         public string Status { get; private set; }
         public bool IsHost { get; private set; }
         public bool IsRunning { get { return transport.IsRunning; } }
@@ -290,7 +291,7 @@ namespace MSCMP.Network
             {
                 if (!peer.Accepted || peer.DisconnectAt != 0) continue;
                 WireMessage m = Create(peer, MessageKind.Pose); m.X = x; m.Y = y; m.Z = z; m.Yaw = yaw; m.Sequence = ++peer.PoseOut;
-                if (Send(peer, m, true)) any = true;
+                if (Send(peer, m, true)) { any = true; LastSentPoseSequence = m.Sequence; }
             }
             return any;
         }

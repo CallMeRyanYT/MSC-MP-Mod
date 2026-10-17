@@ -12,20 +12,22 @@ Reliable probes and application data each have a distinct monotonic ordered stre
 
 ## Authority world messages
 
-`src/MSCMP.Sync` transports a pure authority world. Version 0.3.0 explicitly attaches it to the coffee-cup and Hayosiko-body adapters in disposable shared mode; those Unity adapters are not yet runtime-verified. SharedWorldV2 capability bit 4 must match during admission, alongside networking bit 1 and avatar appearance bit 2. Diagnostic mode omits bit 4.
+`src/MSCMP.Sync` transports a pure authority world. Version 0.4.0 explicitly attaches it to the 22-item and Hayosiko-body adapters in disposable shared mode; those Unity adapters are not yet runtime-verified. SharedWorldV2 capability bit 4 must match during admission, alongside networking bit 1 and avatar appearance bit 2. Diagnostic mode omits bit 4.
 
 - Commands contain kind, world generation, request sequence, entity ID, expected revision/ownership epoch and bounded vectors. Actor and connection IDs are injected from the accepted transport link.
 - SMW2 snapshots carry complete entity/player records, tombstones, snapshot ID and commit watermark. Entity records include position/velocity, a validated unit quaternion and angular velocity. Authored mapping and replica graph validation precede readiness.
 - Baseline ACK, catch-up and ReadyRequest form an ordered readiness barrier. The Ready grant is queued before live commits. No client command is accepted by authority before readiness.
 - Commit records contain complete affected entity/player states in one transaction. Request results correlate outcomes without granting client authority.
 - Application blobs use explicit transfer ID/total/offset/count framing in350-byte chunks. At most128KiB per blob/queued byte budget,32queued blobs and one active receiver buffer per peer. Sender backpressure retains its cursor. Whole bootstrap has90seconds and at most3baselines; a partial blob also expires after120seconds. This is a deliberately small world slice, not general bulk save transfer.
-- Replay caches plus a retained high-water mark prevent old requests executing after eviction. A timeout is not proof of rejection. The adapter still needs a user-facing uncertain-outcome/retry workflow.
+- Replay caches plus a retained high-water mark prevent old requests executing after eviction. A timeout is not proof of rejection. The adapter retries the identical request once per second and waits for the result watermark before unlocking input.
+
+LiveBatch (kind 9) contains 1-16 full commit records in original order. The receiver rejects counts outside that bound and applies ordinary generation/revision/graph validation to each record. PoseReceipt (kind 10) contains uint32 input sequence, strict boolean accepted flag and three finite floats for the host position. Only an accepted host link can send either kind to a client; neither can be sent as client authority. Matching mod version and DLL manifest reject older peers.
 
 ## Avatar preview
 
 Visual relay uses MAV2 magic/version and fixed 26-byte removal, 27-byte appearance or 42-byte pose messages. Host-bound peer IDs are relayed only by the host. Clients accept relays only from their accepted host connection. Per-actor generations, pose sequence checks and bounded removal tombstones prevent stale resurrection. World framing skips known avatar and vehicle namespaces; their own decoders validate them. An actual UDP regression verifies that interleaved namespaces preserve world readiness.
 
-Local poses are sampled at10Hz; original figures interpolate an eight-sample buffer100ms behind and hide after2seconds stale. This is not host-validated movement, collision or controller correction.
+Local poses are sampled at10Hz; original figures interpolate an eight-sample buffer100ms behind and hide after2seconds stale. Diagnostic preview is visual only. Shared mode projects relayed positions through host authority and sends correlated correction receipts; terrain/collision validation remains outside this protocol.
 
 ## Vehicle messages
 

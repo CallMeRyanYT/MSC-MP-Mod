@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 experimental - 2026-10-17
+
+- Expanded shared pickup/drop/throw from one cup to 22 persistent items using inspected save references, exact catalogue matching, single-body checks, compound colliders and scoped native-use/trigger suppression.
+- Added ordered batches of up to 16 live commits, paced item motion with fair scheduling, and immutable retries for uncertain item actions. Input waits for the authoritative result watermark.
+- Added bounded, sequence-correlated owner movement correction and host-approved remote character positions. Removed duplicate shared/preview pose transmission.
+- Keep the host game adapter running after world protocol rejection removes an offending peer.
+- Updated in-game coverage text, local feedback scope, installer documentation and the combined manual checklist.
+- Automated and static evidence only: actual two-PC game validation remains deferred. Item use, dynamic factories, other vehicles/passengers, assembly, progression and coherent vanilla persistence remain unfinished.
+
 ## 0.3.0 experimental - 2026-10-17
 
 - Add an explicit disposable-profile-only game adapter for the persistent coffee cup and Hayosiko body, with baseline mapping before client interaction.

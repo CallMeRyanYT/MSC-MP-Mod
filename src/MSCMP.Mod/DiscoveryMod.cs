@@ -35,10 +35,10 @@ namespace MSCMP
         public override string ID { get { return "MSCMP"; } }
         public override string Name { get { return "MSC-MP experimental multiplayer"; } }
         public override string Author { get { return "MSC-MP contributors"; } }
-        public override string Version { get { return "0.3.0"; } }
+        public override string Version { get { return "0.4.0"; } }
         public override string Description
         {
-            get { return "Experimental LAN/tailnet multiplayer: characters, coffee cup and Hayosiko driver/body. Disposable profile required. AI-assisted implementation."; }
+            get { return "Experimental LAN/tailnet multiplayer: characters, 22 shared items and Hayosiko driver/body. Disposable profile required. AI-assisted implementation."; }
         }
         public override Game SupportedGames { get { return Game.MySummerCar; } }
 
@@ -65,7 +65,7 @@ namespace MSCMP
             overlayKey = Keybind.Add("mscmp.overlay", "Toggle discovery overlay", KeyCode.F8);
             inspectKey = Keybind.Add("mscmp.inspect", "Inspect aimed object (read only)", KeyCode.F9);
             exportKey = Keybind.Add("mscmp.export", "Export diagnostic snapshot", KeyCode.F10);
-            Settings.AddText("Experimental cup and Hayosiko sync. Other gameplay is not synchronized. Use a disposable test profile.", false);
+            Settings.AddText("Experimental 22-item and Hayosiko sync. Other gameplay is not synchronized. Use a disposable test profile.", false);
         }
 
         private void InitializeDiagnostics()
@@ -94,7 +94,7 @@ namespace MSCMP
                     FeedbackContext, delegate { return trace.Snapshot(); });
             Record("mod.initialized", "run=" + diagnosticRun + " mod=" + Version + " loader=" + ModLoader.MSCLoader_Ver
                 + " unity=" + Application.unityVersion + " pointerBits=" + (IntPtr.Size * 8), true);
-            Record("coverage", "experimental; shared=cup,Hayosiko-driver-body; runtime-validation=pending; disposable-profile-required", true);
+            Record("coverage", "experimental; shared=22-authored-items,Hayosiko-driver-body; runtime-validation=pending; disposable-profile-required", true);
         }
 
         private void OnMenuLoad() { ObserveCallback("loader.menu", false); }
@@ -339,7 +339,7 @@ namespace MSCMP
         private void RefreshOverlay()
         {
             overlayText = "MSC-MP " + Version + " | Experimental\n"
-                + "Shared cup + Hayosiko | Full-game sync unfinished\n"
+                + "22 shared items + Hayosiko | Full-game sync unfinished\n"
                 + "Scene: " + DiagnosticTrace.SafeText(Application.loadedLevelName, 64)
                 + " | Generation " + lifetime.Generation + "\n"
                 + "Loader OnLoad observed: " + lifetime.Ready + " | Gameplay bindings unverified\n"

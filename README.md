@@ -2,9 +2,9 @@
 
 Cooperative multiplayer development for **My Summer Car**.
 
-**v0.3.0 adds experimental coffee-cup pickup/drop/throw and Hayosiko driver/body synchronization. These game adapters are implemented and built, but not verified in an actual multiplayer game. This is not full-game multiplayer. Use disposable test profiles.**
+**v0.4.0 expands shared pickup/drop/throw to 22 persistent items, adds movement correction and action recovery, and retains Hayosiko driver/body synchronization. These game adapters are implemented and built, but not verified in an actual multiplayer game. This is not full-game multiplayer. Use disposable test profiles.**
 
-Shared mode requires the disposable-profile marker and the host's world baseline before interaction. Other items, passenger seats, other vehicles, assembly, progression and coherent vanilla saves remain unfinished. See [vehicle binding scope](docs/VEHICLE_BINDING_EVIDENCE.md).
+Shared mode requires the disposable-profile marker and the host's world baseline before interaction. Dynamic consumables, item use, passenger seats, other vehicles, assembly, progression and coherent vanilla saves remain unfinished. See [vehicle binding scope](docs/VEHICLE_BINDING_EVIDENCE.md).
 
 [Download experimental build](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases) · [Install and playtest with a friend](docs/INSTALL.md) · [Report a problem](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues/new/choose) · [Feature status](docs/FEATURE_SUPPORT.md)
 
@@ -14,22 +14,22 @@ Shared mode requires the disposable-profile marker and the host's world baseline
 | --- | --- |
 | Host / Join / Leave | Private LAN/tailnet sessions, matching-build checks, ping and reliable probes |
 | Characters | Original low-poly male/female meshes, portraits, walking, carrying and seated poses; visual verification still needed |
-| Remote walking | Starts automatically when the shared baseline is ready; actual two-PC game validation pending |
+| Remote walking | Starts after the baseline; host-approved positions, correlated rejection correction and bounded movement history; game validation pending |
 | Error feedback | Automatic local mod-error reports, F7 capture and a player note |
-| Coffee cup | Exclusive holder, pickup/drop/throw and host body simulation; drinking/pouring disabled in shared mode |
+| 22 persistent items | Exclusive holder, pickup/drop/throw, compound colliders and host body simulation; special use actions gated. [Exact catalogue](docs/SHARED_ITEM_CATALOGUE.md) |
 | Hayosiko | One driver, validated controls, host physics, replicated body, seat cleanup and stale-input braking; doors/dashboard disabled |
 | Authority and replication | Automated synthetic-world tests, bounded late join and mod-only checkpoints |
-| Wider game | Other items/vehicles, passengers, assembly, economy and coherent vanilla persistence remain unfinished |
+| Wider game | Dynamic items, item use, other vehicles, passengers, assembly, economy and coherent vanilla persistence remain unfinished |
 
 This is an early development project. See the [known limitations](docs/KNOWN_ISSUES.md).
 
 ## Give it to a friend
 
-1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.3.0-experimental.zip**, not GitHub's source-code ZIP.
+1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.4.0-experimental.zip**, not GitHub's source-code ZIP.
 2. Each player needs their own My Summer Car installation and MSCLoader. The inspected target is **Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410**.
 3. Follow [installation and save isolation](docs/INSTALL.md) on each PC. Both players must use the same package and compatible game/mod files.
 4. Load the disposable game first. Both enable **Shared world**. One player chooses **Host shared world**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
-5. Wait for **Shared cup and van ready**. Follow the [end-of-build checklist](docs/PLAYER_CHECKS.md) when ready to test.
+5. Wait for **Shared items and van ready (22 items)**. Follow the [end-of-build checklist](docs/PLAYER_CHECKS.md) when ready to test.
 
 Hosting with zero peers is normal until someone joins. A scene change closes the session, so host again after entering the game. `127.0.0.1` refers to your own PC, not your friend's. LAN play needs no router port forwarding; private tailnet setup is described in the guide.
 

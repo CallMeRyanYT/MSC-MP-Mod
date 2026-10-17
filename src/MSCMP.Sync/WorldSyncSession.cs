@@ -15,7 +15,7 @@ namespace MSCMP.Sync
         {
             internal ulong Player, Connection, Cursor, Snapshot;
             internal bool Ready;
-            internal long JoinDeadline;
+            internal long JoinDeadline, NextLiveAt;
             internal int Baselines;
             internal readonly ReliableBlobSender Sender = new ReliableBlobSender();
             internal readonly ReliableBlobReceiver Receiver = new ReliableBlobReceiver();
@@ -31,9 +31,11 @@ namespace MSCMP.Sync
         private ReplicaWorld replica;
         private ulong clientSnapshot;
         private ulong requestSequence;
+        private readonly Dictionary<ulong, AuthorityCommand> pendingCommands = new Dictionary<ulong, AuthorityCommand>();
         private ulong acceptedWorldGeneration;
         public event Action<string> Fault;
         public event Action<WorldMessage> ReceivedResult;
+        public event Action<WorldMessage> PoseReceipt;
         // Game adapters prove authored bindings before acknowledging or applying a baseline.
         public Action<WorldSnapshot> ValidateSnapshot;
         public AuthorityWorld Authority { get { return authority; } }
@@ -92,6 +94,7 @@ namespace MSCMP.Sync
             Link link;
             if (!links.TryGetValue(player, out link) || link.Connection != connection) return;
             links.Remove(player);
+            if (authority == null) pendingCommands.Clear();
             if (authority != null) authority.DisconnectPlayer(player, connection); else replica = null;
         }
         private void OnApplication(ApplicationMessage application)
@@ -169,7 +172,19 @@ namespace MSCMP.Sync
                 case WorldMessageKind.Commit:
                     ApplyOutcome outcome = replica.Apply(message.Commit);
                     if (outcome != ApplyOutcome.Applied && outcome != ApplyOutcome.DuplicateOrStale) throw new FormatException("Invalid live commit."); break;
+                case WorldMessageKind.LiveBatch:
+                    if (!link.Ready) throw new FormatException("Live batch before readiness.");
+                    foreach (CommitEvent entry in message.Commits)
+                    {
+                        ApplyOutcome applied = replica.Apply(entry);
+                        if (applied != ApplyOutcome.Applied && applied != ApplyOutcome.DuplicateOrStale) throw new FormatException("Invalid live batch.");
+                    }
+                    break;
+                case WorldMessageKind.PoseReceipt:
+                    if (!link.Ready || !message.Position.Within(100000)) throw new FormatException("Invalid pose receipt.");
+                    if (PoseReceipt != null) PoseReceipt(message); break;
                 case WorldMessageKind.Result:
+                    if (!pendingCommands.Remove(message.RequestSequence)) break;
                     Action<WorldMessage> callback = ReceivedResult; if (callback != null) callback(message); break;
                 default: throw new FormatException("Host sent an invalid world message.");
             }
@@ -183,15 +198,18 @@ namespace MSCMP.Sync
                 {
                     if (!link.Ready && Now > link.JoinDeadline) throw new FormatException("Bootstrap deadline exceeded.");
                     link.Receiver.CheckTimeout(Now);
-                    if (authority != null && link.Ready && link.Sender.PendingCount < 16)
+                    if (authority != null && link.Ready && Now >= link.NextLiveAt && link.Sender.PendingCount < 16)
                     {
+                        link.NextLiveAt = Now + 50;
                         CatchUpBatch live = authority.ReadEventsSince(link.Cursor);
                         if (live.Status != CatchUpStatus.Success) throw new FormatException("Live history expired; reconnect required.");
+                        List<CommitEvent> batch = new List<CommitEvent>();
                         foreach (CommitEvent commit in live.Events)
+                        { batch.Add(commit); if (batch.Count == 16) break; }
+                        if (batch.Count != 0)
                         {
-                            // Bounded backpressure: advance only once this event is queued.
-                            if (link.Sender.PendingCount >= 16) break;
-                            Queue(link, new WorldMessage { Kind = WorldMessageKind.Commit, Commit = commit }); link.Cursor = commit.Sequence;
+                            Queue(link, new WorldMessage { Kind = WorldMessageKind.LiveBatch, Commits = batch.ToArray() });
+                            link.Cursor = batch[batch.Count - 1].Sequence;
                         }
                     }
                     link.Sender.Pump(delegate(byte[] bytes) { return network.SendApplication(link.Player, bytes); }, 4);
@@ -203,6 +221,7 @@ namespace MSCMP.Sync
         public ulong Request(CommandKind kind, ulong entityId, WorldVector position, WorldVector velocity)
         {
             if (disposed || !Ready) throw new InvalidOperationException("World baseline is not ready.");
+            if (pendingCommands.Count >= 32) throw new InvalidOperationException("Too many pending world requests.");
             if (requestSequence == UInt64.MaxValue) throw new InvalidOperationException("Request sequence exhausted.");
             EntityState entity = authority != null ? authority.GetEntity(entityId) : replica.GetEntity(entityId);
             if (entity == null) throw new ArgumentException("Unknown entity.");
@@ -214,8 +233,23 @@ namespace MSCMP.Sync
                 CommandResult result = authority.Process(command); Action<WorldMessage> callback = ReceivedResult;
                 if (callback != null) callback(new WorldMessage { Kind = WorldMessageKind.Result, Outcome = result.Outcome, RequestSequence = result.RequestSequence, Watermark = result.Watermark });
             }
-            else Queue(links[1], new WorldMessage { Kind = WorldMessageKind.Command, Command = command });
+            else { Queue(links[1], new WorldMessage { Kind = WorldMessageKind.Command, Command = command }); pendingCommands.Add(command.Sequence, command); }
             return requestSequence;
+        }
+        // Re-send the identical command, including expected revision and epoch. Never
+        // turn an ambiguous timeout into a fresh transaction with a new identity.
+        public bool RetryRequest(ulong sequence)
+        {
+            AuthorityCommand command; Link link;
+            if (disposed || authority != null || !Ready || !pendingCommands.TryGetValue(sequence, out command) || !links.TryGetValue(1, out link)) return false;
+            if (link.Sender.PendingCount >= 16) return false;
+            Queue(link, new WorldMessage { Kind = WorldMessageKind.Command, Command = command }); return true;
+        }
+        public void SendPoseReceipt(ulong player, uint sequence, bool accepted, WorldVector position)
+        {
+            Link link;
+            if (disposed || authority == null || !links.TryGetValue(player, out link) || !link.Ready || link.Sender.PendingCount >= 16) return;
+            Queue(link, new WorldMessage { Kind = WorldMessageKind.PoseReceipt, PoseSequence = sequence, PoseAccepted = accepted, Position = position });
         }
         private static void Queue(Link link, WorldMessage message)
         { if (!link.Sender.Enqueue(WorldMessages.Encode(message))) throw new FormatException("World send queue full."); }

@@ -2,7 +2,7 @@
 
 Inspected target: Steam build **20171487**, Unity **5.0.0f4**, MSCLoader **1.4.2.410**, on **2026-10-17**. This ledger deliberately separates static evidence from actual in-game observation. No gameplay FSM transition, local player hierarchy, pickup interception point, or persistent entity ID has been verified in a running scene.
 
-Additional authored scene/code evidence and the read-only walking-player adapter are in [GAMEPLAY_EVIDENCE.md](GAMEPLAY_EVIDENCE.md). Static evidence is now available for the actual player/camera hierarchy, active pickup FSM and several save writers; runtime validation and mutation adapters remain pending.
+Additional authored scene/code evidence and the read-only walking-player adapter are in [GAMEPLAY_EVIDENCE.md](GAMEPLAY_EVIDENCE.md). Static evidence is now available for the actual player/camera hierarchy, active pickup FSM and several save writers; runtime validation remains pending. Implemented mutation adapters are documented in [SHARED_ITEM_CATALOGUE.md](SHARED_ITEM_CATALOGUE.md) and [VEHICLE_BINDING_EVIDENCE.md](VEHICLE_BINDING_EVIDENCE.md).
 
 ## Loader API verified locally
 

@@ -15,14 +15,14 @@ Copy-Item -LiteralPath $assembly -Destination (Join-Path $staging 'Mods\MSCMP.Mo
 foreach ($name in @('README.md', 'COMPATIBILITY.md', 'THIRD_PARTY_NOTICES.md', 'ARCHITECTURE.md', 'PROTOCOL.md', 'HANDOFF.md', 'CHANGELOG.md', 'CONTRIBUTING.md')) {
     Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot $name) -Destination (Join-Path $staging $name)
 }
-foreach ($name in @('TESTING.md', 'FEATURE_SUPPORT.md', 'KNOWN_ISSUES.md', 'BINDINGS.md', 'PROJECT_BRIEF.md', 'TRANSPORT.md', 'WORLD_SYNC.md', 'PERSISTENCE.md', 'GAMEPLAY_EVIDENCE.md', 'CHARACTERS.md', 'PLAYER_CHECKS.md', 'FEEDBACK.md', 'ITEM_BINDING_EVIDENCE.md', 'VEHICLE_BINDING_EVIDENCE.md', 'INSTALL.md', 'RUNTIME_EVIDENCE.md')) {
+foreach ($name in @('TESTING.md', 'FEATURE_SUPPORT.md', 'KNOWN_ISSUES.md', 'BINDINGS.md', 'PROJECT_BRIEF.md', 'TRANSPORT.md', 'WORLD_SYNC.md', 'PERSISTENCE.md', 'GAMEPLAY_EVIDENCE.md', 'CHARACTERS.md', 'PLAYER_CHECKS.md', 'FEEDBACK.md', 'ITEM_BINDING_EVIDENCE.md', 'SHARED_ITEM_CATALOGUE.md', 'VEHICLE_BINDING_EVIDENCE.md', 'INSTALL.md', 'RUNTIME_EVIDENCE.md')) {
     Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot ('docs\' + $name)) -Destination (Join-Path $staging ('docs\' + $name))
 }
 Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $staging 'build-manifest.json')
 foreach ($name in @('dependencies.lock.json', 'vendor\LiteNetLib\LICENSE.txt', 'vendor\LiteNetLib\PATCHES.md', 'scripts\test-profile.ps1')) {
     Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot $name) -Destination (Join-Path $staging $name)
 }
-$output = Join-Path $script:RepositoryRoot ('artifacts\MSC-MP-Mod-0.3.0-experimental-' + $stamp + '.zip')
+$output = Join-Path $script:RepositoryRoot ('artifacts\MSC-MP-Mod-0.4.0-experimental-' + $stamp + '.zip')
 Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $output
 Write-Host "Created experimental development package: $output"
 Write-Host 'Allowlist includes this mod DLL, hashes, license/patch notices, player documentation and the profile-recovery tool. No game data or personal saves.'

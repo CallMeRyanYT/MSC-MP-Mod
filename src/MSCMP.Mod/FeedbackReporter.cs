@@ -75,7 +75,7 @@ namespace MSCMP
                 // byte limit even if later diagnostics accidentally grow their output.
                 string body = "MSCMP local feedback v1\r\nUTC=" + utc + "\r\nRun=" + run
                     + "\r\nVersion=" + version + "\r\nAssemblySHA256=" + assemblyHash
-                    + "\r\nScope=diagnostics and visual avatars; shared gameplay unavailable\r\n"
+                    + "\r\nScope=experimental 22-item pickup and Hayosiko driver/body; runtime validation pending; full-game sync unfinished\r\n"
                     + current + "\r\n\r\nReports:\r\n" + buffer.Snapshot()
                     + "\r\nRecent mod events:\r\n" + events;
                 if (Encoding.UTF8.GetByteCount(body) > 262144)

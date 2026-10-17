@@ -51,4 +51,4 @@ try {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
 }
 Write-Host 'Installed MSCMP.Mod.dll. No game assemblies, other mods, configuration, or saves were replaced.'
-Write-Host 'Experimental shared cup/van adapters are installed; actual in-game multiplayer validation is still pending.'
+Write-Host 'Experimental shared item/van adapters are installed; actual in-game multiplayer validation is still pending.'

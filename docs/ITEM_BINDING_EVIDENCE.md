@@ -1,6 +1,8 @@
 # Coffee-cup binding and pickup boundary investigation
 
-This is static evidence and a compiled **read-only diagnostic binding**. It is not a working pickup interceptor, a shared-item implementation, or an in-game verification result. No game state, FSM action, event, personal profile, or save file was changed during this investigation.
+This page preserves the original read-only cup investigation. Version 0.4.0 adds a separate mutating adapter documented in [SHARED_ITEM_CATALOGUE.md](SHARED_ITEM_CATALOGUE.md).
+
+The investigation below is static evidence and a compiled **read-only diagnostic binding**. It is not a working pickup interceptor, a shared-item implementation, or an in-game verification result. No game state, FSM action, event, personal profile, or save file was changed during this investigation.
 
 ## Evidence and important correction
 

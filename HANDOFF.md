@@ -1,16 +1,18 @@
 # Current handoff
 
-Updated 2026-10-17. Version 0.3.0 experimental. Full requested scope remains in docs/PROJECT_BRIEF.md; it has not all been implemented.
+Updated 2026-10-17. Version 0.4.0 experimental. Full requested scope remains in docs/PROJECT_BRIEF.md; it has not all been implemented.
 
 ## Implemented scope
 
 - Legacy build/deploy/rollback/package pipeline, scene-owned diagnostics, bounded local feedback and manual notes.
 - Private LAN/tailnet host/client networking, matching-build admission, per-connection generations and reliable application routing.
 - Host entity/hand authority, replay protection, authored identity, snapshots/catch-up/readiness and mod-only checkpoint schema 2 with body orientation/spin.
-- Disposable-profile-only game adapter for the persistent coffee cup: custom pickup, hold, drop and throw; host physics and client replicas. Native pickup/use is gated during the session.
+- Disposable-profile-only game adapter for the 22 persistent items: custom pickup, hold, drop and throw; host physics and client replicas. Native pickup/use and trigger colliders are gated during the session. See docs/SHARED_ITEM_CATALOGUE.md.
 - Hayosiko body/driver adapter: guarded native entry/exit, one-driver authority, validated configured controls, held starter on I, stale-input braking, disconnect revocation, client body smoothing and scoped cleanup. Native van FSMs other than entry are gated. See docs/VEHICLE_BINDING_EVIDENCE.md.
 - Original male/female characters with selectable portraits and walking/carrying/seated poses. Automatic startup in shared mode; optional preview in diagnostic mode.
 - Native socket send/receive serialization fixes a reproduced legacy .NET cached-address race that delivered a packet to the wrong client. The old source fails the new regression; the fix passes 100,800 payloads across sequence wrap and a focused 144,000-payload run. Temporary wire traces and packet-pool instrumentation were removed.
+
+- 0.4.0 adds bounded live commit batching, immutable action retries, result-watermark barriers, correlated walking corrections and host-approved avatar positions. One pose source avoids the prior duplicate shared/preview sends. A rejected peer no longer freezes the host game adapter.
 
 ## Evidence and boundaries
 
@@ -24,6 +26,6 @@ Personal saves and the original recovery backup must remain untouched. The local
 
 ## Remaining work
 
-Other item families and item use, passenger seats, other vehicles, wheel/door/damage and fuel/electrical replication, Satsuma assembly/fasteners, shops/jobs/economy, needs/death, time/weather/NPCs, player correction and coherent vanilla+mod save/load remain unfinished. The existing mod-only checkpoint cannot restore a shared vanilla world. These gaps must remain visible in release notes rather than being counted as complete because the build passes.
+Dynamic item families and item use, passenger seats, other vehicles, wheel/door/damage and fuel/electrical replication, Satsuma assembly/fasteners, shops/jobs/economy, needs/death, time/weather/NPCs, terrain-aware player validation and coherent vanilla+mod save/load remain unfinished. The existing mod-only checkpoint cannot restore a shared vanilla world. These gaps must remain visible in release notes rather than being counted as complete because the build passes.
 
 Commit and push completed repository changes, as requested by the user. Do not publish private game binaries, asset dumps, logs, local configuration, profile journals or saves. Package only the allowlisted mod DLL, documentation, license/notices and profile tool.

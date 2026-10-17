@@ -4,7 +4,7 @@ This experimental release implements a shared coffee cup and Hayosiko driver/bod
 
 ## Updating from 0.2.x
 
-Both players must replace their old DLL with v0.3.0 while the game is closed. It includes the earlier runtime API fixes and a legacy socket fix for packets reaching the wrong connection. Keep your existing test-profile journal and backup; use the original folder to restore that active profile, and do not prepare another profile from the new ZIP.
+Both players must replace their old DLL with v0.4.0 while the game is closed. It includes the earlier runtime API fixes and a legacy socket fix for packets reaching the wrong connection. Keep your existing test-profile journal and backup; use the original folder to restore that active profile, and do not prepare another profile from the new ZIP.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ Each player needs their own game, [MSCLoader](https://github.com/piotrulos/MSCMo
 
 ## Install
 
-1. Close the game. Download **MSC-MP-Mod-0.3.0-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
+1. Close the game. Download **MSC-MP-Mod-0.4.0-experimental.zip** from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). GitHub's source-code archives do not contain the compiled mod.
 2. Extract it into a permanent testing folder. Keep that folder: the save-isolation tool stores its recovery journal there.
 3. Copy only `Mods/MSCMP.Mod.dll` into the Mods folder selected by your MSCLoader installation. Back up an existing MSCMP DLL before replacing it. Never copy files into the game's Managed folder.
 4. Retain the included third-party license/notices. Follow save isolation below **before starting a new game**.
@@ -44,8 +44,8 @@ Restoration archives the test profile and restores/verifies the original files a
 1. Both players load their disposable game and wait for initialization.
 2. Both players open F8 and enable **Shared world**. The host clicks **Host shared world**, using port **20577**.
 3. The friend chooses **Join**, entering the host's reachable numeric IPv4 address and the same port.
-4. Wait for connection acceptance and **Shared cup and van ready** on both sides. Try **Ping** and **Reliable probe**. A refusal is recorded by the feedback system; do not remove the disposable-profile guard to bypass it.
-5. Characters start automatically after the baseline. Select Male/Female and unpause. Only the mapped cup and van body/driver are synchronized; other scene objects and progression remain local.
+4. Wait for connection acceptance and **Shared items and van ready (22 items)** on both sides. Try **Ping** and **Reliable probe**. A refusal is recorded by the feedback system; do not remove the disposable-profile guard to bypass it.
+5. Characters start automatically after the baseline. Select Male/Female and unpause. The 22 catalogued items and van body/driver are mapped. Their special use actions are gated; other scene objects and progression remain local. See SHARED_ITEM_CATALOGUE.md.
 6. The cup uses left-click to pick up/drop and right-click to throw. Near the Hayosiko, use the panel's driver-seat button, then close F8 and unpause to drive using the game's configured axes. Hold **I** to crank. Stop before requesting exit. Native cup use and van doors/dashboard are disabled in this experimental mode.
 
 Uncheck Shared world on both PCs to use the older diagnostic/optional-avatar mode without the gameplay adapters. Follow [PLAYER_CHECKS.md](PLAYER_CHECKS.md) for the manual checks after implementation; no intermediate game test is required to continue development.
