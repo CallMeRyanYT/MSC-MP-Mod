@@ -27,7 +27,7 @@ namespace MSCMP.Avatars
         string gestureClip;
         Vector3 restPelvisLocal;
         BoneGuard[] guards = new BoneGuard[0];
-        float lastYaw, yawRate;
+        float lastYaw, yawRate, lastYawTime = -1f;
         Vector3 reachTarget;
         float reachStart, reachUntil;
         float groundOffset;
@@ -183,8 +183,12 @@ namespace MSCMP.Avatars
             float speed = flat.magnitude;
             bool carrying = current.Held != 0;
             float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+            // Start fresh after spawning, leaving a car or being hidden, so the jump from the old
+            // heading never reads as a fast turn.
+            if (lastYawTime < 0f || Time.time - lastYawTime > 0.25f) { lastYaw = current.Yaw; yawRate = 0f; }
             yawRate = Mathf.Lerp(yawRate, Mathf.DeltaAngle(lastYaw, current.Yaw) / dt, Mathf.Clamp01(dt * 10f));
             lastYaw = current.Yaw;
+            lastYawTime = Time.time;
 
             string legs, left, right;
             float legSpeed = 1f;
@@ -390,7 +394,8 @@ namespace MSCMP.Avatars
             r.Crouch = Mathf.Lerp(a.Crouch, b.Crouch, t);
             return r;
         }
-    
+    }
+
     /// <summary>Remembers what we did to a bone last frame. If no animation has touched it since,
     /// put it back first; otherwise keep the animation's value. Stops adjustments piling up.</summary>
     internal sealed class BoneGuard
@@ -422,5 +427,4 @@ namespace MSCMP.Avatars
             has = true;
         }
     }
-}
 }

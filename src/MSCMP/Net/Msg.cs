@@ -81,7 +81,7 @@ namespace MSCMP.Net
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 1;
+        public const ushort Version = 2;          // 2: world values (VarValue/VarAdd), batches from clients
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

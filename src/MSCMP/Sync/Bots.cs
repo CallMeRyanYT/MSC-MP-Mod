@@ -255,7 +255,16 @@ namespace MSCMP.Sync
                 Bot b = bots[i];
                 if (b.P.Avatar == null) continue;
                 b.P.Avatar.LateUpdate();
-                if (b.Carry != null && b.Carry.Alive)
+                if (b.Carry != null && b.Carry.Alive && b.Carry.Go == LocalPlayer.HeldObject)
+                {
+                    // You took it out of the bot's hands: let go, or the two of you pull it back and forth.
+                    NetObject o = b.Carry;
+                    b.Carry = null;
+                    o.Body.isKinematic = b.CarryWasKinematic;
+                    if (b.Order == Order.Fetch) Command(b, Order.Follow);
+                    Log.Info(b.P.Name + " let go of " + o.Name);
+                }
+                else if (b.Carry != null && b.Carry.Alive)
                 {
                     // Hold it in front of the chest, like a player carrying something.
                     Transform t = b.Carry.Go.transform;

@@ -9,6 +9,11 @@
 - New: test bots for testing alone. Spawn as many as you like from the F2 panel and give them orders: copy me, follow, stay, wander, go to home / Teimo's shop / Fleetari's (walking or teleporting), fetch the nearest item, wave or change body. Only you see them. Each bot writes its body measurements to the log.
 - New: liquids and other world values are shared: fuel, oil, coolant, brake and clutch fluid, water, battery charge, wear, damage, dirt and paint colour. Whoever drives or holds something decides its values. Anyone's pouring still counts.
 - New animations: small steps when turning on the spot, tucked legs while jumping or falling, and players reach towards the doors, switches, bolts and parts they use.
+- Fixed: values that rise by themselves (engine temperature, battery charge, wear, dirt) climbed several times too fast in multiplayer, because every player's copy reported its own rise as "poured in". Only liquids (fuel, oil, coolant, fluids, water, drinks) can now be topped up by someone else, and only when they stand next to it.
+- Fixed: other players briefly shuffled their feet when they appeared or got out of a car.
+- Fixed: grabbing an item out of a test bot's hands made the two of you pull it back and forth.
+- Fixed: the build script's API audit could fail with "The parameter is incorrect" on some machines, and the release zip was named `MSCMP-0.9.1.0.zip`.
+- **Both players need 0.9.1.** The network protocol changed, so 0.9.0 and 0.9.1 can't play together (you'll get a clear version-mismatch message).
 
 ## 0.9.0 - 2026-11-17
 

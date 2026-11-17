@@ -37,7 +37,12 @@ if ($LASTEXITCODE -ne 0) { Write-Bad 'Build failed.'; exit 1 }
 
 $dll = Join-Path $root "src\MSCMP\bin\$Configuration\net35\MSCMP.dll"
 Write-Step 'Checking every game API the mod uses exists in your game (API audit)...'
-& dotnet run --project (Join-Path $root 'tools\ApiAudit\ApiAudit.csproj') -c Release --nologo -- $dll $managed
+$audit = Join-Path $root 'tools\ApiAudit\ApiAudit.csproj'
+# Build the audit tool first and run it with --no-build: letting `dotnet run` build it on the
+# fly can make the tool's own file reads fail ("The parameter is incorrect") on some machines.
+& dotnet build $audit -c Release --nologo -v quiet
+if ($LASTEXITCODE -ne 0) { Write-Bad 'Could not build the API audit tool.'; exit 1 }
+& dotnet run --project $audit -c Release --no-build -- $dll $managed
 if ($LASTEXITCODE -ne 0) { Write-Bad 'API audit failed - the mod would crash in this game version.'; exit 1 }
 
 $out = Join-Path $root 'build'

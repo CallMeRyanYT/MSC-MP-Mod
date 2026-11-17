@@ -29,6 +29,7 @@ namespace MSCMP.Sync
             public Color LastColor;
             public float NextSend;
             public string Label;
+            public bool Pourable;   // a liquid level someone else can top up (fuel, oil, coolant...)
         }
 
         static readonly Dictionary<uint, Var> byId = new Dictionary<uint, Var>();
@@ -48,6 +49,12 @@ namespace MSCMP.Sync
             "wear", "damage", "dirt", "dirty", "level", "amount", "beer", "milk", "juice", "booze", "gas", "petrol", "diesel"
         };
         static readonly string[] ColorWords = { "paint", "color", "colour" };
+        // Only these can be "poured into" by a player who doesn't own them. Everything else
+        // (temperatures, charge, wear, dirt...) also rises on its own in every game, and adding
+        // those rises up would make it climb several times too fast.
+        static readonly string[] PourWords = { "fuel", "oil", "coolant", "fluid", "water", "liquid", "beer", "milk", "juice", "booze", "petrol", "diesel", "gasoline" };
+        static readonly string[] NotPoured = { "temp", "heat", "pressure", "consum", "rate", "use", "wear", "damage", "dirt", "charge", "boil", "coil", "spoil", "injection", "mix" };
+        const float PourReach = 5f;          // metres: you pour standing next to it
         static readonly string[] ExcludedRoots = { "PLAYER", "GUI", "Systems", "Sheets", "HUMANS", "TRAFFIC", "NPC_CARS", "MSCMP", "MAP" };
 
         public static int Count { get { return vars.Count; } }
@@ -147,6 +154,7 @@ namespace MSCMP.Sync
             if (dynamicObject) id |= 0x80000000u;
             while (id == 0 || byId.ContainsKey(id)) { key += "~"; id = (GameUtil.Fnv1a(key) & 0x7FFFFFFFu) | (dynamicObject ? 0x80000000u : 0u); }
             Var x = new Var { Id = id, Fsm = pm, F = f, C = c, Label = pm.name + "." + (f != null ? f.Name : c.Name) };
+            x.Pourable = f != null && Matches(f.Name, PourWords) && !Matches(f.Name, NotPoured);
             if (f != null) x.Last = f.Value; else x.LastColor = c.Value;
             byId[id] = x;
             vars.Add(x);
@@ -196,27 +204,32 @@ namespace MSCMP.Sync
                 Var x = vars[i];
                 if (x.Fsm == null) { byId.Remove(x.Id); vars.RemoveAt(i); continue; }
                 if (now < x.NextSend) continue;
-                bool mine = OwnerOf(x) == me;
                 if (x.F != null)
                 {
                     float v = x.F.Value;
                     float diff = v - x.Last;
                     if (Mathf.Abs(diff) < Epsilon || float.IsNaN(v)) continue;
-                    if (mine) SendValue(x, v, null);
-                    else if (diff > 0f) SendAdd(x, diff);   // we poured something in
-                    x.Last = v;                              // our own decreases are not news
+                    if (OwnerOf(x) == me) SendValue(x, v, null);
+                    else if (diff > 0f && x.Pourable && NextToMe(x)) SendAdd(x, diff);   // we poured something in
+                    x.Last = v;                              // anything else here is our copy drifting: not news
                     x.NextSend = now + MinInterval;
                 }
                 else if (x.C != null)
                 {
                     Color c = x.C.Value;
-                    if (!mine || Same(c, x.LastColor)) continue;
+                    if (Same(c, x.LastColor) || OwnerOf(x) != me) continue;
                     SendValue(x, 0f, c);
                     x.LastColor = c;
                     x.NextSend = now + MinInterval;
                 }
             }
             Flush();
+        }
+
+        static bool NextToMe(Var x)
+        {
+            if (!Game.LocalPlayer.Bound || x.Fsm == null) return false;
+            return (x.Fsm.transform.position - Game.LocalPlayer.Feet).sqrMagnitude < PourReach * PourReach;
         }
 
         /// <summary>All changes of one tick travel together in one packet per player.</summary>

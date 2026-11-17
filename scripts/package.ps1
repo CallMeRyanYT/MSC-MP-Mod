@@ -7,7 +7,7 @@ $root = Resolve-Path (Join-Path $PSScriptRoot '..')
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $dll = Join-Path $root 'build\MSCMP.dll'
-$version = (Get-Item -LiteralPath $dll).VersionInfo.ProductVersion
+$version = (Get-Item -LiteralPath $dll).VersionInfo.ProductVersion -replace '\.0$', ''   # 0.9.1.0 -> 0.9.1
 $stage = Join-Path $root "artifacts\MSCMP-$version"
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
