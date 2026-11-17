@@ -23,6 +23,7 @@ namespace MSCMP.UI
         bool subscribed;
         bool wasInGame, wasInMenu;
         float relockUntil;
+        int chatOpenedFrame;
 
         /// <summary>True while one of the game's own menus has the mouse (pause menu etc.).</summary>
         static bool GameMenuOpen()
@@ -80,6 +81,7 @@ namespace MSCMP.UI
                 chatOpen = true;
                 focusChat = true;
                 chatText = "";
+                chatOpenedFrame = Time.frameCount;
             }
             if (chatOpen && (!MP.InGame || !Session.Connected)) chatOpen = false;
 
@@ -425,6 +427,8 @@ namespace MSCMP.UI
                 GUI.FocusControl("mscmp_chat");
                 focusChat = false;
             }
+            // The key that opened the chat must not end up in the text.
+            if (Time.frameCount <= chatOpenedFrame + 2) chatText = "";
         }
 
         static string StripTags(string s)
