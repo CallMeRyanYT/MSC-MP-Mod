@@ -43,6 +43,32 @@ namespace MSCMP.Avatars
 
         public bool Visible { get { return Object != null && Object.activeSelf; } }
 
+        /// <summary>Numbers that show at a glance whether the body is shaped right (for the log).</summary>
+        public string Diagnostics()
+        {
+            if (Object == null || Rig == null) return "no body";
+            Transform t = Object.transform;
+            string r = "pose " + pose + ", legs " + (legsClip ?? "-") + ", right arm " + (rightClip ?? "-");
+            if (Rig.Body != null)
+            {
+                Bounds b = Rig.Body.bounds;
+                r += ", mesh height " + b.size.y.ToString("F2") + " m (bottom " + (b.min.y - t.position.y).ToString("F2") + ")";
+            }
+            if (Rig.Head != null) r += ", head " + (Rig.Head.position.y - t.position.y).ToString("F2") + " m above feet";
+            if (Rig.AnkleLeft != null) r += ", ankle " + (Rig.AnkleLeft.position.y - t.position.y).ToString("F2");
+            r += ", crouch " + current.Crouch.ToString("F2") + ", ground offset " + groundOffset.ToString("F2");
+            return r;
+        }
+
+        /// <summary>True if the body looks broken (stretched, sunk or floating).</summary>
+        public bool LooksBroken()
+        {
+            if (Object == null || Rig == null || Rig.Body == null || !Object.activeSelf || pose != Pose.Standing) return false;
+            Bounds b = Rig.Body.bounds;
+            float bottom = b.min.y - Object.transform.position.y;
+            return b.size.y > 2.6f || b.size.y < 0.6f || Mathf.Abs(bottom) > 0.5f;
+        }
+
         public static RemoteAvatar Create(NetPlayer p)
         {
             RemoteAvatar a = new RemoteAvatar();

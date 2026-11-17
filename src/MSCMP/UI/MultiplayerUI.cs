@@ -203,6 +203,7 @@ namespace MSCMP.UI
             float w = 380f;
             float x = Screen.width - w - 20f;
             GUILayout.BeginArea(new Rect(x, 20f, w, Screen.height - 40f));
+            panelScroll = GUILayout.BeginScrollView(panelScroll, false, false);
             GUILayout.BeginVertical(panel);
             GUILayout.Label("MSC Multiplayer <size=11><color=#bbbbbb>v" + BuildInfo.Version + "</color></size>", title);
             if (!SteamNet.Available)
@@ -219,11 +220,70 @@ namespace MSCMP.UI
             Footer();
         }
 
+        Vector2 panelScroll;
+        int botSelection = -1;      // -1 = all bots
+        bool botTeleport;
+
+        IEnumerable<Bots.Bot> SelectedBots()
+        {
+            List<Bots.Bot> list = new List<Bots.Bot>();
+            for (int i = 0; i < Bots.All.Count; i++)
+                if (botSelection < 0 || botSelection == i) list.Add(Bots.All[i]);
+            return list;
+        }
+
+        void DrawTestTools()
+        {
+            if (!MP.InGame) return;
+            GUILayout.Space(8);
+            GUILayout.Label("Test bots (" + Bots.All.Count + ") - only you can see them", header);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Spawn bot", button)) Bots.Spawn();
+            if (Bots.Any && GUILayout.Button("Remove all", button)) { Bots.RemoveAll(); botSelection = -1; }
+            GUILayout.EndHorizontal();
+            if (!Bots.Any) return;
+            if (botSelection >= Bots.All.Count) botSelection = -1;
+
+            // Who gets the order
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Toggle(botSelection < 0, "All", button)) botSelection = -1;
+            for (int i = 0; i < Bots.All.Count; i++)
+            {
+                if (i > 0 && i % 5 == 0) { GUILayout.EndHorizontal(); GUILayout.BeginHorizontal(); }
+                if (GUILayout.Toggle(botSelection == i, (i + 1).ToString(), button) && botSelection != i) botSelection = i;
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Copy me", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Copy);
+            if (GUILayout.Button("Follow", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Follow);
+            if (GUILayout.Button("Stay", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Stay);
+            if (GUILayout.Button("Wander", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Wander);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Fetch item", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Fetch);
+            if (GUILayout.Button("Wave", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Wave(b);
+            if (GUILayout.Button("Next body", button)) foreach (Bots.Bot b in SelectedBots()) Bots.NextBody(b);
+            if (GUILayout.Button("Remove", button)) { foreach (Bots.Bot b in SelectedBots()) Bots.Remove(b); botSelection = -1; }
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Go to:", small, GUILayout.Width(40));
+            foreach (Bots.Place place in Bots.Places)
+                if (GUILayout.Button(place.Label, button)) foreach (Bots.Bot b in SelectedBots()) Bots.GoTo(b, place, botTeleport);
+            GUILayout.EndHorizontal();
+            botTeleport = GUILayout.Toggle(botTeleport, " Teleport instead of walking", text);
+
+            for (int i = 0; i < Bots.All.Count; i++)
+                GUILayout.Label((i + 1) + ". " + Bots.All[i].P.Name + ": " + Bots.All[i].OrderText, small);
+        }
+
         void Footer()
         {
+            DrawTestTools();
             GUILayout.Space(8);
             GUILayout.Label("F2 hides this panel" + (MP.InGame ? " · T to chat · hold Tab for players" : ""), small);
             GUILayout.EndVertical();
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
@@ -452,7 +512,9 @@ namespace MSCMP.UI
         {
             Camera cam = LocalPlayer.View;
             if (cam == null) return;
-            foreach (NetPlayer p in Session.Remotes)
+            List<NetPlayer> shown = new List<NetPlayer>(Session.Remotes);
+            foreach (Bots.Bot b in Bots.All) shown.Add(b.P);
+            foreach (NetPlayer p in shown)
             {
                 RemoteAvatar a = p.Avatar;
                 if (a == null || !a.Visible) continue;

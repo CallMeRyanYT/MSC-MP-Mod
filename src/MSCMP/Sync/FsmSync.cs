@@ -690,6 +690,7 @@ namespace MSCMP.Sync
             }
             else Session.SendToHost(true, Channel.Reliable);
             if (Log.Verbose) Log.Debug("World event: " + e.Path + " -> " + h.State.Name);
+            Bots.MirrorReach(e.Pm.transform.position);
 
             if (h.Spawners.Length > 0)
             {

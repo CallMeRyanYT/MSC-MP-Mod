@@ -394,7 +394,7 @@ namespace MSCMP.Net
         /// <summary>Client: unpacks a batch from the host and handles each message in order.</summary>
         static void OnBatch(NetPlayer from, NetReader r)
         {
-            if (!IsClient || from == null) return;
+            if (from == null) return;
             int n = r.UShort();
             for (int i = 0; i < n; i++)
             {

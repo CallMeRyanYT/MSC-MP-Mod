@@ -91,6 +91,7 @@ namespace MSCMP
                 VehicleSync.Init();
                 FsmSync.Init();
                 WorldSync.Init();
+                VarSync.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -174,11 +175,14 @@ namespace MSCMP
             {
                 Safe("LocalPlayer", LocalPlayer.Update);
                 Safe("PlayerSync", PlayerSync.Update);
+                Safe("Bots", Bots.Update);
                 Safe("FsmSync", FsmSync.Update);        // before ObjectSync: links objects created by world events
                 Safe("ObjectSync", ObjectSync.Update);
                 Safe("VehicleSync", VehicleSync.Update);
                 Safe("WorldSync", WorldSync.Update);
+                Safe("VarSync", VarSync.Update);
             }
+            Safe("AutoTest", AutoTest.Update);
             Notifications.Prune();
         }
 
@@ -187,6 +191,7 @@ namespace MSCMP
             if (!InGame) return;
             Safe("FsmSync.Late", FsmSync.LateUpdate);
             Safe("PlayerSync.Late", PlayerSync.LateUpdate);
+            Safe("Bots.Late", Bots.LateUpdate);
             Safe("VehicleSync.Late", VehicleSync.LateUpdate);
             Safe("LocalPlayer.Late", LocalPlayer.LateUpdate);
         }
@@ -215,6 +220,7 @@ namespace MSCMP
             Safe("VehicleSync.WorldReady", VehicleSync.OnWorldReady);
             Safe("FsmSync.WorldReady", FsmSync.OnWorldReady);
             Safe("WorldSync.WorldReady", WorldSync.OnWorldReady);
+            Safe("VarSync.WorldReady", VarSync.OnWorldReady);
             Safe("PlayerSync.WorldReady", PlayerSync.OnWorldReady);
             Safe("GameSession.WorldReady", GameSession.OnWorldReady);
         }
@@ -230,6 +236,8 @@ namespace MSCMP
             Safe("ObjectSync.WorldLeft", ObjectSync.OnWorldLeft);
             Safe("FsmSync.WorldLeft", FsmSync.OnWorldLeft);
             Safe("WorldSync.WorldLeft", WorldSync.OnWorldLeft);
+            Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
+            Safe("Bots.WorldLeft", Bots.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);
             GameUtil.ClearCaches();
         }

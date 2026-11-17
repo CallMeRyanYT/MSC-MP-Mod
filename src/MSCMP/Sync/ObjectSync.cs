@@ -288,7 +288,7 @@ namespace MSCMP.Sync
             if (localHeld == o) localHeld = null;
         }
 
-        static bool OwnedLocally(NetObject o)
+        public static bool OwnedLocally(NetObject o)
         {
             if (!Session.Active) return true;
             return Session.Local != null && o.Owner == Session.Local.Slot;

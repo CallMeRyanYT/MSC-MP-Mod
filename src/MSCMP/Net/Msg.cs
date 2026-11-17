@@ -74,6 +74,8 @@ namespace MSCMP.Net
         Money = 72,             // client -> host (delta) / host -> all (value)
         FsmSnapshot = 73,       // reserved
         FsmSpawn = 74,          // object created by a world event: id, name, pose (fallback link)
+        VarValue = 75,          // world value (fuel, fluids, wear, paint...) set by its owner
+        VarAdd = 76,            // amount added to a world value by someone else (pouring)
     }
 
     internal static class Protocol

@@ -215,6 +215,7 @@ namespace MSCMP.Game
                 VehicleSync.SendCatchUp(from);
                 FsmSync.SendCatchUp(from);
                 WorldSync.SendCatchUp(from);
+                VarSync.SendCatchUp(from);
             }
             catch (Exception e)
             {

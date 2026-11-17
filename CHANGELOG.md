@@ -6,6 +6,8 @@
 - Fixed: bone adjustments (head look, crouch, steering) could pile up frame after frame on bones no animation drives.
 - Fixed: the mouse sometimes stayed unlocked after closing the F2 panel or chat. The mod now gives the mouse back to the game reliably and restores exactly what it changed. Esc closes the panel.
 - Fixed: items picked up by a friend could pass through walls. The host wrongly kept thinking it still held the last thing it dropped, so it refused the friend's pickup and the item froze in their hand. Held items now always keep normal game physics and collisions. They switch to following the other player only after being dropped.
+- New: test bots for testing alone. Spawn as many as you like from the F2 panel and give them orders: copy me, follow, stay, wander, go to home / Teimo's shop / Fleetari's (walking or teleporting), fetch the nearest item, wave or change body. Only you see them. Each bot writes its body measurements to the log.
+- New: liquids and other world values are shared: fuel, oil, coolant, brake and clutch fluid, water, battery charge, wear, damage, dirt and paint colour. Whoever drives or holds something decides its values. Anyone's pouring still counts.
 - New animations: small steps when turning on the spot, tucked legs while jumping or falling, and players reach towards the doors, switches, bolts and parts they use.
 
 ## 0.9.0 - 2026-11-17

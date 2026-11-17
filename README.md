@@ -12,7 +12,9 @@
 - **Everything you pick up is shared.** Carrying, dropping and throwing items and car parts works for everyone. Things the game creates (removed parts, bought groceries) appear for everyone too.
 - **All the cars.** One player drives and everyone else sees the wheels turn, the suspension work and the engine rev. You can ride in the passenger seat when a friend drives.
 - **The world reacts to everyone.** Doors, light switches, taps, the TV and radio, dashboard buttons, the ignition, and building the car together: assembling and removing parts, tightening every bolt, wiring.
-- **One clock, one sky, one wallet.** Everybody has the host's time of day and weather. Money is shared between all players.
+- **One clock, one sky, one wallet.** Everybody has the host's time of day and weather. Money is shared between all players. Hunger, thirst and the other needs stay separate for each player.
+- **Liquids and wear too.** Fuel, oil, coolant, brake and clutch fluid, battery charge, wear, damage and paint colour are the same for everyone.
+- **Test bots.** Spawn pretend players from the F2 panel to try things alone: they copy you, follow, wander, walk to the shop or bring you items.
 - **Join any time.** A friend who joins later sees the world exactly as it is right now.
 - **Chat, player list and name tags.**
 - **No fights over objects.** The host decides who is holding or driving what, so items can't be duplicated or pulled out of someone's hands.
@@ -54,7 +56,6 @@ Only the **host's** world is saved. The host saves the usual way, with the toile
 
 Being honest about what isn't covered yet:
 
-- Liquid levels (fuel, oil, coolant, brake fluid poured from canisters), spray-paint colours and part wear/damage values.
 - Traffic, NPCs, jobs, phone calls and the shops' checkout. These run separately in each game. Anything you buy still appears for everybody.
 - Minigames such as video poker and darts are per player.
 - A car driven by a friend is updated 20 times a second with prediction, so very fast driving over rough ground can look slightly floaty.
