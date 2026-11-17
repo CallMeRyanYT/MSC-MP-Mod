@@ -33,6 +33,21 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.
 - **Player list**: hold **Tab**. The F2 panel also shows everyone's status and ping.
 
+## Bots
+
+Press **F2** in the world and click **Spawn bot**. Everyone in the game sees your bots (with your name in their name tag). Pick **All** or a bot's number, then give an order:
+
+- **Copy me**, **Follow** (a following bot rides along in your passenger seat when you drive), **Stay**, **Wander**, **Go to** home, Teimo's shop or Fleetari's.
+- Jobs. "That" means the item in the middle of your screen; the panel shows what you're looking at.
+  - **Fetch that**: brings you that item.
+  - **Collect all like that**: carries every item of that kind within 80 m (empty bottles, firewood, beer cases...) into a pile where you're standing. Give the order to several bots and they share the work.
+  - **Tidy up here**: piles up the loose things within 15 m.
+  - **Fetch anything**: brings you the nearest thing it can carry.
+  - **Take that to** home / Teimo's / Fleetari's: carries the item there and waits. Tick *Teleport* to skip the walk.
+- **Wave**, **Next body**, **Remove**.
+
+Bots can only move things nobody else is holding or using, and nothing heavier than about 60 kg.
+
 ## Saving
 
 - **Only the host's progress is saved.** The host saves the normal way, with the toilet's *Save & Quit*. Friends follow the host back to the menu, and back into the world when the host presses Continue again.
@@ -44,7 +59,7 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 
 Open MSCLoader's **Settings** in the main menu → **MSC Multiplayer**:
 
-- **Body / Shirt / Pants / Face**: how you look to the others (all real game characters and clothes).
+- **Body / Shirt / Pants / Face**: how you look to the others (all real game characters and clothes). In the world, a preview of your character pops up when you change these. You can also change them under **Your character** in the F2 panel, with a turning preview.
 - **Max players** when hosting.
 - **Name tags** above players.
 - **Detailed log** (only needed when reporting a bug).

@@ -216,6 +216,7 @@ namespace MSCMP.Game
                 FsmSync.SendCatchUp(from);
                 WorldSync.SendCatchUp(from);
                 VarSync.SendCatchUp(from);
+                Bots.SendCatchUp(from);
             }
             catch (Exception e)
             {

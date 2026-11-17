@@ -41,15 +41,59 @@ namespace MSCMP
             try { Log.Verbose = verbose != null && verbose.GetValue(); } catch { }
         }
 
+        static Appearance lastSent;
+        static bool sentOnce;
+
         static void AppearanceChanged()
         {
             try
             {
                 Appearance look = LocalAppearance();
+                UI.CharacterPreview.PopupUntil = Time.realtimeSinceStartup + 8f; // show what it looks like
+                if (sentOnce && look.Body == lastSent.Body && look.Shirt == lastSent.Shirt && look.Pants == lastSent.Pants && look.Face == lastSent.Face) return;
+                lastSent = look;
+                sentOnce = true;
                 Log.Info("Appearance changed to " + look);
                 if (Session.Active) Session.SendAppearance(look);
             }
             catch (Exception e) { Log.Exception("Appearance change", e); }
+        }
+
+        public enum Part { Body, Shirt, Pants, Face }
+
+        /// <summary>Next/previous choice for one part (the arrows in the F2 panel). Saved in the
+        /// same MSCLoader settings as the drop-down lists.</summary>
+        public static void Step(Part part, int delta)
+        {
+            SettingsDropDownList list; int count;
+            switch (part)
+            {
+                case Part.Body: list = body; count = Catalog.Bodies.Length; break;
+                case Part.Shirt: list = shirt; count = Catalog.Shirts.Length; break;
+                case Part.Pants: list = pants; count = Catalog.Pants.Length; break;
+                default: list = face; count = Catalog.Faces.Length; break;
+            }
+            if (list == null || count <= 0) return;
+            try
+            {
+                int i = ((SafeIndex(list) + delta) % count + count) % count;
+                list.SetSelectedItemIndex(i);
+            }
+            catch (Exception e) { Log.ExceptionOnce("Options.Step", e); }
+            AppearanceChanged();
+        }
+
+        /// <summary>Name of the current choice for one part, for the F2 panel.</summary>
+        public static string Label(Part part)
+        {
+            Appearance a = LocalAppearance();
+            switch (part)
+            {
+                case Part.Body: return Catalog.Bodies[a.Body].Label;
+                case Part.Shirt: return Catalog.Pretty(Catalog.Shirts)[a.Shirt];
+                case Part.Pants: return Catalog.Pretty(Catalog.Pants)[a.Pants];
+                default: return Catalog.Pretty(Catalog.Faces)[a.Face];
+            }
         }
 
         public static Appearance LocalAppearance()

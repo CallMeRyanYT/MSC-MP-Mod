@@ -96,6 +96,7 @@ namespace MSCMP
                 FsmSync.Init();
                 WorldSync.Init();
                 VarSync.Init();
+                Bots.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -189,6 +190,7 @@ namespace MSCMP
                 Safe("VarSync", VarSync.Update);
             }
             Safe("AutoTest", AutoTest.Update);
+            Safe("CharacterPreview", UI.CharacterPreview.Update);
             Notifications.Prune();
         }
 
@@ -197,6 +199,7 @@ namespace MSCMP
             if (!InGame) return;
             Safe("FsmSync.Late", FsmSync.LateUpdate);
             Safe("PlayerSync.Late", PlayerSync.LateUpdate);
+            Safe("CharacterPreview.Late", UI.CharacterPreview.LateUpdate);
             Safe("Bots.Late", Bots.LateUpdate);
             Safe("VehicleSync.Late", VehicleSync.LateUpdate);
             Safe("LocalPlayer.Late", LocalPlayer.LateUpdate);

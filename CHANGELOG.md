@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.2 - 2026-11-17
+
+- Fixed: the panel could say "Steam is not running" for the whole session even with Steam open. The mod checked Steam only once, at start-up. Now it starts Steam's connection itself if the game hasn't, keeps retrying every few seconds, has a **Try again now** button, and says exactly what's wrong (Steam closed, game not started through Steam, nobody logged in).
+- Fixed: `Install.bat` now removes renamed extra copies of the mod (like `MSCMP (1).dll`), which would load twice.
+- New: **everyone sees your bots**, with your name in their name tags. Their walking, carrying, waving and reaching are sent like a player's.
+- New: **bot jobs**. Fetch the item you're looking at, collect every item of a kind into a pile (bottles, firewood...), tidy up around you, fetch anything nearby, or take an item to home, Teimo's or Fleetari's. Several bots share a job.
+- New: following bots ride along in your passenger seat when you drive, and get out with you.
+- New: **see your own character.** *Your character* in the F2 panel shows a turning preview with arrows to change body, shirt, trousers and face. Changing them in MSCLoader's settings pops up the preview for a few seconds (in the world).
+- **Both players need 0.9.2.** The network protocol changed again.
+
 ## 0.9.1 - 2026-11-17
 
 - Fixed: other players' bodies stretched up into the sky. Crouching moved the hips without the legs and kept adding up every frame. Standing players were also wrongly read as slightly crouched.

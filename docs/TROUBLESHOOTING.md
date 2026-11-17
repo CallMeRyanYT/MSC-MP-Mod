@@ -5,7 +5,7 @@
 - Press **F2** in the main menu.
 - Check that MSCLoader works: the main menu should show the MSCLoader logo and a **Settings** button. If not, reinstall MSCLoader ([INSTALL.md](INSTALL.md#step-1-install-mscloader-skip-if-you-already-use-mods)).
 - Open MSCLoader's mod list. If **MSC Multiplayer** is missing or shows an error, run `Install.bat` again and look at the [log files](#log-files).
-- If the panel says *Steam is not running*: start the game **from Steam**, not by double-clicking the exe.
+- If the panel says *Steam is not running* or *could not connect to Steam*: the panel says what's wrong and keeps retrying every few seconds. Most often the fix is to close the game and start it **from your Steam library**, not by double-clicking the exe or a shortcut. If Steam runs as administrator, the game has to as well (or neither). Also make sure there's only one copy of the mod in the `Mods` folder: running `Install.bat` again removes extra copies.
 
 ## My friend can't see the invite / can't join
 

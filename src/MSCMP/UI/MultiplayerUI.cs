@@ -142,6 +142,7 @@ namespace MSCMP.UI
                 if (panelOpen && (MP.InMenu || MP.InGame)) DrawPanel();
                 if (!panelOpen && !chatOpen && Options.Key(Options.PlayerListKey) && Session.Active) DrawPlayerList(false);
                 if (MP.InMenu && !panelOpen) DrawHint();
+                if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
             }
             catch (Exception e) { Log.ExceptionOnce("MultiplayerUI.OnGUI", e); }
         }
@@ -234,11 +235,25 @@ namespace MSCMP.UI
             return list;
         }
 
+        int lookedFrame = -1;
+        NetObject looked;
+
+        /// <summary>The item in the middle of the screen, looked up once per frame.</summary>
+        NetObject Looked()
+        {
+            if (lookedFrame != Time.frameCount)
+            {
+                lookedFrame = Time.frameCount;
+                try { looked = Bots.LookedAt(); } catch { looked = null; }
+            }
+            return looked;
+        }
+
         void DrawTestTools()
         {
             if (!MP.InGame) return;
             GUILayout.Space(8);
-            GUILayout.Label("Test bots (" + Bots.All.Count + ") - only you can see them", header);
+            GUILayout.Label("Bots (" + Bots.All.Count + ")" + (Session.Connected ? " - everyone in the game sees them" : ""), header);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spawn bot", button)) Bots.Spawn();
             if (Bots.Any && GUILayout.Button("Remove all", button)) { Bots.RemoveAll(); botSelection = -1; }
@@ -262,25 +277,88 @@ namespace MSCMP.UI
             if (GUILayout.Button("Stay", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Stay);
             if (GUILayout.Button("Wander", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Wander);
             GUILayout.EndHorizontal();
+
+            // Jobs. "That" = the item in the middle of the screen.
+            NetObject that = Looked();
+            GUILayout.Label("Jobs - " + (that != null ? "you're looking at: <b>" + Bots.Pretty(that.Name) + "</b>" : "look at an item for the \"that\" jobs"), small);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Fetch item", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Fetch);
-            if (GUILayout.Button("Wave", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Wave(b);
-            if (GUILayout.Button("Next body", button)) foreach (Bots.Bot b in SelectedBots()) Bots.NextBody(b);
-            if (GUILayout.Button("Remove", button)) { foreach (Bots.Bot b in SelectedBots()) Bots.Remove(b); botSelection = -1; }
+            if (GUILayout.Button("Fetch that", button)) Bots.FetchThat(SelectedBots());
+            if (GUILayout.Button("Collect all like that", button)) Bots.CollectLikeThat(SelectedBots());
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Go to:", small, GUILayout.Width(40));
+            if (GUILayout.Button("Tidy up here", button)) Bots.TidyUp(SelectedBots());
+            if (GUILayout.Button("Fetch anything", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Command(b, Bots.Order.Fetch);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Take that to:", small, GUILayout.Width(80));
+            foreach (Bots.Place place in Bots.Places)
+                if (GUILayout.Button(place.Label, button)) Bots.Deliver(SelectedBots(), place, botTeleport);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Go to:", small, GUILayout.Width(80));
             foreach (Bots.Place place in Bots.Places)
                 if (GUILayout.Button(place.Label, button)) foreach (Bots.Bot b in SelectedBots()) Bots.GoTo(b, place, botTeleport);
             GUILayout.EndHorizontal();
             botTeleport = GUILayout.Toggle(botTeleport, " Teleport instead of walking", text);
 
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Wave", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Wave(b);
+            if (GUILayout.Button("Next body", button)) foreach (Bots.Bot b in SelectedBots()) Bots.NextBody(b);
+            if (GUILayout.Button("Remove", button)) { foreach (Bots.Bot b in SelectedBots()) Bots.Remove(b); botSelection = -1; }
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Follow: bots ride along in your passenger seat when you drive.", small);
+
             for (int i = 0; i < Bots.All.Count; i++)
                 GUILayout.Label((i + 1) + ". " + Bots.All[i].P.Name + ": " + Bots.All[i].OrderText, small);
         }
 
+        bool showCharacter;
+
+        void DrawCharacter()
+        {
+            GUILayout.Space(8);
+            if (GUILayout.Button("Your character " + (showCharacter ? "[-]" : "[+]"), header)) showCharacter = !showCharacter;
+            if (!showCharacter) return;
+            if (MP.InGame)
+            {
+                CharacterPreview.Want();
+                Rect r = GUILayoutUtility.GetRect(220f, 300f, GUILayout.ExpandWidth(false));
+                if (CharacterPreview.Ready) GUI.DrawTexture(r, CharacterPreview.Texture, ScaleMode.ScaleToFit);
+                else GUI.Label(r, "Loading...", small);
+            }
+            else GUILayout.Label("Load into the game to see your character (the bodies come from the villagers in the world). You can still change it here.", small);
+            PartRow(Options.Part.Body, "Body");
+            PartRow(Options.Part.Shirt, "Shirt");
+            PartRow(Options.Part.Pants, "Trousers");
+            PartRow(Options.Part.Face, "Face");
+            GUILayout.Label("Saved in the mod settings. Other players see the change right away.", small);
+        }
+
+        void PartRow(Options.Part part, string label)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, text, GUILayout.Width(70));
+            if (GUILayout.Button("<", button, GUILayout.Width(28))) Options.Step(part, -1);
+            GUILayout.Label(Options.Label(part), text, GUILayout.Width(170));
+            if (GUILayout.Button(">", button, GUILayout.Width(28))) Options.Step(part, 1);
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>After changing your character in MSCLoader's settings: a few seconds of preview.</summary>
+        void DrawPreviewPopup()
+        {
+            if (!MP.InGame) return;
+            Rect box = new Rect(20f, Screen.height - 360f, 240f, 340f);
+            GUI.Box(box, GUIContent.none, panel);
+            GUI.Label(new Rect(box.x + 10f, box.y + 6f, 220f, 24f), "Your character", header);
+            Rect pic = new Rect(box.x + 10f, box.y + 32f, 220f, 300f);
+            if (CharacterPreview.Ready) GUI.DrawTexture(pic, CharacterPreview.Texture, ScaleMode.ScaleToFit);
+            else GUI.Label(pic, "Loading...", small);
+        }
+
         void Footer()
         {
+            DrawCharacter();
             DrawTestTools();
             GUILayout.Space(8);
             GUILayout.Label("F2 hides this panel" + (MP.InGame ? " · T to chat · hold Tab for players" : ""), small);
@@ -516,6 +594,7 @@ namespace MSCMP.UI
             if (cam == null) return;
             List<NetPlayer> shown = new List<NetPlayer>(Session.Remotes);
             foreach (Bots.Bot b in Bots.All) shown.Add(b.P);
+            foreach (NetPlayer rb in Bots.RemotePlayers) shown.Add(rb);
             foreach (NetPlayer p in shown)
             {
                 RemoteAvatar a = p.Avatar;

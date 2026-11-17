@@ -47,6 +47,10 @@ namespace MSCMP.Net
         // --- players ---
         PlayerState = 40,       // State channel
         Gesture = 41,           // Reliable
+        BotSpawn = 42,          // owner slot, bot id, name, appearance (also a body change)
+        BotRemove = 43,         // owner slot, bot id
+        BotStates = 44,         // State channel: owner slot, count, (bot id, snapshot)...
+        BotAction = 45,         // owner slot, bot id, 1 = wave / 2 = reach (+ point)
 
         // --- objects ---
         ObjOwnRequest = 50,
@@ -81,7 +85,7 @@ namespace MSCMP.Net
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 2;          // 2: world values (VarValue/VarAdd), batches from clients
+        public const ushort Version = 3;          // 3: bots everyone sees (Bot*); 2: world values, batches from clients
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

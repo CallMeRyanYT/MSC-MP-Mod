@@ -2,19 +2,19 @@
 
 **Play My Summer Car together with your friends.** Invite them through Steam, they load straight into your world, and you build the Satsuma, drink beer at the lake and crash the van together.
 
-> **Status: 0.9.1, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
+> **Status: 0.9.2, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
 
 ## What it does
 
 - **Steam invites.** No IP addresses, port forwarding, Hamachi or Tailscale. Invite a friend from the game and they click *Join*.
 - **You share one world.** Your friend gets an exact copy of your save when they join. Their own save is backed up first and put back automatically when they leave, even if the game crashed.
-- **Real My Summer Car people as player models.** The players are rebuilt from the game's own character models, clothes and animations. They walk, run, crouch, look around, sit in cars, steer and wave. You can pick your body and clothes in the mod settings.
+- **Real My Summer Car people as player models.** The players are rebuilt from the game's own character models, clothes and animations. They walk, run, crouch, look around, sit in cars, steer and wave. You can pick your body and clothes in the mod settings or the F2 panel, with a live preview.
 - **Everything you pick up is shared.** Carrying, dropping and throwing items and car parts works for everyone. Things the game creates (removed parts, bought groceries) appear for everyone too.
 - **All the cars.** One player drives and everyone else sees the wheels turn, the suspension work and the engine rev. You can ride in the passenger seat when a friend drives.
 - **The world reacts to everyone.** Doors, light switches, taps, the TV and radio, dashboard buttons, the ignition, and building the car together: assembling and removing parts, tightening every bolt, wiring.
 - **One clock, one sky, one wallet.** Everybody has the host's time of day and weather. Money is shared between all players. Hunger, thirst and the other needs stay separate for each player.
 - **Liquids and wear too.** Fuel, oil, coolant, brake and clutch fluid, battery charge, wear, damage and paint colour are the same for everyone.
-- **Test bots.** Spawn pretend players from the F2 panel to try things alone: they copy you, follow, wander, walk to the shop or bring you items.
+- **Bots that help out.** Spawn helpers from the F2 panel that everyone in the game can see. They copy you, follow you (and ride along in your car), wander and walk to places, and do jobs: fetch the item you're looking at, collect every bottle or log into a pile, tidy up, or carry something to the shop.
 - **Join any time.** A friend who joins later sees the world exactly as it is right now.
 - **Chat, player list and name tags.**
 - **No fights over objects.** The host decides who is holding or driving what, so items can't be duplicated or pulled out of someone's hands.
