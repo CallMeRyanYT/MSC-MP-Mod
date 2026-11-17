@@ -199,6 +199,7 @@ namespace MSCMP
                 Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
+            Safe("SelfBody", SelfBody.Update);
             Safe("CharacterPreview", UI.CharacterPreview.Update);
             Notifications.Prune();
         }
@@ -209,6 +210,8 @@ namespace MSCMP
             Safe("FsmSync.Late", FsmSync.LateUpdate);
             Safe("PlayerSync.Late", PlayerSync.LateUpdate);
             Safe("CharacterPreview.Late", UI.CharacterPreview.LateUpdate);
+            Safe("Loopback.Late", Loopback.LateUpdate);
+            Safe("SelfBody.Late", SelfBody.LateUpdate);
             Safe("Bots.Late", Bots.LateUpdate);
             Safe("VehicleSync.Late", VehicleSync.LateUpdate);
             Safe("LocalPlayer.Late", LocalPlayer.LateUpdate);
@@ -258,6 +261,7 @@ namespace MSCMP
             Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
             Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);
+            Safe("Loopback.WorldLeft", Loopback.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);
             GameUtil.ClearCaches();
         }

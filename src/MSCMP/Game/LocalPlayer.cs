@@ -168,6 +168,55 @@ namespace MSCMP.Game
         public static void LateUpdate()
         {
             if (PassengerOf != null) HoldPassengerPose();
+            try { UpdatePlatform(); } catch (Exception e) { Log.ExceptionOnce("LocalPlayer.Platform", e); }
+        }
+
+        // ------------------------------------------------------------ standing on vehicles
+
+        /// <summary>The vehicle you are standing on (boat, van back, trailer...), or null.</summary>
+        public static NetVehicle Platform { get; private set; }
+        static Vector3 platformLocal, platformPrevWorld;
+        static float platformPrevYaw;
+
+        /// <summary>Carries you along with the vehicle you stand on while somebody drives it,
+        /// like standing on a boat or in the back of the van.</summary>
+        static void UpdatePlatform()
+        {
+            NetVehicle found = null;
+            if (Bound && Controller != null && PassengerOf == null && string.IsNullOrEmpty(CurrentVehicleName))
+            {
+                RaycastHit[] hits = Physics.RaycastAll(Feet + Vector3.up * 0.3f, Vector3.down, 0.9f, GameUtil.WorldMask);
+                float best = float.MaxValue;
+                Collider ground = null;
+                for (int i = 0; i < hits.Length; i++)
+                {
+                    if (hits[i].collider.isTrigger || GameUtil.IsPersonCollider(hits[i].collider)) continue;
+                    if (hits[i].distance < best) { best = hits[i].distance; ground = hits[i].collider; }
+                }
+                if (ground != null)
+                    foreach (NetVehicle v in VehicleSync.All)
+                        if (v.Root != null && ground.transform.IsChildOf(v.Root)) { found = v; break; }
+            }
+
+            if (found != null && found == Platform)
+            {
+                Transform r = found.Root;
+                Vector3 delta = r.TransformPoint(platformLocal) - platformPrevWorld;
+                float turn = Mathf.DeltaAngle(platformPrevYaw, r.eulerAngles.y);
+                if (delta.sqrMagnitude > 1e-8f && delta.sqrMagnitude < 25f)
+                {
+                    Player.position += delta;
+                    lastPos += delta; // being carried is not walking
+                }
+                if (Mathf.Abs(turn) > 0.001f && Mathf.Abs(turn) < 45f) Player.Rotate(0f, turn, 0f, Space.World);
+            }
+            Platform = found;
+            if (found != null)
+            {
+                platformLocal = found.Root.InverseTransformPoint(Player.position);
+                platformPrevWorld = Player.position;
+                platformPrevYaw = found.Root.eulerAngles.y;
+            }
         }
 
         public static PlayerSnapshot Sample()
@@ -199,6 +248,24 @@ namespace MSCMP.Game
                 s.Yaw = Mathf.DeltaAngle(0f, (Quaternion.Inverse(r.rotation) * View.transform.rotation).eulerAngles.y);
                 s.Pitch = Mathf.DeltaAngle(0f, (Quaternion.Inverse(r.rotation) * View.transform.rotation).eulerAngles.x);
                 s.Velocity = veh.Body != null ? veh.Body.velocity : Vector3.zero;
+                s.Body = Quaternion.Inverse(r.rotation) * Player.rotation; // how the body really sits in it
+            }
+            else if (Platform != null && Platform.Root != null)
+            {
+                // Standing on a vehicle (boat, van back, trailer): everything relative to it, so
+                // everyone sees us move with it.
+                Transform r = Platform.Root;
+                s.Vehicle = Platform.Id;
+                s.Seat = 0;
+                s.Position = r.InverseTransformPoint(feet);
+                s.Head = r.InverseTransformPoint(head);
+                s.Body = Quaternion.Inverse(r.rotation) * Player.rotation;
+                s.Yaw = Mathf.DeltaAngle(0f, s.Body.eulerAngles.y);
+                s.Pitch = pitch;
+                s.Velocity = Quaternion.Inverse(r.rotation) * velocity; // walking on the deck (being carried isn't counted)
+                float eye = head.y - feet.y;
+                if (standingEye < 0f || eye > standingEye) standingEye = Mathf.Min(eye, 2.2f);
+                s.Crouch = Mathf.Clamp01((standingEye - eye - 0.12f) / 0.7f);
             }
             else
             {

@@ -29,8 +29,10 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Doors, switches, the TV, taps, the dashboard and the ignition** are shared.
 - **Money** is one wallet for everybody: what anyone earns or spends changes everybody's money.
 - **Time and weather** follow the host. If a friend sleeps, they wake up at the host's time.
+- **Riding along**: you can stand on the boat, in the back of the van or on a trailer while somebody drives. You move with it, and everyone sees you on it.
+- **Your own body**: look down to see your character. Emotes are shown from the front for a moment (both can be switched off in the settings).
 - **Waving**: press **G**. **Emotes**: press **B** and pick one (number keys or click): wave, point, cheer, shrug, drink, facepalm, sit down, dance.
-- **Finding each other**: friends who are far away or behind you get a marker with their name and distance. Press the **middle mouse button** to ping: everybody sees a marker where you're looking for 10 seconds. In the F2 panel, **Go to** next to a player teleports you to them (on foot only).
+- **Finding each other**: friends who are far away or behind you get a marker with their name and distance. Press the **middle mouse button** to ping: everybody sees a marker where you're looking for 10 seconds. The host can teleport: in the F2 panel, **Go to** next to a player teleports the host to them, and **Bring** teleports that player to the host (on foot only).
 - **How friends are doing**: the player list (Tab / F2) shows if someone is drunk, hungry, thirsty, tired or needs the toilet. Drunk friends sway; sleeping friends lie in bed.
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.
 - **Player list**: hold **Tab**. The F2 panel also shows everyone's status and ping.
@@ -43,7 +45,7 @@ Two switches in the mod settings: **Share my own songs** and **Play friends' son
 
 ## Bots
 
-Press **F2** in the world and click **Spawn bot**. Everyone in the game sees your bots (with your name in their name tag). Pick **All** or a bot's number, then give an order:
+Bots are the host's tool (or yours when you play alone). Press **F2** in the world and click **Spawn bot**. Everyone in the game sees your bots (with your name in their name tag). Pick **All** or a bot's number, then give an order:
 
 - **Copy me**, **Follow** (a following bot rides along in your passenger seat when you drive), **Stay**, **Wander**, **Go to** home, Teimo's shop or Fleetari's.
 - Jobs. "That" means the item in the middle of your screen; the panel shows what you're looking at.
@@ -80,6 +82,7 @@ Open MSCLoader's **Settings** in the main menu → **MSC Multiplayer**:
 
 In the F2 panel, under each player:
 
+- **Go to** teleports you to them; **Bring** teleports them to you (both on foot). Only the host can teleport.
 - **may drive**: untick to stop them taking the driver's seat (they can still ride as a passenger).
 - **shared money**: untick to give them their own wallet. Their earning and spending no longer changes yours.
 - **Kick** removes them from the game.

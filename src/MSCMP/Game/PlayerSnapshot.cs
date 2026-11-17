@@ -14,7 +14,8 @@ namespace MSCMP
 
         public float Time;          // sender's clock
         public uint Vehicle;        // 0 = on foot. Otherwise Position/Yaw/Head are local to that vehicle.
-        public byte Seat;           // 1 = driver, 2 = passenger
+        public byte Seat;           // 1 = driver, 2 = passenger, 0 = standing on it (boat deck, van back...)
+        public Quaternion Body;     // with a vehicle: the body's rotation relative to the vehicle
         public Vector3 Position;    // feet
         public float Yaw;           // body yaw in degrees
         public float Pitch;         // camera pitch in degrees (+ = looking down)
@@ -39,7 +40,17 @@ namespace MSCMP
             w.Unit8(Crouch);
             w.Byte(Flags);
             w.UInt(Held);
+            if (Vehicle != 0)
+            {
+                Quaternion q = Body;
+                if (q.w < 0f) { q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w; }
+                w.Half(q.x, 1f); w.Half(q.y, 1f); w.Half(q.z, 1f); w.Half(q.w, 1f);
+            }
         }
+
+        public bool OnVehicle { get { return Vehicle != 0; } }
+        public bool Seated { get { return Vehicle != 0 && Seat != 0; } }
+        public bool StandingOnVehicle { get { return Vehicle != 0 && Seat == 0; } }
 
         public static PlayerSnapshot Read(NetReader r)
         {
@@ -55,6 +66,13 @@ namespace MSCMP
             s.Crouch = r.Unit8();
             s.Flags = r.Byte();
             s.Held = r.UInt();
+            s.Body = Quaternion.identity;
+            if (s.Vehicle != 0)
+            {
+                Quaternion q = new Quaternion(r.Half(1f), r.Half(1f), r.Half(1f), r.Half(1f));
+                float m = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+                s.Body = m > 0.01f ? new Quaternion(q.x / m, q.y / m, q.z / m, q.w / m) : Quaternion.identity;
+            }
             return s;
         }
     }

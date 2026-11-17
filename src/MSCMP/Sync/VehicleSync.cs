@@ -40,7 +40,9 @@ namespace MSCMP.Sync
         public byte Driver = 255;   // 255 = nobody
         public byte Passenger = 255;
         public bool Replica;
-        public bool OriginalKinematic;
+        public bool IsBike;                 // the moped: ridden astride
+        public bool OriginalKinematic;      // what the game wants (kept up to date while we override)
+        public bool ForcedKinematic;        // what we last set while it is a copy
         public bool ControllerWasEnabled = true;
         public readonly SnapshotBuffer<VehState> Buffer = new SnapshotBuffer<VehState>(16);
         public float StillSince = -1f;
@@ -171,6 +173,7 @@ namespace MSCMP.Sync
             }
             string n = root.name.ToUpperInvariant();
             v.UsesVanSeat = n.StartsWith("HAYOSIKO") || n.StartsWith("GIFU") || n.StartsWith("KEKMET") || n.StartsWith("COMBINE");
+            v.IsBike = n.StartsWith("JONNEZ");
             v.LocalBounds = ComputeLocalBounds(root);
 
             byId[v.Id] = v;
@@ -262,11 +265,14 @@ namespace MSCMP.Sync
                 v.OriginalKinematic = v.Body.isKinematic;
                 if (v.Controller != null) { v.ControllerWasEnabled = v.Controller.enabled; v.Controller.enabled = false; }
                 v.Buffer.Clear();
-                v.Body.isKinematic = v.Driver == 255; // parked copies stay put; driven copies simulate
+                ForceKinematic(v, v.Driver == 255); // parked copies stay put; driven copies simulate
             }
             else if (!replica && v.Replica)
             {
+                NoteGameKinematic(v);
                 v.Replica = false;
+                // What the game wants *now* (e.g. the moped's kickstand was flipped up meanwhile),
+                // not what it wanted when this became a copy.
                 v.Body.isKinematic = v.OriginalKinematic;
                 // The game switches the controller on when you enter driving mode and off when
                 // you leave; only keep it on if we are the one sitting in the driver's seat.
@@ -275,6 +281,19 @@ namespace MSCMP.Sync
                 v.RestSent = true;
             }
             UpdateDriveTriggerLock(v);
+        }
+
+        /// <summary>While it is a copy, the game may still switch its physics on or off (kickstand,
+        /// tow hook...). Remember that as what the game wants, so it is restored correctly.</summary>
+        static void NoteGameKinematic(NetVehicle v)
+        {
+            if (v.Replica && v.Body != null && v.Body.isKinematic != v.ForcedKinematic) v.OriginalKinematic = v.Body.isKinematic;
+        }
+
+        static void ForceKinematic(NetVehicle v, bool on)
+        {
+            v.ForcedKinematic = on;
+            if (v.Body.isKinematic != on) v.Body.isKinematic = on;
         }
 
         static bool LocalPlayerDrives(NetVehicle v)
@@ -308,6 +327,7 @@ namespace MSCMP.Sync
                 if (v.Root == null || v.Body == null) continue;
                 if (v.Replica)
                 {
+                    NoteGameKinematic(v);
                     v.Body.isKinematic = v.OriginalKinematic;
                     if (v.Controller != null) v.Controller.enabled = LocalPlayerDrives(v);
                     v.Replica = false;
@@ -489,7 +509,8 @@ namespace MSCMP.Sync
                 if (over > 0f) t.Pos += t.Vel * Mathf.Min(over, 0.4f);
 
                 bool driven = v.Driver != 255 || over < 1f;
-                if (v.Body.isKinematic != !driven) v.Body.isKinematic = !driven;
+                NoteGameKinematic(v);
+                ForceKinematic(v, !driven);
 
                 if (v.Body.isKinematic)
                 {

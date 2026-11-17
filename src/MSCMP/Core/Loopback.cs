@@ -66,13 +66,19 @@ namespace MSCMP
             {
                 nextSend = now + 0.033f; // like PlayerSync
                 PlayerSnapshot s = LocalPlayer.Sample();
-                if (s.Vehicle != 0)
+                if (s.StandingOnVehicle)
+                {
+                    s.Position.x += 1.2f; // on the same deck, beside you
+                    s.Head.x += 1.2f;
+                }
+                else if (s.Vehicle != 0)
                 {
                     // Driving: the copy sits in the other front seat.
                     s.Seat = (byte)(s.Seat == 1 ? 2 : 1);
                     s.Position.x = -s.Position.x;
                     s.Head.x = -s.Head.x;
                     s.Yaw = -s.Yaw;
+                    s.Body = new Quaternion(s.Body.x, -s.Body.y, -s.Body.z, s.Body.w);
                 }
                 else
                 {

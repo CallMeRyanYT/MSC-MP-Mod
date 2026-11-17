@@ -263,6 +263,7 @@ namespace MSCMP.UI
         void DrawTestTools()
         {
             if (!MP.InGame) return;
+            if (Session.Active && !Session.IsHost) return; // bots are the host's (and anyone playing alone)
             GUILayout.Space(8);
             bool loop = GUILayout.Toggle(Loopback.On, " Test: see yourself and your bots as friends see you", text);
             if (loop != Loopback.On) Loopback.Set(loop);
@@ -469,9 +470,14 @@ namespace MSCMP.UI
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Space(12);
-                if (MP.InGame && p.Phase == PlayerPhase.Playing && GUILayout.Button("Go to", button, GUILayout.Width(56))) Markers.GoTo(p);
                 if (host)
                 {
+                    // Teleporting is for the host only.
+                    if (MP.InGame && p.Phase == PlayerPhase.Playing)
+                    {
+                        if (GUILayout.Button("Go to", button, GUILayout.Width(56))) Markers.GoTo(p);
+                        if (GUILayout.Button("Bring", button, GUILayout.Width(56))) PlayerCare.Bring(p);
+                    }
                     p.CanDrive = GUILayout.Toggle(p.CanDrive, " may drive", small, GUILayout.Width(80));
                     p.SharedWallet = GUILayout.Toggle(p.SharedWallet, " shared money", small, GUILayout.Width(100));
                     if (GUILayout.Button("Kick", button, GUILayout.Width(48))) Session.Kick(p, "kicked by the host");

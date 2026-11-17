@@ -51,6 +51,7 @@ namespace MSCMP.Game
             Session.On(Msg.PlayerStatus, OnStatus);
             Session.On(Msg.PlayerRestore, OnRestore);
             Session.On(Msg.PlayerDied, OnDied);
+            Session.On(Msg.PlayerTeleport, OnTeleport);
             Session.PlayerLeft += p => { if (Session.IsHost) Remember(p); };
         }
 
@@ -117,6 +118,12 @@ namespace MSCMP.Game
             }
             NetVehicle v = VehicleSync.ById(s.Vehicle);
             if (v == null || v.Root == null) return false;
+            if (s.StandingOnVehicle)
+            {
+                feet = v.Root.TransformPoint(s.Position);
+                yaw = (v.Root.rotation * s.Body).eulerAngles.y;
+                return true;
+            }
             // Beside their door: the driver sits on the left, the passenger on the right.
             feet = v.Root.TransformPoint(s.Position) + v.Root.right * (s.Seat == 1 ? -1.6f : 1.6f);
             yaw = v.Root.eulerAngles.y;
@@ -166,6 +173,32 @@ namespace MSCMP.Game
             if (float.IsNaN(feet.x) || feet.sqrMagnitude > 1e8f) return;
             if (LocalPlayer.Teleport(feet, yaw)) Notifications.Show("You're back where you left off.");
             if (hasStatus) LocalPlayer.ApplyStatus(s);
+        }
+
+        /// <summary>Host: brings a player to the host (they appear behind the host).</summary>
+        public static void Bring(NetPlayer p)
+        {
+            if (!Session.IsHost || p == null || p.IsLocal || !LocalPlayer.Bound) return;
+            if (!string.IsNullOrEmpty(LocalPlayer.CurrentVehicleName) || LocalPlayer.PassengerOf != null)
+            {
+                Notifications.Show("Get out of the vehicle first, so there is room next to you.");
+                return;
+            }
+            Transform me = LocalPlayer.Player;
+            NetWriter w = Session.Begin(Msg.PlayerTeleport);
+            w.Vector3(LocalPlayer.Feet - me.forward * 1.6f);
+            w.Float(me.eulerAngles.y);
+            Session.SendTo(p, true, Channel.Reliable);
+            Notifications.Show("Bringing " + p.Name + " to you.");
+        }
+
+        static void OnTeleport(NetPlayer from, NetReader r)
+        {
+            Vector3 feet = r.Vector3();
+            float yaw = r.Float();
+            if (!Session.IsClient || from == null || !from.IsHost) return;
+            if (float.IsNaN(feet.x) || feet.sqrMagnitude > 1e8f) return;
+            if (LocalPlayer.Teleport(feet, yaw)) Notifications.Show(from.Name + " brought you to them.");
         }
 
         /// <summary>Client: we died. The host forgets our place; we come back fresh.</summary>

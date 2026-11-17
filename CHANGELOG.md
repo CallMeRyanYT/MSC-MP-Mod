@@ -1,10 +1,18 @@
 # Changelog
 
-## 0.11.0 - 2026-11-17
+## 0.11.0 - 2026-11-18
 
 **Both players need 0.11.0** (the network protocol changed).
 
 - **Shared music.** Your own `.ogg` songs from the game's `Radio` and `CD1`–`CD3` folders now play for everyone: when you play one on a radio or CD player, your friends hear the same song from the same speaker, in time (re-synced every few seconds). Friends who don't have the song download it from you through the host in the background and keep it in a `music_cache` folder (kept under 500 MB). The host decides who controls each speaker, so two people can't fight over one radio. Two new settings: *Share my own songs* and *Play friends' songs*.
+- **Ride along standing up.** Stand on the boat, in the back of the van, on a trailer or on any other vehicle while somebody drives it, and you move with it. Everyone sees you standing on it in the right place instead of sliding off. You don't have to take a seat.
+- **See your own body.** Look down and you see your character, the same one your friends see (its head is hidden so it doesn't block your view). When you play an emote, a camera shows you from the front for a few seconds. Both can be switched off in the settings.
+- **Host-only tools.** Only the host can teleport now: **Go to** (teleport to a player) and the new **Bring** (teleport a player to you). The bot menu and the loopback test are for the host too (and for anyone playing alone).
+- Fixed: held items could still bump into things (for example an engine block stuck on the workbench). Whatever anybody holds now passes through everything: its colliders turn into triggers while held, so parts can still be fitted, and everything is put back exactly when it's let go. Items friends and bots carry no longer push anything around either.
+- Fixed: players who joined couldn't get the moped going (it stayed stuck after flipping the kickstand up). Copies of vehicles and items remembered the game's physics setting from when you joined; they now follow what the game wants at the moment you take over.
+- Fixed: seated players faced the wrong way and leaned back on the moped (and could sit crooked in other vehicles). Each player's real body orientation in the seat is now shared, and on the moped they sit astride.
+- Fixed: a nearby friend could get a "1 m" marker at the top of the screen. Markers are only for friends 25 m or more away.
+- Fixed: the loopback test copy was never posed or cleaned up properly.
 
 ## 0.10.0 - 2026-11-17
 

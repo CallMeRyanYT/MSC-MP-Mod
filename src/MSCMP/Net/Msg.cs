@@ -90,6 +90,9 @@ namespace MSCMP.Net
         MusicStop = 78,         // speaker, owner
         MusicRequest = 79,      // "send me this song" (to the host, or host -> the song's owner)
         MusicChunk = 80,        // Bulk channel: crc, size, offset, bytes
+
+        // --- host tools ---
+        PlayerTeleport = 81,    // host -> client: "come here" (feet position, facing)
     }
 
     internal static class Protocol

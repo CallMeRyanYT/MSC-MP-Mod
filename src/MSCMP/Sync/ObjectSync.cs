@@ -32,7 +32,10 @@ namespace MSCMP.Sync
         public bool RestSent = true;
         public bool Dynamic;               // created after the save was loaded
         public byte HeldBy = 255;          // slot holding it in hand
-        public bool HandKinematic;         // we froze it while it is in our hand (undone on drop)
+        // While somebody holds it, it passes through everything (like single player):
+        public Collider[] GhostColliders;  // the colliders we changed
+        public bool[] GhostWasTrigger, GhostWasEnabled;
+        public bool Ghost;
 
         public bool Alive { get { return Go != null && Body != null; } }
     }
@@ -150,6 +153,7 @@ namespace MSCMP.Sync
 
         public static void OnWorldLeft()
         {
+            ClearGhosts();
             Clear();
         }
 
@@ -339,6 +343,7 @@ namespace MSCMP.Sync
 
         static void ReleaseAllReplicas()
         {
+            ClearGhosts();
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
@@ -372,6 +377,7 @@ namespace MSCMP.Sync
             if (!Session.Connected) return;
 
             CheckLocalHold();
+            UpdateGhosts();
             CheckDestroyed();
 
             if (now >= nextScan)
@@ -402,7 +408,11 @@ namespace MSCMP.Sync
                 NetObject o = all[i];
                 if (!o.Replica || !o.Alive) continue;
                 if (o == localHeld) continue; // picked up this instant; ownership is being sorted out
-                if (!o.Body.isKinematic) o.Body.isKinematic = true; // the game turned it back on
+                if (!o.Body.isKinematic)
+                {
+                    o.OriginalKinematic = false; // the game switched its physics on: that's what it wants later
+                    o.Body.isKinematic = true;
+                }
                 if (o.Buffer.Count == 0) continue;
                 ObjState a, b;
                 float alpha, over;
@@ -429,17 +439,10 @@ namespace MSCMP.Sync
         {
             GameObject held = LocalPlayer.HeldObject;
             NetObject o = held != null ? Of(held) : null;
-            // Like single player: what you hold has no collisions with the world, so it can go
-            // through walls and engine blocks. (Makes sure nothing of ours turned them back on.)
-            if (o != null && o == localHeld && o.Alive && !o.Body.isKinematic)
-            {
-                o.Body.isKinematic = true;
-                o.HandKinematic = true;
-            }
             if (o == localHeld) return;
 
             NetObject previous = localHeld;
-            if (previous != null) { previous.HeldBy = 255; ReleaseFromHand(previous); }
+            if (previous != null) previous.HeldBy = 255;
             localHeld = o;
             // Something we were refused (or lost) while holding it becomes a copy now that it's dropped.
             if (previous != null && previous.Alive && !OwnedLocally(previous)) ApplyRole(previous);
@@ -472,21 +475,80 @@ namespace MSCMP.Sync
             }
         }
 
-        /// <summary>Undoes our freezing when an item leaves the hand, unless the game put it
-        /// somewhere fixed (installed on a car or onto another part).</summary>
-        static void ReleaseFromHand(NetObject o)
+        // ================================================================ held items pass through
+
+        static readonly List<NetObject> ghosts = new List<NetObject>();
+        static readonly HashSet<NetObject> wantGhost = new HashSet<NetObject>();
+
+        /// <summary>Whatever anybody holds (you, a friend, a bot) passes through walls, engine
+        /// blocks and other things, the way items in your hand do in single player: its
+        /// colliders become triggers while it is held. Triggers still work, so parts can still
+        /// be fitted. Everything is put back exactly when it is let go.</summary>
+        static void UpdateGhosts()
         {
-            if (!o.HandKinematic) return;
-            o.HandKinematic = false;
-            if (!o.Alive || !o.Body.isKinematic) return;
-            Transform parent = o.Go.transform.parent;
-            for (Transform t = parent; t != null; t = t.parent)
-                if (Of(t.gameObject) != null) return; // installed onto another part
-            if (parent != null)
-                foreach (NetVehicle v in VehicleSync.All)
-                    if (v.Root != null && parent.IsChildOf(v.Root)) return; // installed on a car
-            o.Body.isKinematic = false;
-            o.Body.WakeUp();
+            wantGhost.Clear();
+            if (localHeld != null && localHeld.Alive) wantGhost.Add(localHeld);
+            foreach (NetPlayer p in Session.Remotes) AddHeld(p);
+            foreach (NetPlayer p in Bots.RemotePlayers) AddHeld(p);
+            foreach (Bots.Bot b in Bots.All) if (b.Carry != null && b.Carry.Alive) wantGhost.Add(b.Carry);
+
+            for (int i = ghosts.Count - 1; i >= 0; i--)
+                if (!wantGhost.Contains(ghosts[i])) { SetGhost(ghosts[i], false); ghosts.RemoveAt(i); }
+            foreach (NetObject o in wantGhost)
+                if (!o.Ghost) { SetGhost(o, true); ghosts.Add(o); }
+        }
+
+        static void AddHeld(NetPlayer p)
+        {
+            if (p == null || !p.HasState || p.Last.Held == 0) return;
+            NetObject o = ById(p.Last.Held);
+            if (o != null && o.Alive) wantGhost.Add(o);
+        }
+
+        static void SetGhost(NetObject o, bool on)
+        {
+            if (on)
+            {
+                if (o.Go == null) return;
+                Collider[] cols = o.Go.GetComponentsInChildren<Collider>(true);
+                o.GhostColliders = cols;
+                o.GhostWasTrigger = new bool[cols.Length];
+                o.GhostWasEnabled = new bool[cols.Length];
+                for (int i = 0; i < cols.Length; i++)
+                {
+                    Collider c = cols[i];
+                    if (c == null) continue;
+                    o.GhostWasTrigger[i] = c.isTrigger;
+                    o.GhostWasEnabled[i] = c.enabled;
+                    if (c.isTrigger) continue;
+                    MeshCollider mc = c as MeshCollider;
+                    if (mc != null && !mc.convex) c.enabled = false; // can't be a trigger
+                    else c.isTrigger = true;
+                }
+                o.Ghost = true;
+            }
+            else
+            {
+                Collider[] cols = o.GhostColliders;
+                if (cols != null)
+                    for (int i = 0; i < cols.Length; i++)
+                    {
+                        Collider c = cols[i];
+                        if (c == null) continue;
+                        // Only undo what is still the way we left it; if the game changed a
+                        // collider meanwhile (fitting a part), its choice stands.
+                        if (!o.GhostWasTrigger[i] && c.isTrigger && c.enabled) c.isTrigger = false;
+                        if (o.GhostWasEnabled[i] && !c.enabled && !o.GhostWasTrigger[i] && c is MeshCollider && !((MeshCollider)c).convex) c.enabled = true;
+                    }
+                o.GhostColliders = null;
+                o.Ghost = false;
+            }
+        }
+
+        static void ClearGhosts()
+        {
+            foreach (NetObject o in ghosts) SetGhost(o, false);
+            ghosts.Clear();
         }
 
         static void SendOwnedStates()

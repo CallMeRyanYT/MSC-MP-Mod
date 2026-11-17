@@ -108,7 +108,7 @@ namespace MSCMP.UI
                     float d = Vector3.Distance(me, at);
                     bool onScreen;
                     Vector2 pos = ScreenPoint(cam, at, out onScreen);
-                    if (onScreen && d < MarkerFrom) continue; // the name tag shows them
+                    if (d < MarkerFrom) continue; // close by: the name tag (or a glance around) is enough
                     DrawLabel(pos, (onScreen ? "" : "< ") + p.Name + "  " + Distance(d), new Color(0.55f, 0.85f, 1f), style);
                 }
             }
@@ -165,10 +165,11 @@ namespace MSCMP.UI
         /// <summary>Teleports you next to another player (F2 panel).</summary>
         public static void GoTo(NetPlayer p)
         {
+            if (Session.Active && !Session.IsHost) { Notifications.Show("Only the host can teleport."); return; }
             Vector3 feet; float yaw;
             if (!PlayerCare.WorldFeet(p, out feet, out yaw)) { Notifications.Show("Can't see where " + p.Name + " is yet."); return; }
             Vector3 back = Quaternion.Euler(0f, yaw, 0f) * Vector3.back * 1.8f;
-            if (p.Last.Vehicle != 0) back = Vector3.zero; // already beside their door
+            if (p.Last.Seated) back = Vector3.zero; // already beside their door
             if (LocalPlayer.Teleport(feet + back, yaw)) Notifications.Show("Teleported to " + p.Name + ".");
         }
     }

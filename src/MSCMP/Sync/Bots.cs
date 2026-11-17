@@ -522,6 +522,13 @@ namespace MSCMP.Sync
 
         static void CopyOffset(ref PlayerSnapshot s, int index)
         {
+            if (s.StandingOnVehicle)
+            {
+                // Standing on the same vehicle, a step to the side.
+                s.Position.x += 1.0f + index * 0.7f;
+                s.Head.x += 1.0f + index * 0.7f;
+                return;
+            }
             if (s.Vehicle != 0)
             {
                 // Driver -> passenger seat (the first bot); the others "sit" in the same seat.
@@ -529,6 +536,7 @@ namespace MSCMP.Sync
                 s.Position.x = -s.Position.x;
                 s.Head.x = -s.Head.x;
                 if (s.Seat == 2) s.Yaw = -s.Yaw;
+                s.Body = new Quaternion(s.Body.x, -s.Body.y, -s.Body.z, s.Body.w); // mirrored to the other seat
                 return;
             }
             Vector3 side = Quaternion.Euler(0f, s.Yaw, 0f) * Vector3.right * (1.5f + index * 0.9f);

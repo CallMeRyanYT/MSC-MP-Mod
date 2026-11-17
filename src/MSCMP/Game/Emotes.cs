@@ -23,6 +23,7 @@ namespace MSCMP.Game
             PlayerSync.SendGesture(id);
             Bots.MirrorEmote(id);
             Loopback.OnGesture(id);
+            Avatars.SelfBody.OnEmote(id);
         }
     }
 }

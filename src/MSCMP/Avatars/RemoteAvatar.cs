@@ -37,6 +37,17 @@ namespace MSCMP.Avatars
 
         public const float InterpDelay = 0.085f;   // 30 Hz updates + room for a late packet
 
+        /// <summary>Your own body: shown at the newest state (no network delay), never
+        /// bumps into you, and the head can be hidden so it doesn't block the camera.</summary>
+        public bool IsSelf;
+
+        public void SetHeadHidden(bool hidden)
+        {
+            if (Rig == null || Rig.Head == null) return;
+            Vector3 want = hidden ? Vector3.one * 0.001f : Vector3.one;
+            if (Rig.Head.localScale != want) Rig.Head.localScale = want;
+        }
+
         public Vector3 HeadPosition
         {
             get { return Rig != null && Rig.Head != null ? Rig.Head.position : (Object != null ? Object.transform.position + Vector3.up * 1.7f : Vector3.zero); }
@@ -157,7 +168,7 @@ namespace MSCMP.Avatars
         {
             if (Object == null) return;
             bool inWorld = Player.Phase == PlayerPhase.Playing || Player.Phase == PlayerPhase.Syncing;
-            float renderTime = Time.realtimeSinceStartup - InterpDelay;
+            float renderTime = Time.realtimeSinceStartup - (IsSelf ? 0f : InterpDelay);
 
             PlayerSnapshot a, b;
             float alpha, over;
@@ -176,10 +187,25 @@ namespace MSCMP.Avatars
             NetVehicle veh = current.Vehicle != 0 ? VehicleSync.ById(current.Vehicle) : null;
             Transform t = Object.transform;
 
+            if (current.StandingOnVehicle)
+            {
+                // Standing on a boat deck / in the van's back: turn their place on the vehicle
+                // into a place in the world, so they move with it. Then pose as usual.
+                if (veh == null || veh.Root == null) { if (Object.activeSelf) Object.SetActive(false); return; }
+                Transform r = veh.Root;
+                current.Position = r.TransformPoint(current.Position);
+                current.Head = r.TransformPoint(current.Head);
+                current.Yaw = (r.rotation * current.Body).eulerAngles.y;
+                current.Velocity = r.rotation * current.Velocity;
+                current.Vehicle = 0;
+                current.Seat = 0;
+                veh = null;
+            }
+
             if (veh != null && veh.Root != null)
             {
                 SetPose(Pose.Seated);
-                t.rotation = veh.Root.rotation;
+                t.rotation = veh.Root.rotation * current.Body; // exactly how they sit in it
                 // Rough placement; LateUpdate aligns the head exactly with where they look from.
                 t.position = veh.Root.TransformPoint(current.Position);
                 if (Rig.Collider != null) Rig.Collider.enabled = false;
@@ -199,7 +225,7 @@ namespace MSCMP.Avatars
                     UpdateWalkAnimation();
                     return;
                 }
-                if (Rig.Collider != null) Rig.Collider.enabled = true;
+                if (Rig.Collider != null) Rig.Collider.enabled = !IsSelf;
                 t.position = current.Position + Vector3.up * groundOffset;
                 float d = Drunk01, ph = Time.time * 1.3f;
                 // Drunk: the whole body sways a little.
@@ -359,8 +385,10 @@ namespace MSCMP.Avatars
                 if (veh != null && veh.Root != null && Rig.Head != null)
                 {
                     if (current.Seat == 1) ReachForWheel(t);
-                    // Head looks where the player looks (relative to the vehicle).
-                    AimHead(Mathf.Clamp(current.Yaw, -100f, 100f), current.Pitch, t, 0f);
+                    if (veh.IsBike) Straddle(t);
+                    // Head looks where the player looks (relative to how the body sits).
+                    float look = Mathf.DeltaAngle(current.Body.eulerAngles.y, current.Yaw);
+                    AimHead(Mathf.Clamp(look, -100f, 100f), current.Pitch, t, 0f);
                     // Move the whole body so the head sits exactly where their camera is.
                     Vector3 target = veh.Root.TransformPoint(current.Head) - t.up * 0.08f;
                     t.position += target - Rig.Head.position;
@@ -369,6 +397,16 @@ namespace MSCMP.Avatars
         }
 
         float headLead;
+
+        /// <summary>On the moped: knees apart around the tank, leaning a little into the bars.</summary>
+        void Straddle(Transform t)
+        {
+            Rotate(Rig.ThighLeft, -14f, t.forward);
+            Rotate(Rig.ThighRight, 14f, t.forward);
+            Rotate(Rig.SpineMiddle, 10f, t.right);
+            Rotate(Rig.ShoulderLeft, -20f, t.right);
+            Rotate(Rig.ShoulderRight, -20f, t.right);
+        }
 
         float EmoteWeight()
         {
@@ -557,6 +595,7 @@ namespace MSCMP.Avatars
             r.Yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, t);
             r.Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t);
             r.Crouch = Mathf.Lerp(a.Crouch, b.Crouch, t);
+            r.Body = Quaternion.Slerp(a.Body, b.Body, t);
             return r;
         }
     }

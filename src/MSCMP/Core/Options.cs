@@ -10,7 +10,7 @@ namespace MSCMP
     internal static class Options
     {
         static SettingsDropDownList body, shirt, pants, face;
-        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic;
+        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, ownBody, emoteCam;
         static SettingsSliderInt maxPlayers;
         public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey;
 
@@ -29,6 +29,8 @@ namespace MSCMP
             markers = Settings.AddCheckBox("mscmp_markers", "Show where far-away friends are (name and distance)", true, null);
             shareMusic = Settings.AddCheckBox("mscmp_sharemusic", "Share my own songs (Radio / CD folders) with friends", true, null);
             hearMusic = Settings.AddCheckBox("mscmp_hearmusic", "Play friends' songs", true, null);
+            ownBody = Settings.AddCheckBox("mscmp_ownbody", "See my own body (look down)", true, null);
+            emoteCam = Settings.AddCheckBox("mscmp_emotecam", "Show my emotes from the front for a moment", true, null);
             verbose = Settings.AddCheckBox("mscmp_verbose", "Detailed log (for bug reports)", false, () => Log.Verbose = verbose.GetValue());
             Settings.AddButton("Open log folder", OpenLogFolder);
 
@@ -121,6 +123,16 @@ namespace MSCMP
         public static bool NameTags
         {
             get { try { return nameTags == null || nameTags.GetValue(); } catch { return true; } }
+        }
+
+        public static bool ShowOwnBody
+        {
+            get { try { return ownBody == null || ownBody.GetValue(); } catch { return true; } }
+        }
+
+        public static bool EmoteCamera
+        {
+            get { try { return emoteCam == null || emoteCam.GetValue(); } catch { return true; } }
         }
 
         public static bool ShareMusic
