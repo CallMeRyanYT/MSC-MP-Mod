@@ -22,6 +22,14 @@ namespace MSCMP.UI
         bool cursorTaken;
         bool subscribed;
         bool wasInGame, wasInMenu;
+        float relockUntil;
+
+        /// <summary>True while one of the game's own menus has the mouse (pause menu etc.).</summary>
+        static bool GameMenuOpen()
+        {
+            HutongGames.PlayMaker.FsmBool inMenu = GameUtil.GlobalBool("PlayerInMenu");
+            return inMenu != null && inMenu.Value;
+        }
 
         GUIStyle panel, title, text, small, button, toast, tagStyle, chatLine, input, header;
         Texture2D dark, darker, accent;
@@ -78,22 +86,28 @@ namespace MSCMP.UI
             MultiplayerUIState.Typing = chatOpen;
             MultiplayerUIState.PanelOpen = panelOpen;
 
+            // The game's own pause menu (Esc) closes ours, so the two never fight over the mouse.
+            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; }
+
             // In game the cursor belongs to the game; borrow it while our panel or chat is open.
-            bool wantCursor = MP.InGame && (chatOpen || panelOpen);
+            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen);
             if (wantCursor != cursorTaken)
             {
                 cursorTaken = wantCursor;
                 LocalPlayer.SetInputBlocked(wantCursor);
-                if (!wantCursor)
-                {
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
-                }
+                if (!wantCursor) relockUntil = Time.realtimeSinceStartup + 0.75f;
             }
             if (cursorTaken)
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
+            }
+            else if (Time.realtimeSinceStartup < relockUntil && MP.InGame && !GameMenuOpen())
+            {
+                // Hand the mouse back: lock it for a few frames in a row (one call is not always
+                // enough while the window is processing the click that closed our panel).
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
             }
         }
 
@@ -102,7 +116,12 @@ namespace MSCMP.UI
             if (cursorTaken)
             {
                 cursorTaken = false;
-                try { LocalPlayer.SetInputBlocked(false); } catch { }
+                try
+                {
+                    LocalPlayer.SetInputBlocked(false);
+                    if (MP.InGame) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
+                }
+                catch { }
             }
         }
 

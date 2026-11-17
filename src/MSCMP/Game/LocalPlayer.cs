@@ -26,7 +26,7 @@ namespace MSCMP.Game
         static Vector3 lastPos;
         static float lastTime;
         static Vector3 velocity;
-        static float standingEye = 1.6f;
+        static float standingEye = -1f;     // learned from the player's own standing eye height
         static bool inputBlocked;
 
         // Passenger state
@@ -72,6 +72,7 @@ namespace MSCMP.Game
             inMenu = GameUtil.GlobalBool("PlayerInMenu");
             lastPos = Player.position;
             lastTime = Time.time;
+            standingEye = -1f;
             Log.Info("Local player bound (camera " + View.name + ")");
             return true;
         }
@@ -206,8 +207,9 @@ namespace MSCMP.Game
                 s.Pitch = pitch;
                 s.Velocity = velocity;
                 float eye = head.y - feet.y;
-                if (eye > standingEye) standingEye = Mathf.Min(eye, 2.2f);
-                s.Crouch = Mathf.Clamp01((standingEye - eye) / 0.9f);
+                if (standingEye < 0f || eye > standingEye) standingEye = Mathf.Min(eye, 2.2f);
+                // A dead zone so head bob and slopes never read as crouching.
+                s.Crouch = Mathf.Clamp01((standingEye - eye - 0.12f) / 0.7f);
             }
 
             byte flags = 0;
@@ -224,19 +226,42 @@ namespace MSCMP.Game
 
         // ------------------------------------------------------------ input blocking (chat/menu)
 
+        static bool[] savedLooks = new bool[0];
+        static bool savedInputEnabled = true, savedInMenu;
+
+        /// <summary>Freezes looking/walking while our menu or chat is open, and puts back exactly
+        /// what was there before (the game's own menus are left alone).</summary>
         public static void SetInputBlocked(bool blocked)
         {
             if (blocked == inputBlocked) return;
             inputBlocked = blocked;
             try
             {
-                if (input != null) input.enabled = !blocked && PassengerOf == null;
-                for (int i = 0; i < mouseLooks.Length; i++)
-                    if (mouseLooks[i] != null) mouseLooks[i].enabled = !blocked;
-                if (inMenu != null) inMenu.Value = blocked;
+                if (blocked)
+                {
+                    savedLooks = new bool[mouseLooks.Length];
+                    for (int i = 0; i < mouseLooks.Length; i++)
+                    {
+                        savedLooks[i] = mouseLooks[i] != null && mouseLooks[i].enabled;
+                        if (mouseLooks[i] != null) mouseLooks[i].enabled = false;
+                    }
+                    savedInputEnabled = input != null && input.enabled;
+                    if (input != null) input.enabled = false;
+                    savedInMenu = inMenu != null && inMenu.Value;
+                    if (inMenu != null) inMenu.Value = true;
+                }
+                else
+                {
+                    for (int i = 0; i < mouseLooks.Length && i < savedLooks.Length; i++)
+                        if (mouseLooks[i] != null) mouseLooks[i].enabled = savedLooks[i];
+                    if (input != null) input.enabled = savedInputEnabled && PassengerOf == null;
+                    if (inMenu != null) inMenu.Value = savedInMenu;
+                }
             }
             catch (Exception e) { Log.ExceptionOnce("SetInputBlocked", e); }
         }
+
+        public static bool InputBlocked { get { return inputBlocked; } }
 
         // ------------------------------------------------------------ passenger seat
 

@@ -931,6 +931,15 @@ namespace MSCMP.Sync
                 applyingRemote = false;
             }
 
+            // Show the other player reaching for what they used.
+            if (!GameSession.CatchingUp)
+            {
+                NetPlayer who = Session.BySlot(p.Origin);
+                if (who != null && !who.IsLocal && who.Avatar != null && who.Avatar.Visible &&
+                    (who.Avatar.HeadPosition - pm.transform.position).sqrMagnitude < 9f)
+                    who.Avatar.Reach(pm.transform.position);
+            }
+
             if (h != null && before != null)
             {
                 for (int k = 0; k < h.Spawners.Length; k++)

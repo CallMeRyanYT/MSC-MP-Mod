@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1 - 2026-11-17
+
+- Fixed: other players' bodies stretched up into the sky. Crouching moved the hips without the legs and kept adding up every frame. Standing players were also wrongly read as slightly crouched.
+- Fixed: bone adjustments (head look, crouch, steering) could pile up frame after frame on bones no animation drives.
+- Fixed: the mouse sometimes stayed unlocked after closing the F2 panel or chat. The mod now gives the mouse back to the game reliably and restores exactly what it changed. Esc closes the panel.
+- New animations: small steps when turning on the spot, tucked legs while jumping or falling, and players reach towards the doors, switches, bolts and parts they use.
+
 ## 0.9.0 - 2026-11-17
 
 A complete rewrite. Nothing of the old networking code is left.

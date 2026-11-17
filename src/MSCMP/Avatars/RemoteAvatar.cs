@@ -26,6 +26,10 @@ namespace MSCMP.Avatars
         float gestureUntil;
         string gestureClip;
         Vector3 restPelvisLocal;
+        BoneGuard[] guards = new BoneGuard[0];
+        float lastYaw, yawRate;
+        Vector3 reachTarget;
+        float reachStart, reachUntil;
         float groundOffset;
         bool groundCalibrated;
         Vector3 smoothVelocity;
@@ -64,6 +68,13 @@ namespace MSCMP.Avatars
             Object.transform.position = pos;
             Object.transform.rotation = rot;
             restPelvisLocal = Rig.Pelvis.localPosition;
+            guards = new BoneGuard[]
+            {
+                new BoneGuard(Rig.Skeleton), new BoneGuard(Rig.Pelvis), new BoneGuard(Rig.SpineMiddle), new BoneGuard(Rig.SpineUpper),
+                new BoneGuard(Rig.HeadPivot), new BoneGuard(Rig.Head), new BoneGuard(Rig.ThighLeft), new BoneGuard(Rig.ThighRight),
+                new BoneGuard(Rig.KneeLeft), new BoneGuard(Rig.KneeRight), new BoneGuard(Rig.AnkleLeft), new BoneGuard(Rig.AnkleRight),
+                new BoneGuard(Rig.ShoulderLeft), new BoneGuard(Rig.ShoulderRight)
+            };
             Object.SetActive(active || hasCurrent);
         }
 
@@ -145,10 +156,19 @@ namespace MSCMP.Avatars
             Vector3 flat = new Vector3(smoothVelocity.x, 0f, smoothVelocity.z);
             float speed = flat.magnitude;
             bool carrying = current.Held != 0;
+            float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+            yawRate = Mathf.Lerp(yawRate, Mathf.DeltaAngle(lastYaw, current.Yaw) / dt, Mathf.Clamp01(dt * 10f));
+            lastYaw = current.Yaw;
 
             string legs, left, right;
             float legSpeed = 1f;
-            if (speed < 0.25f)
+            if (speed < 0.25f && Mathf.Abs(yawRate) > 50f && Rig.LegsAnim != null && Rig.LegsAnim[AvatarFactory.Clips.Walk] != null)
+            {
+                // Turning on the spot: small steps.
+                legs = AvatarFactory.Clips.Walk; left = AvatarFactory.Clips.LeftIdle; right = AvatarFactory.Clips.RightIdle;
+                legSpeed = 0.6f;
+            }
+            else if (speed < 0.25f)
             {
                 legs = AvatarFactory.Clips.Stand; left = AvatarFactory.Clips.LeftIdle; right = AvatarFactory.Clips.RightIdle;
             }
@@ -219,14 +239,25 @@ namespace MSCMP.Avatars
         {
             if (Object == null || !Object.activeSelf || !hasCurrent || Rig == null) return;
             Transform t = Object.transform;
+            // Undo last frame's adjustments on bones no animation is driving, so they never add up.
+            for (int i = 0; i < guards.Length; i++) guards[i].Begin();
+            try { PoseBones(t); }
+            finally { for (int i = 0; i < guards.Length; i++) guards[i].End(); }
+        }
 
+        void PoseBones(Transform t)
+        {
             if (pose == Pose.Standing)
             {
                 if (legsClip == AvatarFactory.Clips.Run && Rig.Pelvis != null)
                     Rig.Pelvis.localPosition = restPelvisLocal; // the run clip is from a child's body
-                if (current.Crouch > 0.02f) ApplyCrouch(current.Crouch);
+                float bend = current.Crouch;
+                bool airborne = (current.Flags & PlayerSnapshot.FlagGrounded) == 0 && Mathf.Abs(current.Velocity.y) > 1.2f;
+                if (airborne) bend = Mathf.Max(bend, 0.25f); // tuck the legs while jumping or falling
+                if (bend > 0.02f) ApplyCrouch(bend);
                 CalibrateGround();
                 AimHead(0f, current.Pitch, t);
+                ApplyReach();
             }
             else if (pose == Pose.Seated)
             {
@@ -266,13 +297,34 @@ namespace MSCMP.Avatars
             Rotate(Rig.AnkleLeft, -50f * c, right);
             Rotate(Rig.AnkleRight, -50f * c, right);
             Rotate(Rig.SpineMiddle, 25f * c, right);
-            // Keep the feet on the ground by lowering the hips.
-            if (Rig.AnkleLeft != null && Rig.AnkleRight != null && Rig.Pelvis != null)
+            // Keep the feet on the ground by lowering the whole skeleton (the legs hang from it,
+            // not from the pelvis bone). Clamped, so a strange rig can never fly off.
+            if (Rig.AnkleLeft != null && Rig.AnkleRight != null && Rig.Skeleton != null)
             {
                 float ankle = Mathf.Min(Rig.AnkleLeft.position.y, Rig.AnkleRight.position.y);
-                float drop = ankle - (t.position.y + 0.09f);
-                Rig.Pelvis.position -= Vector3.up * drop;
+                float drop = Mathf.Clamp(ankle - (t.position.y + 0.09f + groundOffset), 0f, 1.1f);
+                Rig.Skeleton.position -= Vector3.up * drop;
             }
+        }
+
+        /// <summary>Reach towards something the player just used (a door, a switch, a bolt...).</summary>
+        public void Reach(Vector3 target)
+        {
+            reachTarget = target;
+            reachStart = Time.time;
+            reachUntil = Time.time + 0.8f;
+        }
+
+        void ApplyReach()
+        {
+            if (Time.time >= reachUntil || Rig.ShoulderRight == null || Rig.ShoulderRight.childCount == 0) return;
+            float k = Mathf.Sin(Mathf.Clamp01((Time.time - reachStart) / 0.8f) * Mathf.PI); // in and out
+            Transform shoulder = Rig.ShoulderRight;
+            Vector3 along = shoulder.GetChild(0).position - shoulder.position;
+            Vector3 want = reachTarget - shoulder.position;
+            if (along.sqrMagnitude < 1e-6f || want.sqrMagnitude < 1e-6f) return;
+            Quaternion full = Quaternion.FromToRotation(along, want);
+            shoulder.rotation = Quaternion.Slerp(Quaternion.identity, full, k * 0.85f) * shoulder.rotation;
         }
 
         void ReachForWheel(Transform t)
@@ -312,5 +364,37 @@ namespace MSCMP.Avatars
             r.Crouch = Mathf.Lerp(a.Crouch, b.Crouch, t);
             return r;
         }
+    
+    /// <summary>Remembers what we did to a bone last frame. If no animation has touched it since,
+    /// put it back first; otherwise keep the animation's value. Stops adjustments piling up.</summary>
+    internal sealed class BoneGuard
+    {
+        readonly Transform t;
+        Quaternion baseRot, writtenRot;
+        Vector3 basePos, writtenPos;
+        bool has;
+
+        public BoneGuard(Transform t) { this.t = t; }
+
+        public void Begin()
+        {
+            if (t == null) return;
+            if (has && t.localRotation == writtenRot && t.localPosition == writtenPos)
+            {
+                t.localRotation = baseRot;
+                t.localPosition = basePos;
+            }
+            baseRot = t.localRotation;
+            basePos = t.localPosition;
+        }
+
+        public void End()
+        {
+            if (t == null) return;
+            writtenRot = t.localRotation;
+            writtenPos = t.localPosition;
+            has = true;
+        }
     }
+}
 }
