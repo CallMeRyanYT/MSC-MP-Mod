@@ -385,7 +385,8 @@ namespace MSCMP.Saves
                 }
                 File.Delete(JournalPath);
                 ClientHasHostSave = false;
-                Log.Console("Your own save game has been restored.");
+                Log.Info("Your own save game has been restored.");
+                Notifications.Show("Your own save game has been restored.");
                 return true;
             }
             catch (Exception e)

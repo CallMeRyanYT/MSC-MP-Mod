@@ -443,8 +443,8 @@ namespace MSCMP.Sync
                 foreach (Bot b in bots)
                 {
                     if (Log.Verbose) Log.Debug(b.P.Name + " (" + b.OrderText + "): " + b.P.Avatar.Diagnostics());
-                    if (b.P.Avatar.LooksBroken() && b.BrokenReports++ < 5)
-                        Log.Warn(b.P.Name + " body looks wrong: " + b.P.Avatar.Diagnostics());
+                    if (b.P.Avatar.LooksBroken() && b.BrokenReports++ < 2)
+                        Log.Info(b.P.Name + " body looks off: " + b.P.Avatar.Diagnostics());
                 }
             }
         }
@@ -670,9 +670,18 @@ namespace MSCMP.Sync
                 if (b.FetchTarget == null)
                 {
                     string what = b.Kind != null ? b.Kind : "loose things";
-                    Notifications.Show(b.P.Name + ": done, " + b.Done + " " + what + " piled up.");
+                    Vector3 pile = b.Pile;
                     Command(b, Order.Stay);
                     b.OrderText = "finished (" + b.Done + " " + what + ")";
+                    // One message for the whole job, when the last helper on this pile is done.
+                    int total = 0;
+                    foreach (Bot other in bots)
+                    {
+                        if ((other.Pile - pile).sqrMagnitude > 0.01f) continue;
+                        if (other.Order == Order.Collect) return;
+                        total += other.Done;
+                    }
+                    Notifications.Show("Done: " + total + " " + what + " piled up.");
                     return;
                 }
             }
@@ -754,6 +763,9 @@ namespace MSCMP.Sync
                 float fromPile = Flat(p - around);
                 if (fromPile > radius || fromPile < leaveWithin) continue;
                 if (kind != null && !string.Equals(Pretty(o.Name), kind, StringComparison.OrdinalIgnoreCase)) continue;
+                // Tidying only moves loose items (shop goods, tools, bottles...), never car parts
+                // you laid out on purpose. The game names those "(itemx)", parts "(Clone)".
+                if (kind == null && o.Name.IndexOf("(itemx)", StringComparison.OrdinalIgnoreCase) < 0) continue;
                 bool taken = false;
                 foreach (Bot other in bots) if (other.Carry == o || other.FetchTarget == o) taken = true;
                 if (taken) continue;

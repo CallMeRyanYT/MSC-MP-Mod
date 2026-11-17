@@ -1,5 +1,9 @@
 # Troubleshooting
 
+## Where are the mod's messages?
+
+The mod keeps MSCLoader's console quiet while you play. Everything goes to `mscmp.log` (see [log files](#log-files)). Switch on **Detailed log** in the mod settings to also see warnings and errors in the console.
+
 ## The MSC Multiplayer panel doesn't show up
 
 - Press **F2** in the main menu.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.3 - 2026-11-17
+
+Works together with 0.9.2 (same network protocol), but both players should update for the fixes.
+
+- Fixed: for players who joined, items in their hand bumped into walls and engine blocks. Held items now pass through things for everyone, like in single player. The game handles what you hold, and the mod no longer switches its physics back on.
+- Fixed: running players and bots floated about 0.8 m above the ground (the run animation is borrowed from a child's body and lifted the whole skeleton). The lower foot is now kept on the ground.
+- Fixed: crouching players hovered about 12 cm above the ground.
+- Better crouching: feet stay planted while the hips go back, the back leans in for balance and the arms come forward.
+- Better looking around: looking up and down now moves the neck and upper back too, not just the head, and the head leads into turns.
+- Leaning shows: the back bends sideways or forward when a player's view moves off-centre from their feet.
+- Less delay: players and cars update 30 times a second (was 20) and are shown 85 ms / 70 ms behind (was 120 ms / 100 ms). Items update 20 times a second (was 12), 75 ms behind (was 100 ms).
+- The MSCLoader console stays closed while you play. Warnings and errors only go to `mscmp.log`, and appear in the console only with **Detailed log** switched on. The bot body check no longer floods it.
+- Bots: **Tidy up** only moves loose items (shop goods, tools, bottles), never car parts you laid out. A job shared by several bots ends with one "Done" message instead of one per bot.
+
 ## 0.9.2 - 2026-11-17
 
 - Fixed: the panel could say "Steam is not running" for the whole session even with Steam open. The mod checked Steam only once, at start-up. Now it starts Steam's connection itself if the game hasn't, keeps retrying every few seconds, has a **Try again now** button, and says exactly what's wrong (Steam closed, game not started through Steam, nobody logged in).

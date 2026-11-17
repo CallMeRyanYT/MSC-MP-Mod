@@ -41,7 +41,7 @@ Press **F2** in the world and click **Spawn bot**. Everyone in the game sees you
 - Jobs. "That" means the item in the middle of your screen; the panel shows what you're looking at.
   - **Fetch that**: brings you that item.
   - **Collect all like that**: carries every item of that kind within 80 m (empty bottles, firewood, beer cases...) into a pile where you're standing. Give the order to several bots and they share the work.
-  - **Tidy up here**: piles up the loose things within 15 m.
+  - **Tidy up here**: piles up the loose items within 15 m (shop goods, tools, bottles; never car parts).
   - **Fetch anything**: brings you the nearest thing it can carry.
   - **Take that to** home / Teimo's / Fleetari's: carries the item there and waits. Tick *Teleport* to skip the walk.
 - **Wave**, **Next body**, **Remove**.

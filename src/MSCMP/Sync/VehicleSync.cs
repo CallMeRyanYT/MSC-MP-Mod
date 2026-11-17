@@ -69,7 +69,7 @@ namespace MSCMP.Sync
         static float nextSend;
         static readonly NetWriter w2 = new NetWriter(256);
 
-        const float SendInterval = 0.05f;
+        const float SendInterval = 0.033f;     // 30 Hz
 
         public static IList<NetVehicle> All { get { return vehicles; } }
 
@@ -473,7 +473,7 @@ namespace MSCMP.Sync
         public static void FixedUpdate()
         {
             if (!Session.Active || !Session.Connected) return;
-            float renderTime = Time.realtimeSinceStartup - 0.1f;
+            float renderTime = Time.realtimeSinceStartup - 0.07f;
             for (int i = 0; i < vehicles.Count; i++)
             {
                 NetVehicle v = vehicles[i];

@@ -32,6 +32,7 @@ namespace MSCMP.Sync
         public bool RestSent = true;
         public bool Dynamic;               // created after the save was loaded
         public byte HeldBy = 255;          // slot holding it in hand
+        public bool HandKinematic;         // we froze it while it is in our hand (undone on drop)
 
         public bool Alive { get { return Go != null && Body != null; } }
     }
@@ -64,7 +65,7 @@ namespace MSCMP.Sync
         public static event Action<NetObject> Registered;
 
         static readonly string[] ExcludedRoots = { "PLAYER", "TRAFFIC", "NPC_CARS", "HUMANS", "Systems", "GUI", "RALLY", "DRAGRACE", "Sheets", "TRAIN", "MSCMP", "MSCMP_Player" };
-        const float SendRate = 0.08f;          // ~12 Hz per object while moving
+        const float SendRate = 0.05f;          // 20 Hz per object while moving
         const float MoveEpsilon = 0.004f;
         const float AngleEpsilon = 0.6f;
         const int ParentTagRagdoll = 0;
@@ -304,9 +305,20 @@ namespace MSCMP.Sync
         {
             if (!o.Alive) return;
             bool replica = Session.Active && Session.Connected && !OwnedLocally(o);
-            // Never freeze something that is in our own hand: a frozen (kinematic) object held by
-            // the game's hand joint passes through walls. It becomes a copy once it is dropped.
-            if (replica && LocalPlayer.HeldObject == o.Go) replica = false;
+            if (LocalPlayer.HeldObject == o.Go)
+            {
+                // In our own hand the game is in charge, exactly like single player: the item
+                // follows the hand and passes through walls and engine blocks. We only stop
+                // treating it as a copy; it becomes one again when dropped if it isn't ours.
+                if (o.Replica)
+                {
+                    o.Replica = false;
+                    o.RestSent = true;
+                    o.SentPos = o.Go.transform.position;
+                    o.SentRot = o.Go.transform.rotation;
+                }
+                return;
+            }
             if (replica && !o.Replica)
             {
                 o.OriginalKinematic = o.Body.isKinematic;
@@ -384,7 +396,7 @@ namespace MSCMP.Sync
         public static void FixedUpdate()
         {
             if (!Session.Active || !Session.Connected) return;
-            float renderTime = Time.realtimeSinceStartup - 0.1f;
+            float renderTime = Time.realtimeSinceStartup - 0.075f;
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
@@ -417,10 +429,17 @@ namespace MSCMP.Sync
         {
             GameObject held = LocalPlayer.HeldObject;
             NetObject o = held != null ? Of(held) : null;
+            // Like single player: what you hold has no collisions with the world, so it can go
+            // through walls and engine blocks. (Makes sure nothing of ours turned them back on.)
+            if (o != null && o == localHeld && o.Alive && !o.Body.isKinematic)
+            {
+                o.Body.isKinematic = true;
+                o.HandKinematic = true;
+            }
             if (o == localHeld) return;
 
             NetObject previous = localHeld;
-            if (previous != null) previous.HeldBy = 255;
+            if (previous != null) { previous.HeldBy = 255; ReleaseFromHand(previous); }
             localHeld = o;
             // Something we were refused (or lost) while holding it becomes a copy now that it's dropped.
             if (previous != null && previous.Alive && !OwnedLocally(previous)) ApplyRole(previous);
@@ -451,6 +470,23 @@ namespace MSCMP.Sync
                 w.UInt(o.Id);
                 Session.SendToHost(true, Channel.Reliable);
             }
+        }
+
+        /// <summary>Undoes our freezing when an item leaves the hand, unless the game put it
+        /// somewhere fixed (installed on a car or onto another part).</summary>
+        static void ReleaseFromHand(NetObject o)
+        {
+            if (!o.HandKinematic) return;
+            o.HandKinematic = false;
+            if (!o.Alive || !o.Body.isKinematic) return;
+            Transform parent = o.Go.transform.parent;
+            for (Transform t = parent; t != null; t = t.parent)
+                if (Of(t.gameObject) != null) return; // installed onto another part
+            if (parent != null)
+                foreach (NetVehicle v in VehicleSync.All)
+                    if (v.Root != null && parent.IsChildOf(v.Root)) return; // installed on a car
+            o.Body.isKinematic = false;
+            o.Body.WakeUp();
         }
 
         static void SendOwnedStates()

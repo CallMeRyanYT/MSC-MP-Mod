@@ -71,29 +71,32 @@ namespace MSCMP
             Write("INF", message);
         }
 
-        /// <summary>Shown in the MSCLoader console and logged.</summary>
+        // The MSCLoader console stays quiet while you play: everything goes to mscmp.log, and
+        // only with "Detailed log" switched on is it also printed to the console.
+
+        /// <summary>Logged; also printed to the MSCLoader console with "Detailed log" on.</summary>
         public static void Console(string message)
         {
             Write("INF", message);
-            try { ModConsole.Print("<color=#7fd7ff>[MSCMP]</color> " + message); } catch { }
+            if (Verbose) try { ModConsole.Print("<color=#7fd7ff>[MSCMP]</color> " + message); } catch { }
         }
 
         public static void Warn(string message)
         {
             Write("WRN", message);
-            try { ModConsole.Warning("[MSCMP] " + message); } catch { }
+            if (Verbose) try { ModConsole.Warning("[MSCMP] " + message); } catch { }
         }
 
         public static void Error(string message)
         {
             Write("ERR", message);
-            try { ModConsole.Error("[MSCMP] " + message); } catch { }
+            if (Verbose) try { ModConsole.Error("[MSCMP] " + message); } catch { }
         }
 
         public static void Exception(string context, Exception e)
         {
             Write("EXC", context + ": " + e);
-            try { ModConsole.Error("[MSCMP] " + context + ": " + e.GetType().Name + ": " + e.Message); } catch { }
+            if (Verbose) try { ModConsole.Error("[MSCMP] " + context + ": " + e.GetType().Name + ": " + e.Message); } catch { }
         }
 
         /// <summary>Logs an exception only once per key to avoid flooding the log every frame.</summary>

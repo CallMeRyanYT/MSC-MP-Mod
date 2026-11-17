@@ -34,7 +34,7 @@ namespace MSCMP.Avatars
         bool groundCalibrated;
         Vector3 smoothVelocity;
 
-        public const float InterpDelay = 0.12f;
+        public const float InterpDelay = 0.085f;   // 30 Hz updates + room for a late packet
 
         public Vector3 HeadPosition
         {
@@ -281,12 +281,31 @@ namespace MSCMP.Avatars
             {
                 if (legsClip == AvatarFactory.Clips.Run && Rig.Pelvis != null)
                     Rig.Pelvis.localPosition = restPelvisLocal; // the run clip is from a child's body
+                float groundY = t.position.y - groundOffset;   // where their feet really are
                 float bend = current.Crouch;
                 bool airborne = (current.Flags & PlayerSnapshot.FlagGrounded) == 0 && Mathf.Abs(current.Velocity.y) > 1.2f;
                 if (airborne) bend = Mathf.Max(bend, 0.25f); // tuck the legs while jumping or falling
-                if (bend > 0.02f) ApplyCrouch(bend);
+                float torsoLean = 0f;
+                if (bend > 0.02f) torsoLean = ApplyCrouch(bend, t, groundY);
+                else KeepFeetOnGround(groundY);
                 CalibrateGround();
-                AimHead(0f, current.Pitch, t);
+
+                // Leaning: bend the spine so the head sits where their camera is.
+                Vector3 local = Quaternion.Inverse(Quaternion.Euler(0f, current.Yaw, 0f)) * (current.Head - current.Position);
+                float side = DeadZone(local.x, 0.04f);
+                float forward = DeadZone(local.z, 0.12f);
+                float sideAngle = Mathf.Clamp(Mathf.Atan2(side, 1.2f) * Mathf.Rad2Deg * 1.3f, -35f, 35f);
+                float fwdAngle = Mathf.Clamp(Mathf.Atan2(forward, 1.2f) * Mathf.Rad2Deg * 1.3f, -25f, 40f);
+                Rotate(Rig.SpineMiddle, -sideAngle * 0.5f, t.forward);
+                Rotate(Rig.SpineUpper, -sideAngle * 0.5f, t.forward);
+                Rotate(Rig.SpineMiddle, fwdAngle * 0.5f, t.right);
+                Rotate(Rig.SpineUpper, fwdAngle * 0.5f, t.right);
+                Transform head = Rig.HeadPivot ?? Rig.Head;
+                Rotate(head, sideAngle * 0.4f, t.forward); // keep the eyes roughly level
+
+                // The head leads into turns, and follows the camera up and down.
+                headLead = Mathf.Lerp(headLead, Mathf.Clamp(yawRate * 0.12f, -40f, 40f), Mathf.Clamp01(Time.deltaTime * 8f));
+                AimHead(headLead, current.Pitch, t, torsoLean + fwdAngle);
                 ApplyReach();
             }
             else if (pose == Pose.Seated)
@@ -296,7 +315,7 @@ namespace MSCMP.Avatars
                 {
                     if (current.Seat == 1) ReachForWheel(t);
                     // Head looks where the player looks (relative to the vehicle).
-                    AimHead(Mathf.Clamp(current.Yaw, -100f, 100f), current.Pitch, t);
+                    AimHead(Mathf.Clamp(current.Yaw, -100f, 100f), current.Pitch, t, 0f);
                     // Move the whole body so the head sits exactly where their camera is.
                     Vector3 target = veh.Root.TransformPoint(current.Head) - t.up * 0.08f;
                     t.position += target - Rig.Head.position;
@@ -304,37 +323,75 @@ namespace MSCMP.Avatars
             }
         }
 
-        void AimHead(float yaw, float pitch, Transform body)
+        float headLead;
+
+        static float DeadZone(float v, float zone)
+        {
+            if (v > zone) return v - zone;
+            if (v < -zone) return v + zone;
+            return 0f;
+        }
+
+        /// <summary>Turns the head (and some of the neck and back) to where the camera looks.
+        /// <paramref name="torsoLean"/> is how far the back already leans forward, so the eyes
+        /// still end up looking where the player looks.</summary>
+        void AimHead(float yaw, float pitch, Transform body, float torsoLean)
         {
             Transform head = Rig.HeadPivot ?? Rig.Head;
             if (head == null) return;
-            float p = Mathf.Clamp(pitch, -70f, 70f) * 0.75f;
-            head.rotation = Quaternion.AngleAxis(yaw * 0.8f, body.up) * Quaternion.AngleAxis(p, body.right) * head.rotation;
+            float p = Mathf.Clamp(pitch, -75f, 80f);
+            if (Rig.SpineMiddle != null)
+                Rig.SpineMiddle.rotation = Quaternion.AngleAxis(p * 0.15f, body.right) * Rig.SpineMiddle.rotation;
             if (Rig.SpineUpper != null)
-                Rig.SpineUpper.rotation = Quaternion.AngleAxis(yaw * 0.2f, body.up) * Quaternion.AngleAxis(Mathf.Clamp(pitch, -70f, 70f) * 0.2f, body.right) * Rig.SpineUpper.rotation;
+                Rig.SpineUpper.rotation = Quaternion.AngleAxis(yaw * 0.25f, body.up) * Quaternion.AngleAxis(p * 0.3f, body.right) * Rig.SpineUpper.rotation;
+            float headPitch = Mathf.Clamp(p * 0.55f - torsoLean, -70f, 70f);
+            head.rotation = Quaternion.AngleAxis(yaw * 0.75f, body.up) * Quaternion.AngleAxis(headPitch, body.right) * head.rotation;
         }
 
         /// <summary>Crouching built from world-space joint rotations, independent of how the
-        /// game's skeleton axes are set up: thighs forward, knees back, feet flat, lean in.</summary>
-        void ApplyCrouch(float c)
+        /// game's skeleton axes are set up: knees forward, hips back over planted feet, back
+        /// leaning in for balance, arms a little forward. Returns the forward lean of the back.</summary>
+        float ApplyCrouch(float c, Transform t, float groundY)
         {
-            Transform t = Object.transform;
             Vector3 right = t.right;
-            Rotate(Rig.ThighLeft, -80f * c, right);
-            Rotate(Rig.ThighRight, -80f * c, right);
-            Rotate(Rig.KneeLeft, 130f * c, right);
-            Rotate(Rig.KneeRight, 130f * c, right);
-            Rotate(Rig.AnkleLeft, -50f * c, right);
-            Rotate(Rig.AnkleRight, -50f * c, right);
-            Rotate(Rig.SpineMiddle, 25f * c, right);
-            // Keep the feet on the ground by lowering the whole skeleton (the legs hang from it,
-            // not from the pelvis bone). Clamped, so a strange rig can never fly off.
-            if (Rig.AnkleLeft != null && Rig.AnkleRight != null && Rig.Skeleton != null)
+            bool feet = Rig.AnkleLeft != null && Rig.AnkleRight != null && Rig.Skeleton != null;
+            Vector3 feetBefore = feet ? (Rig.AnkleLeft.position + Rig.AnkleRight.position) * 0.5f : Vector3.zero;
+            Rotate(Rig.ThighLeft, -90f * c, right);
+            Rotate(Rig.ThighRight, -90f * c, right);
+            Rotate(Rig.KneeLeft, 135f * c, right);
+            Rotate(Rig.KneeRight, 135f * c, right);
+            Rotate(Rig.AnkleLeft, -45f * c, right);
+            Rotate(Rig.AnkleRight, -45f * c, right);
+            float lean = 32f * c;
+            Rotate(Rig.SpineMiddle, lean * 0.6f, right);
+            Rotate(Rig.SpineUpper, lean * 0.4f, right);
+            Rotate(Rig.ShoulderLeft, -22f * c, right);
+            if (current.Held == 0 && Time.time >= gestureUntil) Rotate(Rig.ShoulderRight, -22f * c, right);
+            if (feet)
             {
+                // Feet stay where they were (the hips go back), then the body comes down until
+                // they touch the ground. Clamped, so a strange rig can never fly off.
+                Vector3 after = (Rig.AnkleLeft.position + Rig.AnkleRight.position) * 0.5f;
+                Vector3 shift = feetBefore - after;
+                shift.y = 0f;
+                Rig.Skeleton.position += Vector3.ClampMagnitude(shift, 0.6f);
                 float ankle = Mathf.Min(Rig.AnkleLeft.position.y, Rig.AnkleRight.position.y);
-                float drop = Mathf.Clamp(ankle - (t.position.y + 0.09f + groundOffset), 0f, 1.1f);
+                float drop = Mathf.Clamp(ankle - (groundY + 0.09f), 0f, 1.1f);
                 Rig.Skeleton.position -= Vector3.up * drop;
             }
+            return lean;
+        }
+
+        /// <summary>Some animation clips come from other bodies (the run is a child's) and lift
+        /// the whole skeleton off the ground. Put the lower foot back down.</summary>
+        void KeepFeetOnGround(float groundY)
+        {
+            if (Rig.AnkleLeft == null || Rig.AnkleRight == null || Rig.Skeleton == null) return;
+            float ankle = Mathf.Min(Rig.AnkleLeft.position.y, Rig.AnkleRight.position.y);
+            float excess = ankle - (groundY + 0.09f);
+            bool borrowedClip = legsClip == AvatarFactory.Clips.Run;
+            if (borrowedClip || Mathf.Abs(excess) > 0.3f)
+                Rig.Skeleton.position -= Vector3.up * Mathf.Clamp(excess, -0.4f, 1.6f);
         }
 
         /// <summary>Reach towards something the player just used (a door, a switch, a bolt...).</summary>

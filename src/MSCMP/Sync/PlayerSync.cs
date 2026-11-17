@@ -9,7 +9,7 @@ namespace MSCMP.Sync
     /// <summary>Sends the local player's state and keeps everybody else's body up to date.</summary>
     internal static class PlayerSync
     {
-        const float SendInterval = 0.05f; // 20 Hz
+        const float SendInterval = 0.033f; // 30 Hz
         static float nextSend;
         static readonly NetReader reader = new NetReader();
 
