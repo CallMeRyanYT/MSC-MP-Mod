@@ -304,6 +304,9 @@ namespace MSCMP.Sync
         {
             if (!o.Alive) return;
             bool replica = Session.Active && Session.Connected && !OwnedLocally(o);
+            // Never freeze something that is in our own hand: a frozen (kinematic) object held by
+            // the game's hand joint passes through walls. It becomes a copy once it is dropped.
+            if (replica && LocalPlayer.HeldObject == o.Go) replica = false;
             if (replica && !o.Replica)
             {
                 o.OriginalKinematic = o.Body.isKinematic;
@@ -386,6 +389,7 @@ namespace MSCMP.Sync
             {
                 NetObject o = all[i];
                 if (!o.Replica || !o.Alive) continue;
+                if (o == localHeld) continue; // picked up this instant; ownership is being sorted out
                 if (!o.Body.isKinematic) o.Body.isKinematic = true; // the game turned it back on
                 if (o.Buffer.Count == 0) continue;
                 ObjState a, b;
@@ -415,8 +419,11 @@ namespace MSCMP.Sync
             NetObject o = held != null ? Of(held) : null;
             if (o == localHeld) return;
 
-            if (localHeld != null) localHeld.HeldBy = 255;
+            NetObject previous = localHeld;
+            if (previous != null) previous.HeldBy = 255;
             localHeld = o;
+            // Something we were refused (or lost) while holding it becomes a copy now that it's dropped.
+            if (previous != null && previous.Alive && !OwnedLocally(previous)) ApplyRole(previous);
             if (o == null) return;
             o.HeldBy = Session.Local.Slot;
 
