@@ -38,7 +38,7 @@ If Windows shows *"Windows protected your PC"*, click **More info** → **Run an
 
 1. Start My Summer Car **from Steam**.
 2. In the main menu a small **MSC Multiplayer** panel appears in the top-right corner. If it's hidden, press **F2**.
-3. In MSCLoader's mod list you'll see **MSC Multiplayer 0.11.0**.
+3. In MSCLoader's mod list you'll see **MSC Multiplayer 0.11.5**.
 
 Now read **[How to play](HOW_TO_PLAY.md)**.
 

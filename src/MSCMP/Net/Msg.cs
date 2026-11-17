@@ -93,12 +93,19 @@ namespace MSCMP.Net
 
         // --- host tools ---
         PlayerTeleport = 81,    // host -> client: "come here" (feet position, facing)
+        RouteShare = 82,        // client -> host -> all: slot, waypoints (0 = stopped sharing)
+        GiveItem = 83,          // client -> host: item, to whom / host -> receiver: item, from whom
+        Knocked = 84,           // client -> host -> all: slot knocked down by a car
+        SessionRules = 85,      // host -> all: host settings (cars knock players down...)
+        VehLock = 86,           // vehicle, locked by slot (255 = unlocked)
+        ShopList = 87,          // host -> all: the shared shopping list
+        ShopEdit = 88,          // client -> host: add / tick / remove
     }
 
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 5;          // 5: shared music; 4: needs, restore, pings, emotes; 3: bots; 2: world values
+        public const ushort Version = 6;          // 6: map routes, hand-overs, locks, knock-downs, shopping list
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

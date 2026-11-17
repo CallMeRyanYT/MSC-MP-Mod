@@ -136,6 +136,12 @@ namespace MSCMP.Avatars
 
         bool Sleeping { get { return (current.Flags & PlayerSnapshot.FlagSleeping) != 0; } }
 
+        float knockedUntil;
+        bool Knocked { get { return Time.time < knockedUntil; } }
+
+        /// <summary>Hit by a car: lies on the ground for a moment.</summary>
+        public void Knock(float seconds) { knockedUntil = Time.time + seconds; }
+
         /// <summary>How drunk they look, 0..1.</summary>
         float Drunk01 { get { return Player != null && Player.HasStatus ? Mathf.Clamp01(Player.Status.Drunk / 2.5f) : 0f; } }
 
@@ -222,6 +228,14 @@ namespace MSCMP.Avatars
                     if (Rig.Collider != null) Rig.Collider.enabled = false;
                     t.rotation = Quaternion.Euler(0f, current.Yaw, 0f) * Quaternion.Euler(-90f, 0f, 0f);
                     t.position = current.Head - t.up * 1.55f - Vector3.up * 0.12f;
+                    UpdateWalkAnimation();
+                    return;
+                }
+                if (Knocked)
+                {
+                    if (Rig.Collider != null) Rig.Collider.enabled = false;
+                    t.rotation = Quaternion.Euler(0f, current.Yaw, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                    t.position = current.Position + Vector3.up * 0.18f;
                     UpdateWalkAnimation();
                     return;
                 }
@@ -336,7 +350,7 @@ namespace MSCMP.Avatars
 
         void PoseBones(Transform t)
         {
-            if (pose == Pose.Standing && Sleeping) return; // lying in bed: the plain pose is right
+            if (pose == Pose.Standing && (Sleeping || Knocked)) return; // lying down: the plain pose is right
             if (pose == Pose.Standing)
             {
                 float ew = EmoteWeight();

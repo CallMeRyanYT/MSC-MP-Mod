@@ -2,7 +2,7 @@
 
 **Play My Summer Car together with your friends.** Invite them through Steam, they load straight into your world, and you build the Satsuma, drink beer at the lake and crash the van together.
 
-> **Status: 0.11.0, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
+> **Status: 0.11.5, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
 
 ## What it does
 
@@ -16,6 +16,7 @@
 - **Liquids and wear too.** Fuel, oil, coolant, brake and clutch fluid, battery charge, wear, damage and paint colour are the same for everyone.
 - **Bots that help out.** The host can spawn helpers from the F2 panel that everyone in the game can see. They copy you, follow you (and ride along in your car), wander and walk to places, and do jobs: fetch the item you're looking at, collect every bottle or log into a pile, tidy up, or carry something to the shop.
 - **Your friends' progress is saved too.** When the host saves, every friend's last place and needs (hunger, thirst, tiredness, drunkenness...) are saved with the world. Next time they load in, they're right where they left off. After a crash they come back to their spot. After dying they respawn by themselves.
+- **A real map (M).** Drag and zoom a picture of the whole world, see where everyone is and what they're driving, and click a route together like in SnowRunner; the next waypoint shows in the world.
 - **Find each other.** Markers show where far-away friends are, a ping key shows everyone where you're looking, and the F2 panel can teleport you to a friend.
 - **Your music, for everyone.** Songs you put in the game's Radio or CD folders play for your friends too, from the same car radio or CD player, in time. They download your songs automatically the first time.
 - **Emotes.** An emote menu (B) with wave, point, cheer, shrug, drink, facepalm, sit down and dance. You can see when a friend is drunk (they sway), asleep (lying in bed), hungry or tired.

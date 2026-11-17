@@ -12,7 +12,7 @@ namespace MSCMP
         static SettingsDropDownList body, shirt, pants, face;
         static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, ownBody, emoteCam;
         static SettingsSliderInt maxPlayers;
-        public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey;
+        public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey, MapKey, GiveKey;
 
         public static void Create()
         {
@@ -41,6 +41,8 @@ namespace MSCMP
             WaveKey = Keybind.Add("mscmp_wave", "Wave to other players", KeyCode.G);
             EmoteKey = Keybind.Add("mscmp_emotes", "Emote menu", KeyCode.B);
             PingKey = Keybind.Add("mscmp_ping", "Ping: show friends where you look", KeyCode.Mouse2);
+            MapKey = Keybind.Add("mscmp_map", "Map", KeyCode.M);
+            GiveKey = Keybind.Add("mscmp_give", "Hand the item you hold to the friend you look at", KeyCode.H);
         }
 
         public static void Loaded()

@@ -378,6 +378,31 @@ namespace MSCMP.Game
 
         public static bool InputBlocked { get { return inputBlocked; } }
 
+        static bool stunned, stunSavedInput = true, stunSavedMotor = true;
+
+        /// <summary>Can't walk (knocked down, or watching a friend). Looking around still works.</summary>
+        public static void SetStunned(bool on)
+        {
+            if (on == stunned) return;
+            stunned = on;
+            try
+            {
+                if (on)
+                {
+                    stunSavedInput = input != null && input.enabled;
+                    stunSavedMotor = motor != null && motor.enabled;
+                    if (input != null) input.enabled = false;
+                    if (motor != null) motor.enabled = false;
+                }
+                else
+                {
+                    if (input != null) input.enabled = stunSavedInput && !inputBlocked && PassengerOf == null;
+                    if (motor != null) motor.enabled = stunSavedMotor;
+                }
+            }
+            catch (Exception e) { Log.ExceptionOnce("SetStunned", e); }
+        }
+
         // ------------------------------------------------------------ passenger seat
 
         static void UpdatePassenger()

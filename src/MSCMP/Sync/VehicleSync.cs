@@ -41,6 +41,7 @@ namespace MSCMP.Sync
         public byte Passenger = 255;
         public bool Replica;
         public bool IsBike;                 // the moped: ridden astride
+        public byte LockedBy = 255;         // only this player may drive it (255 = anyone)
         public bool OriginalKinematic;      // what the game wants (kept up to date while we override)
         public bool ForcedKinematic;        // what we last set while it is a copy
         public bool ControllerWasEnabled = true;
@@ -84,6 +85,7 @@ namespace MSCMP.Sync
             Session.On(Msg.VehState, OnState);
             Session.On(Msg.SeatRequest, OnSeatRequest);
             Session.On(Msg.Seats, OnSeats);
+            Session.On(Msg.VehLock, OnLock);
             Session.PlayerLeft += OnPlayerLeft;
             Session.Started += () => { if (MP.InGame) ApplyRoleToAll(); };
             Session.Ended += reason => { if (MP.InGame) RestoreAll(); };
@@ -370,6 +372,13 @@ namespace MSCMP.Sync
         static void OnLocalEnter(NetVehicle v)
         {
             byte me = Session.Local.Slot;
+            if (v.LockedBy != 255 && v.LockedBy != me)
+            {
+                NetPlayer locker = Session.BySlot(v.LockedBy);
+                Notifications.Show("The " + Pretty(v.Name) + " is locked by " + (locker != null ? locker.Name : "someone") + ".");
+                if (v.DriveTrigger != null && !GameUtil.ForceState(v.DriveTrigger, "In car")) GameUtil.ForceState(v.DriveTrigger, "Create player");
+                return;
+            }
             if (v.Driver != 255 && v.Driver != me)
             {
                 Notifications.Show("Someone else is driving this vehicle.");
@@ -591,6 +600,12 @@ namespace MSCMP.Sync
             if (v == null) return;
             bool allowed = from.CanDrive;
             if (!allowed) Session.SendNotice(from, "The host hasn't allowed you to drive.");
+            if (allowed && v.LockedBy != 255 && v.LockedBy != from.Slot)
+            {
+                allowed = false;
+                NetPlayer locker = Session.BySlot(v.LockedBy);
+                Session.SendNotice(from, "The " + Pretty(v.Name) + " is locked by " + (locker != null ? locker.Name : "someone") + ".");
+            }
             if (!allowed || v.Driver != 255 && v.Driver != from.Slot)
             {
                 NetWriter w = Session.Begin(Msg.VehOwnDeny);
@@ -702,6 +717,7 @@ namespace MSCMP.Sync
             {
                 NetVehicle v = vehicles[i];
                 if (v.Passenger == p.Slot) v.Passenger = 255;
+                if (v.LockedBy == p.Slot) v.LockedBy = 255;
                 if (v.Owner == p.Slot || v.Driver == p.Slot)
                 {
                     if (Session.IsHost) SetOwner(v, 0, 255);
@@ -827,10 +843,87 @@ namespace MSCMP.Sync
                 w.Byte(v.Driver);
                 Session.SendTo(p, true, Channel.Reliable);
             }
+            for (int i = 0; i < vehicles.Count; i++)
+            {
+                if (vehicles[i].LockedBy == 255) continue;
+                NetWriter l = Session.Begin(Msg.VehLock);
+                l.UInt(vehicles[i].Id);
+                l.Byte(vehicles[i].LockedBy);
+                Session.SendTo(p, true, Channel.Reliable);
+            }
             NetWriter s = Session.Begin(Msg.Seats);
             s.Byte((byte)vehicles.Count);
             for (int i = 0; i < vehicles.Count; i++) { s.UInt(vehicles[i].Id); s.Byte(vehicles[i].Passenger); }
             Session.SendTo(p, true, Channel.Reliable);
+        }
+
+        // ================================================================ locks
+
+        /// <summary>The vehicle you drive, or the nearest one within a few metres (for the lock button).</summary>
+        public static NetVehicle NearestForLock()
+        {
+            if (!LocalPlayer.Bound) return null;
+            NetVehicle driving = LocalPlayer.PassengerOf == null ? FindByChild(LocalPlayer.Player) : null;
+            if (driving != null) return driving;
+            NetVehicle best = null;
+            float bestD = 6f;
+            Vector3 me = LocalPlayer.Feet;
+            foreach (NetVehicle v in vehicles)
+            {
+                if (v.Root == null) continue;
+                Vector3 local = v.Root.InverseTransformPoint(me);
+                Bounds b = v.LocalBounds;
+                float d = Mathf.Sqrt(b.SqrDistance(local));
+                if (d < bestD) { bestD = d; best = v; }
+            }
+            return best;
+        }
+
+        /// <summary>Locks a vehicle for yourself (only you can drive it), or unlocks it.</summary>
+        public static void SetLock(NetVehicle v, bool locked)
+        {
+            if (v == null || Session.Local == null) return;
+            if (Session.IsHost) ApplyLock(v, locked ? Session.Local.Slot : (byte)255, null);
+            else
+            {
+                NetWriter w = Session.Begin(Msg.VehLock);
+                w.UInt(v.Id);
+                w.Byte(locked ? Session.Local.Slot : (byte)255);
+                Session.SendToHost(true, Channel.Reliable);
+            }
+        }
+
+        /// <summary>Host: removes anybody's lock.</summary>
+        public static void HostUnlock(NetVehicle v)
+        {
+            if (Session.IsHost && v != null) ApplyLock(v, 255, null);
+        }
+
+        static void ApplyLock(NetVehicle v, byte by, NetPlayer except)
+        {
+            v.LockedBy = by;
+            if (!Session.IsHost) return;
+            NetWriter w = Session.Begin(Msg.VehLock);
+            w.UInt(v.Id);
+            w.Byte(by);
+            Session.BroadcastInGame(true, Channel.Reliable, except);
+        }
+
+        static void OnLock(NetPlayer from, NetReader r)
+        {
+            NetVehicle v = ById(r.UInt());
+            byte by = r.Byte();
+            if (v == null || from == null) return;
+            if (!Session.IsHost) { if (from.IsHost) v.LockedBy = by; return; }
+            // Lock: only for yourself, and nobody else may have it locked. Unlock: your own lock.
+            bool ok = by == 255 ? v.LockedBy == from.Slot : (by == from.Slot && (v.LockedBy == 255 || v.LockedBy == from.Slot));
+            if (!ok) { Session.SendNotice(from, "You can't change that lock."); NetWriter back = Session.Begin(Msg.VehLock); back.UInt(v.Id); back.Byte(v.LockedBy); Session.SendTo(from, true, Channel.Reliable); return; }
+            ApplyLock(v, by, null);
+            // also tell the one who asked
+            NetWriter w = Session.Begin(Msg.VehLock);
+            w.UInt(v.Id);
+            w.Byte(by);
+            Session.SendTo(from, true, Channel.Reliable);
         }
 
         public static string Pretty(string rootName)

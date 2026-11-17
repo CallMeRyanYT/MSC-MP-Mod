@@ -113,6 +113,26 @@ namespace MSCMP.UI
                 }
             }
 
+            // The next waypoint of your route, and where friends' shared routes end.
+            if (MapView.Next < MapView.Route.Count)
+            {
+                Vector3 wp = MapView.Route[MapView.Next];
+                bool onScreen;
+                Vector2 pos = ScreenPoint(cam, wp + Vector3.up * 1.5f, out onScreen);
+                DrawLabel(pos, "<> Waypoint " + (MapView.Next + 1) + "/" + MapView.Route.Count + "  " + Distance(Vector3.Distance(me, wp)),
+                          new Color(1f, 0.82f, 0.2f, 1f), pingStyle);
+            }
+            foreach (KeyValuePair<byte, List<Vector3>> kv in MapView.FriendRoutes)
+            {
+                if (kv.Value.Count == 0) continue;
+                NetPlayer who = Session.BySlot(kv.Key);
+                Vector3 end = kv.Value[kv.Value.Count - 1];
+                bool onScreen;
+                Vector2 pos = ScreenPoint(cam, end + Vector3.up * 1.5f, out onScreen);
+                DrawLabel(pos, "<> " + (who != null ? who.Name : "Friend") + "'s destination  " + Distance(Vector3.Distance(me, end)),
+                          new Color(0.55f, 0.85f, 1f, 0.85f), style);
+            }
+
             foreach (Ping ping in pings)
             {
                 float d = Vector3.Distance(me, ping.At);

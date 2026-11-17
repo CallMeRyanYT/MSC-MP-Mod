@@ -60,6 +60,7 @@ namespace MSCMP.Game
 
         static void OnEnded(string reason)
         {
+            ShoppingList.OnSessionEnded();
             EndCatchUp();
             autoJoinWorld = false;
             if (MP.InGameScene && !Session.IsHost)
@@ -231,6 +232,8 @@ namespace MSCMP.Game
                 VarSync.SendCatchUp(from);
                 Bots.SendCatchUp(from);
                 MusicSync.SendCatchUp(from);
+                Together.SendCatchUp(from);
+                ShoppingList.SendList(from);
             }
             catch (Exception e)
             {

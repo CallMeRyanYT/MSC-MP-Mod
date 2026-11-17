@@ -88,6 +88,7 @@ namespace MSCMP.Sync
             if (subject == null || subject.IsLocal) return;
             subject.Last = s;
             subject.HasState = true;
+            subject.StatesReceived++;
             if (subject.Avatar != null) subject.Avatar.Push(s);
 
             if (Session.IsHost)

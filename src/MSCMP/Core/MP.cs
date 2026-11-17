@@ -102,6 +102,9 @@ namespace MSCMP
                 PlayerCare.Init();
                 MusicSync.Init();
                 Markers.Init();
+                MapView.Init();
+                Together.Init();
+                ShoppingList.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -196,6 +199,8 @@ namespace MSCMP
                 Safe("PlayerCare", PlayerCare.Update);
                 Safe("MusicSync", MusicSync.Update);
                 Safe("Markers", Markers.Update);
+                Safe("MapView", MapView.Update);
+                Safe("Together", Together.Update);
                 Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
@@ -212,6 +217,7 @@ namespace MSCMP
             Safe("CharacterPreview.Late", UI.CharacterPreview.LateUpdate);
             Safe("Loopback.Late", Loopback.LateUpdate);
             Safe("SelfBody.Late", SelfBody.LateUpdate);
+            Safe("Together.Late", Together.LateUpdate);
             Safe("Bots.Late", Bots.LateUpdate);
             Safe("VehicleSync.Late", VehicleSync.LateUpdate);
             Safe("LocalPlayer.Late", LocalPlayer.LateUpdate);
@@ -243,6 +249,7 @@ namespace MSCMP
             Safe("WorldSync.WorldReady", WorldSync.OnWorldReady);
             Safe("VarSync.WorldReady", VarSync.OnWorldReady);
             Safe("MusicSync.WorldReady", MusicSync.OnWorldReady);
+            Safe("MapView.WorldReady", MapView.OnWorldReady);
             Safe("PlayerSync.WorldReady", PlayerSync.OnWorldReady);
             Safe("GameSession.WorldReady", GameSession.OnWorldReady);
         }
@@ -260,6 +267,7 @@ namespace MSCMP
             Safe("WorldSync.WorldLeft", WorldSync.OnWorldLeft);
             Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
             Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
+            Safe("MapView.WorldLeft", MapView.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);
             Safe("Loopback.WorldLeft", Loopback.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);

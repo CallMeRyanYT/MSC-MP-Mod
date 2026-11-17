@@ -30,6 +30,11 @@ namespace MSCMP.Net
         public RemoteAvatar Avatar;
         public PlayerSnapshot Last;       // most recent state received
         public bool HasState;
+        public string LastChat;           // for the chat bubble over their head
+        public int StatesReceived;        // player updates this measuring window
+        public float Loss;                // share of their updates that didn't arrive (0..1)
+        public float LastQualityWarning = -100f;
+        public float LastChatTime = -100f;
         public PlayerStatus Status;       // needs (hunger, thirst, drunk...), every few seconds
         public bool HasStatus;
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.5 - 2026-11-18
+
+**Both players need 0.11.5** (the network protocol changed).
+
+- **Map (M).** A picture of the whole world taken from above when you load in (lit as by day). Drag to move, scroll to zoom around the mouse, C to centre on you. Shows you and your friends with their heading and what they're doing (on foot, driving the van, riding the moped, on the boat...), parked vehicles, bots and pings.
+- **Routes like in SnowRunner.** Click on the map to add waypoints, right-click to remove one, Backspace to undo, *Clear route* to start over. The next waypoint is shown in the world with its distance and ticks off when you reach it. *Share my route* shows it on your friends' maps and their destination in their world.
+- **Hand items over**: hold something, look at a friend nearby and press **H**; it floats in front of them until they take it.
+- **Chat bubbles** over the speaker's head.
+- **Car locks**: lock the vehicle you're in or next to so only you can drive it (F2). The host can always unlock.
+- **Cars knock players down**: a car someone else drives knocks you over when it hits you at speed; everyone sees you fall. Host setting in F2.
+- **Watch a friend** (spectate) from the F2 panel. Esc stops.
+- **Sleeping together**: when the host sleeps, everyone's screen dims while the night passes; you're told when time only passes once the host sleeps, and the host is told when everyone else is in bed.
+- **Connection quality** in the player list (good / ok / poor, ping, lost updates) and a warning when a connection gets bad.
+- **Shared shopping list** in the F2 panel that ticks itself when the item turns up in the world.
+
 ## 0.11.0 - 2026-11-18
 
 **Both players need 0.11.0** (the network protocol changed).

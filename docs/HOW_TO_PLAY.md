@@ -37,6 +37,26 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.
 - **Player list**: hold **Tab**. The F2 panel also shows everyone's status and ping.
 
+## The map
+
+Press **M**. It's a picture of the whole world taken from above when you load in.
+
+- **Drag** to move it, **scroll** to zoom (around the mouse), **C** centres it on you.
+- You see yourself, your friends (name, which way they face, and whether they're on foot, driving the van, riding the moped, on the boat...), parked vehicles, bots and pings.
+- **Click** to add waypoints and plan a route; **right-click** a waypoint to remove it, **Backspace** removes the last one, **Clear route** removes all. The next waypoint is also shown in the world with its distance, and ticks off when you get there.
+- **Share my route** shows your route on your friends' maps, and where it ends in their world.
+
+## Together
+
+- **Hand an item over**: hold it, look at a friend close by and press **H**. It floats in front of them; they click to take it.
+- **Chat bubbles**: what someone says in chat shows over their head for a few seconds.
+- **Lock your car**: in the F2 panel, *Lock the ...* for the vehicle you're in or next to. Only you can drive it then (the host can always unlock it).
+- **Cars knock you down**: a car somebody else drives knocks you over if it hits you at speed (the host can switch this off in the F2 panel).
+- **Watch a friend**: **Watch** next to a player in the F2 panel follows them from behind. **Esc** stops.
+- **Sleeping**: time only passes when the host sleeps. When the host goes to bed, everybody's screen dims while the night passes.
+- **Connection**: the player list shows how good each connection is (good / ok / poor, ping, lost updates), and warns you when it gets bad.
+- **Shopping list**: in the F2 panel. Anyone can add, tick and remove items; an item ticks itself when one turns up in the world (bought at Teimo's...). The host's list is kept between sessions.
+
 ## Music
 
 Put your own `.ogg` songs in the game's `Radio` or `CD1`–`CD3` folders, as in single player. When you play one on the radio or the CD player, your friends hear the same song from the same speaker, at the same moment. If they don't have the song, their game fetches it from you through the host first (a few seconds), and keeps it in `music_cache` in the mod's settings folder so it only travels once. The cache cleans itself up above 500 MB.
@@ -76,7 +96,7 @@ Open MSCLoader's **Settings** in the main menu → **MSC Multiplayer**:
 - **Detailed log** (only needed when reporting a bug).
 - **Show where far-away friends are** (markers).
 - **Share my own songs** / **Play friends' songs** (music).
-- **Keybinds**: F2 menu, Tab player list, T chat, G wave, B emotes, middle mouse button ping.
+- **Keybinds**: F2 menu, Tab player list, T chat, G wave, B emotes, middle mouse button ping, M map, H hand over.
 
 ## Hosting tools
 

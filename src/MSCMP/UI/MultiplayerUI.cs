@@ -37,7 +37,7 @@ namespace MSCMP.UI
         bool styles;
 
         static readonly Color Yellow = new Color(1f, 0.85f, 0.3f);
-        static readonly Color[] SlotColors =
+        internal static readonly Color[] SlotColors =
         {
             new Color(1f, 0.85f, 0.3f), new Color(0.55f, 0.85f, 1f), new Color(0.6f, 1f, 0.6f), new Color(1f, 0.6f, 0.6f),
             new Color(0.85f, 0.65f, 1f), new Color(1f, 0.75f, 0.45f), new Color(0.6f, 1f, 0.95f), new Color(0.95f, 0.95f, 0.95f)
@@ -85,9 +85,17 @@ namespace MSCMP.UI
             }
             if (chatOpen && (!MP.InGame || !Session.Connected)) chatOpen = false;
 
-            MultiplayerUIState.Typing = chatOpen;
+            // Typing in a text box of the panel (shopping list) counts as typing too.
+            MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0;
+            // The map (M).
+            if (MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing && Options.KeyDown(Options.MapKey))
+            {
+                MapView.Open = !MapView.Open;
+                if (MapView.Open) { panelOpen = false; emoteOpen = false; }
+            }
+
             // Emotes: the wave key, and the emote menu (pick with the mouse or 1-8).
-            bool canEmote = MP.InGame && LocalPlayer.Bound && !chatOpen;
+            bool canEmote = MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing;
             if (canEmote && !emoteOpen && Options.KeyDown(Options.WaveKey)) Emotes.Play(Emotes.Wave);
             if (canEmote && Options.KeyDown(Options.EmoteKey)) { emoteOpen = !emoteOpen; if (emoteOpen) panelOpen = false; }
             if (!canEmote) emoteOpen = false;
@@ -95,13 +103,13 @@ namespace MSCMP.UI
                 for (int i = 1; i <= Emotes.Count && i <= 9; i++)
                     if (Input.GetKeyDown(KeyCode.Alpha0 + i)) { Emotes.Play((byte)i); emoteOpen = false; }
 
-            MultiplayerUIState.PanelOpen = panelOpen || emoteOpen;
+            MultiplayerUIState.PanelOpen = panelOpen || emoteOpen || MapView.Open;
 
             // The game's own pause menu (Esc) closes ours, so the two never fight over the mouse.
-            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; emoteOpen = false; }
+            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; emoteOpen = false; MapView.Open = false; }
 
             // In game the cursor belongs to the game; borrow it while our panel or chat is open.
-            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || emoteOpen);
+            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || emoteOpen || MapView.Open);
             if (wantCursor != cursorTaken)
             {
                 cursorTaken = wantCursor;
@@ -154,6 +162,23 @@ namespace MSCMP.UI
                 if (MP.InMenu && !panelOpen) DrawHint();
                 if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
                 if (emoteOpen) DrawEmoteMenu();
+                if (MapView.Open) MapView.Draw();
+                if (Together.SleepFade > 0f)
+                {
+                    Color old = GUI.color;
+                    GUI.color = new Color(0f, 0f, 0.03f, Together.SleepFade);
+                    GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), darker);
+                    GUI.color = old;
+                }
+                if (Together.StunFade > 0f)
+                {
+                    Color old = GUI.color;
+                    GUI.color = new Color(0.15f, 0f, 0f, Together.StunFade);
+                    GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), darker);
+                    GUI.color = old;
+                }
+                if (Together.Watching != null)
+                    GUI.Box(new Rect(Screen.width / 2f - 160f, 20f, 320f, 30f), "Watching " + Together.Watching.Name + " - Esc to stop", toast);
             }
             catch (Exception e) { Log.ExceptionOnce("MultiplayerUI.OnGUI", e); }
         }
@@ -370,8 +395,58 @@ namespace MSCMP.UI
             else GUI.Label(pic, "Loading...", small);
         }
 
+        void DrawVehicleLock()
+        {
+            if (!MP.InGame || !Session.Connected || Session.Local == null) return;
+            NetVehicle v = VehicleSync.NearestForLock();
+            if (v == null) return;
+            GUILayout.Space(8);
+            string what = MapView.VehicleLabel(v);
+            if (v.LockedBy == 255 || v.LockedBy == Session.Local.Slot)
+            {
+                bool locked = GUILayout.Toggle(v.LockedBy == Session.Local.Slot, " Lock the " + what + " (only you can drive it)", text);
+                if (locked != (v.LockedBy == Session.Local.Slot)) VehicleSync.SetLock(v, locked);
+            }
+            else
+            {
+                NetPlayer by = Session.BySlot(v.LockedBy);
+                GUILayout.Label("The " + what + " is locked by " + (by != null ? Escape(by.Name) : "someone") + ".", small);
+                if (Session.IsHost && GUILayout.Button("Unlock it (host)", button)) VehicleSync.HostUnlock(v);
+            }
+        }
+
+        bool showShopping;
+        string shoppingText = "";
+
+        void DrawShoppingList()
+        {
+            if (!Session.Connected && ShoppingList.Items.Count == 0 && !MP.InGame) return;
+            GUILayout.Space(8);
+            int open = 0;
+            foreach (ShoppingList.Entry e in ShoppingList.Items) if (!e.Done) open++;
+            if (GUILayout.Button("Shopping list (" + open + ") " + (showShopping ? "[-]" : "[+]"), header)) showShopping = !showShopping;
+            if (!showShopping) return;
+            for (int i = 0; i < ShoppingList.Items.Count; i++)
+            {
+                ShoppingList.Entry e = ShoppingList.Items[i];
+                GUILayout.BeginHorizontal();
+                bool done = GUILayout.Toggle(e.Done, " " + Escape(e.Text), text);
+                if (done != e.Done) ShoppingList.Toggle(i);
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("x", button, GUILayout.Width(26))) { ShoppingList.Remove(i); break; }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.BeginHorizontal();
+            shoppingText = GUILayout.TextField(shoppingText, 40, input, GUILayout.Width(230));
+            if (GUILayout.Button("Add", button, GUILayout.Width(60)) && shoppingText.Trim().Length > 0) { ShoppingList.Add(shoppingText); shoppingText = ""; }
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Items tick themselves when one turns up in the world (bought at Teimo's...).", small);
+        }
+
         void Footer()
         {
+            DrawVehicleLock();
+            DrawShoppingList();
             DrawCharacter();
             DrawTestTools();
             GUILayout.Space(8);
@@ -415,7 +490,11 @@ namespace MSCMP.UI
             GUILayout.Space(6);
             DrawPlayers(true, true);
             if (Session.Connected)
+            {
                 Session.Locked = GUILayout.Toggle(Session.Locked, " Lock the game (nobody new can join)", text);
+                bool hurt = GUILayout.Toggle(Together.CarsHurt, " Cars knock players down", text);
+                if (hurt != Together.CarsHurt) Together.SetCarsHurt(hurt);
+            }
             GUILayout.Space(6);
             if (GUILayout.Button("Stop hosting", button, GUILayout.Height(28))) Session.Leave("host stopped hosting");
         }
@@ -470,6 +549,14 @@ namespace MSCMP.UI
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Space(12);
+                if (MP.InGame && p.Phase == PlayerPhase.Playing)
+                {
+                    bool watching = Together.Watching == p;
+                    if (GUILayout.Button(watching ? "Stop" : "Watch", button, GUILayout.Width(56)))
+                    {
+                        if (watching) Together.StopWatching(); else { Together.StartWatching(p); panelOpen = false; }
+                    }
+                }
                 if (host)
                 {
                     // Teleporting is for the host only.
@@ -517,7 +604,12 @@ namespace MSCMP.UI
                 case PlayerPhase.SaveReady: return "ready";
                 case PlayerPhase.Loading: return "loading";
                 case PlayerPhase.Syncing: return "syncing";
-                case PlayerPhase.Playing: return p.IsLocal || p.Rtt <= 0f ? "playing" : "playing · " + Mathf.RoundToInt(p.Rtt * 1000f) + " ms";
+                case PlayerPhase.Playing:
+                    if (p.IsLocal) return "playing";
+                    string q = Together.Quality(p);
+                    string word = Together.QualityWord(p);
+                    string col = word == "poor" ? "#ff7060" : word == "ok" ? "#ffd060" : "#80e080";
+                    return "playing · <color=" + col + ">" + word + "</color>" + (q.Length > 0 ? " · " + q : "");
             }
             return "";
         }
@@ -659,6 +751,16 @@ namespace MSCMP.UI
                 Color c = SlotColors[p.Slot % SlotColors.Length];
                 GUI.color = new Color(c.r, c.g, c.b, alpha);
                 GUI.Label(r, p.Name, tagStyle);
+                // Chat bubble: what they just said, for a few seconds.
+                float age = Time.realtimeSinceStartup - p.LastChatTime;
+                if (!string.IsNullOrEmpty(p.LastChat) && age < 7f)
+                {
+                    GUIContent said = new GUIContent(p.LastChat);
+                    float bw = Mathf.Min(320f, toast.CalcSize(said).x + 20f);
+                    float bh = toast.CalcHeight(said, bw);
+                    GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(7f - age) * alpha);
+                    GUI.Box(new Rect(sp.x - bw * 0.5f, r.y - bh - 4f, bw, bh), said, toast);
+                }
                 GUI.color = old;
             }
         }

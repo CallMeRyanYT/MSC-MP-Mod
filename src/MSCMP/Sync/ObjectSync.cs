@@ -659,6 +659,15 @@ namespace MSCMP.Sync
 
         // ================================================================ ownership messages
 
+        /// <summary>Host: hands an object to a player (they simulate it from now on).</summary>
+        public static void GiveTo(NetObject o, byte slot)
+        {
+            if (!Session.IsHost || o == null) return;
+            o.HeldBy = 255;
+            if (localHeld == o) localHeld = null;
+            SetOwner(o, slot, true);
+        }
+
         static void SetOwner(NetObject o, byte owner, bool broadcast)
         {
             o.Owner = owner;
