@@ -230,6 +230,7 @@ namespace MSCMP.Game
                 WorldSync.SendCatchUp(from);
                 VarSync.SendCatchUp(from);
                 Bots.SendCatchUp(from);
+                MusicSync.SendCatchUp(from);
             }
             catch (Exception e)
             {

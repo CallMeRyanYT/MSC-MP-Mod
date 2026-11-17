@@ -10,7 +10,7 @@ namespace MSCMP
     internal static class Options
     {
         static SettingsDropDownList body, shirt, pants, face;
-        static SettingsCheckBox nameTags, verbose, markers;
+        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic;
         static SettingsSliderInt maxPlayers;
         public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey;
 
@@ -27,6 +27,8 @@ namespace MSCMP
             maxPlayers = Settings.AddSlider("mscmp_maxplayers", "Max players when hosting", 2, Protocol.MaxPlayers, 4, null);
             nameTags = Settings.AddCheckBox("mscmp_nametags", "Show player names above heads", true, null);
             markers = Settings.AddCheckBox("mscmp_markers", "Show where far-away friends are (name and distance)", true, null);
+            shareMusic = Settings.AddCheckBox("mscmp_sharemusic", "Share my own songs (Radio / CD folders) with friends", true, null);
+            hearMusic = Settings.AddCheckBox("mscmp_hearmusic", "Play friends' songs", true, null);
             verbose = Settings.AddCheckBox("mscmp_verbose", "Detailed log (for bug reports)", false, () => Log.Verbose = verbose.GetValue());
             Settings.AddButton("Open log folder", OpenLogFolder);
 
@@ -119,6 +121,16 @@ namespace MSCMP
         public static bool NameTags
         {
             get { try { return nameTags == null || nameTags.GetValue(); } catch { return true; } }
+        }
+
+        public static bool ShareMusic
+        {
+            get { try { return shareMusic == null || shareMusic.GetValue(); } catch { return true; } }
+        }
+
+        public static bool HearMusic
+        {
+            get { try { return hearMusic == null || hearMusic.GetValue(); } catch { return true; } }
         }
 
         public static bool FriendMarkers

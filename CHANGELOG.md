@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0 - 2026-11-17
+
+**Both players need 0.11.0** (the network protocol changed).
+
+- **Shared music.** Your own `.ogg` songs from the game's `Radio` and `CD1`–`CD3` folders now play for everyone: when you play one on a radio or CD player, your friends hear the same song from the same speaker, in time (re-synced every few seconds). Friends who don't have the song download it from you through the host in the background and keep it in a `music_cache` folder (kept under 500 MB). The host decides who controls each speaker, so two people can't fight over one radio. Two new settings: *Share my own songs* and *Play friends' songs*.
+
 ## 0.10.0 - 2026-11-17
 
 **Both players need 0.10.0** (the network protocol changed).

@@ -35,6 +35,12 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.
 - **Player list**: hold **Tab**. The F2 panel also shows everyone's status and ping.
 
+## Music
+
+Put your own `.ogg` songs in the game's `Radio` or `CD1`–`CD3` folders, as in single player. When you play one on the radio or the CD player, your friends hear the same song from the same speaker, at the same moment. If they don't have the song, their game fetches it from you through the host first (a few seconds), and keeps it in `music_cache` in the mod's settings folder so it only travels once. The cache cleans itself up above 500 MB.
+
+Two switches in the mod settings: **Share my own songs** and **Play friends' songs**.
+
 ## Bots
 
 Press **F2** in the world and click **Spawn bot**. Everyone in the game sees your bots (with your name in their name tag). Pick **All** or a bot's number, then give an order:
@@ -67,6 +73,7 @@ Open MSCLoader's **Settings** in the main menu → **MSC Multiplayer**:
 - **Name tags** above players.
 - **Detailed log** (only needed when reporting a bug).
 - **Show where far-away friends are** (markers).
+- **Share my own songs** / **Play friends' songs** (music).
 - **Keybinds**: F2 menu, Tab player list, T chat, G wave, B emotes, middle mouse button ping.
 
 ## Hosting tools

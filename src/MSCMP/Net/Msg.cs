@@ -84,12 +84,18 @@ namespace MSCMP.Net
         FsmSpawn = 74,          // object created by a world event: id, name, pose (fallback link)
         VarValue = 75,          // world value (fuel, fluids, wear, paint...) set by its owner
         VarAdd = 76,            // amount added to a world value by someone else (pouring)
+
+        // --- music ---
+        MusicPlay = 77,         // speaker, song (crc, size, name), owner, position, sender clock
+        MusicStop = 78,         // speaker, owner
+        MusicRequest = 79,      // "send me this song" (to the host, or host -> the song's owner)
+        MusicChunk = 80,        // Bulk channel: crc, size, offset, bytes
     }
 
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 4;          // 4: needs, restore, pings, emotes; 3: bots (Bot*); 2: world values
+        public const ushort Version = 5;          // 5: shared music; 4: needs, restore, pings, emotes; 3: bots; 2: world values
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

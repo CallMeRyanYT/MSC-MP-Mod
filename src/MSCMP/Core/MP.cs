@@ -100,6 +100,7 @@ namespace MSCMP
                 VarSync.Init();
                 Bots.Init();
                 PlayerCare.Init();
+                MusicSync.Init();
                 Markers.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
@@ -193,6 +194,7 @@ namespace MSCMP
                 Safe("WorldSync", WorldSync.Update);
                 Safe("VarSync", VarSync.Update);
                 Safe("PlayerCare", PlayerCare.Update);
+                Safe("MusicSync", MusicSync.Update);
                 Safe("Markers", Markers.Update);
                 Safe("Loopback", Loopback.Update);
             }
@@ -237,6 +239,7 @@ namespace MSCMP
             Safe("FsmSync.WorldReady", FsmSync.OnWorldReady);
             Safe("WorldSync.WorldReady", WorldSync.OnWorldReady);
             Safe("VarSync.WorldReady", VarSync.OnWorldReady);
+            Safe("MusicSync.WorldReady", MusicSync.OnWorldReady);
             Safe("PlayerSync.WorldReady", PlayerSync.OnWorldReady);
             Safe("GameSession.WorldReady", GameSession.OnWorldReady);
         }
@@ -253,6 +256,7 @@ namespace MSCMP
             Safe("FsmSync.WorldLeft", FsmSync.OnWorldLeft);
             Safe("WorldSync.WorldLeft", WorldSync.OnWorldLeft);
             Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
+            Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);
             GameUtil.ClearCaches();
