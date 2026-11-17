@@ -109,6 +109,7 @@ namespace MSCMP
                 CrashSync.Init();
                 Activity.Init();
                 Stats.Init();
+                AmbientSync.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -208,6 +209,7 @@ namespace MSCMP
                 Safe("Races", Races.Update);
                 Safe("CrashSync", CrashSync.Update);
                 Safe("Stats", Stats.Update);
+                Safe("AmbientSync", AmbientSync.Update);
                 Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
@@ -225,6 +227,7 @@ namespace MSCMP
             Safe("Loopback.Late", Loopback.LateUpdate);
             Safe("SelfBody.Late", SelfBody.LateUpdate);
             Safe("Together.Late", Together.LateUpdate);
+            Safe("AmbientSync.Late", AmbientSync.LateUpdate);
             Safe("Bots.Late", Bots.LateUpdate);
             Safe("VehicleSync.Late", VehicleSync.LateUpdate);
             Safe("LocalPlayer.Late", LocalPlayer.LateUpdate);
@@ -258,6 +261,7 @@ namespace MSCMP
             Safe("MusicSync.WorldReady", MusicSync.OnWorldReady);
             Safe("MapView.WorldReady", MapView.OnWorldReady);
             Safe("CrashSync.WorldReady", CrashSync.OnWorldReady);
+            Safe("AmbientSync.WorldReady", AmbientSync.OnWorldReady);
             Safe("PlayerSync.WorldReady", PlayerSync.OnWorldReady);
             Safe("GameSession.WorldReady", GameSession.OnWorldReady);
         }
@@ -277,6 +281,7 @@ namespace MSCMP
             Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
             Safe("MapView.WorldLeft", MapView.OnWorldLeft);
             Safe("CrashSync.WorldLeft", CrashSync.OnWorldLeft);
+            Safe("AmbientSync.WorldLeft", AmbientSync.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);
             Safe("Loopback.WorldLeft", Loopback.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);

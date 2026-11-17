@@ -63,7 +63,7 @@ namespace MSCMP.Game
             ShoppingList.OnSessionEnded();
             EndCatchUp();
             autoJoinWorld = false;
-            if (MP.InGameScene && !Session.IsHost)
+            if (MP.InGameScene && !Session.IsHost && !Session.TakingOver)
             {
                 // A client that lost the session is standing in someone else's world.
                 // Send them home; their own save is restored in the main menu.
@@ -235,6 +235,7 @@ namespace MSCMP.Game
                 Together.SendCatchUp(from);
                 ShoppingList.SendList(from);
                 CrashSync.SendCatchUp(from);
+                AmbientSync.SendCatchUp(from);
             }
             catch (Exception e)
             {

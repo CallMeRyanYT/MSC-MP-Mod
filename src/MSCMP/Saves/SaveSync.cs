@@ -87,10 +87,36 @@ namespace MSCMP.Saves
 
         /// <summary>Called every time the main menu loads: the files on disk are now exactly what
         /// "Continue" will load, so that is what friends receive.</summary>
+        /// <summary>We took over as host: the files on disk are the old host's world, which is what
+        /// friends will get now. (Our own save stays backed up.)</summary>
+        public static bool HostingTakenOver { get; private set; }
+
+        public static void PrepareTakeover()
+        {
+            HostingTakenOver = true;
+            ClientHasHostSave = false;
+            TakeSnapshot();
+        }
+
+        /// <summary>Done hosting a world we took over: keep it as a restore point before our own
+        /// save comes back, so nothing is lost.</summary>
+        static void KeepTakenOverWorld()
+        {
+            if (!HostingTakenOver) return;
+            HostingTakenOver = false;
+            try
+            {
+                TakeSnapshotOnly();
+                MakeRestorePoint(true);
+                Notifications.Show("The world you took over is kept as a restore point (F2 in the main menu).");
+            }
+            catch (Exception e) { Log.Exception("Keeping the taken-over world", e); }
+        }
+
         public static void OnMenu()
         {
             if (Session.IsClient) return; // a connected client's disk holds the host's copy
-            if (!Session.Active) RestoreOwnSave(); // back from someone else's world
+            if (!Session.Active) { KeepTakenOverWorld(); RestoreOwnSave(); } // back from someone else's world
             TakeSnapshot();
         }
 
@@ -497,7 +523,8 @@ namespace MSCMP.Saves
         {
             uploads.Clear();
             download = null;
-            if (MP.InMenu) RestoreOwnSave();
+            if (Session.TakingOver) return; // we keep playing this world as the new host
+            if (MP.InMenu) { KeepTakenOverWorld(); RestoreOwnSave(); }
             // Otherwise the player is still inside the host's world; GameSession sends them
             // back to the menu and the restore happens on the next menu load.
         }

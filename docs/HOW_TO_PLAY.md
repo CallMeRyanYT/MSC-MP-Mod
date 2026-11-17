@@ -71,6 +71,11 @@ The host plans a track on the map (M): the route's waypoints are the checkpoints
 - **Restore points**: in the main menu, the host's F2 panel lists the last 6 versions of their save. **Restore** (click twice) puts one back; the current save is kept as a restore point first, so it can be undone.
 - Friends' places and needs are also saved every 3 minutes, so a crash of the host's game doesn't lose where everyone was.
 
+## One world
+
+- **Traffic and people are the same for everyone**: the cars on the roads, the police and other NPC cars, the bus, the train, the rally cars, the villagers walking around and the animals all follow the host's game. Something the host's game has switched off because the host is far away keeps running in your own game near you, so nothing disappears in front of you.
+- **If the host's game is gone** (crash, lost connection), the next player keeps playing and becomes the host. Everyone else goes back to the menu and reconnects to them by themselves. The new host's own save isn't touched: when they stop hosting, the world they took over is kept as a restore point and their own save comes back. Switch this off in the settings (*If the host's game is gone, the next player takes over*).
+
 ## Music
 
 Put your own `.ogg` songs in the game's `Radio` or `CD1`–`CD3` folders, as in single player. When you play one on the radio or the CD player, your friends hear the same song from the same speaker, at the same moment. If they don't have the song, their game fetches it from you through the host first (a few seconds), and keeps it in `music_cache` in the mod's settings folder so it only travels once. The cache cleans itself up above 500 MB.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0 - 2026-11-18
+
+**Both players need 0.13.0** (the network protocol changed).
+
+- **Traffic, NPC cars, the bus, the train, the rally cars, villagers and animals are the host's.** Everything under those parts of the world that moves is found the same way on every game; the host sends what moved ten times a second and everybody else's copy follows (cars with physics are held and moved along). What the host's game has switched off because the host is far away keeps running in your own game, so nothing vanishes in front of you. Players who join get the current state.
+- **Host migration.** If the host's game is gone (crash, lost connection), the remaining player with the lowest slot keeps playing and becomes the host without reloading; everybody else reconnects to them automatically (no new invite needed). The new host's own save stays backed up; when they stop hosting, the taken-over world is kept as a restore point and their save comes back. Setting: *If the host's game is gone, the next player takes over* (on).
+- Not in this release: phone calls between players (they need the game's phone logic, which couldn't be checked without playing) and a one-by-one check of every job with two players. Jobs share what the world already shares (doors, items, vehicles, money, towing).
+
 ## 0.12.0 - 2026-11-18
 
 **Both players need 0.12.0** (the network protocol changed).

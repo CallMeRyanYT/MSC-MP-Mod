@@ -37,6 +37,14 @@ namespace MSCMP.Net
         /// <summary>Host: nobody new may join (players who were already here may come back).</summary>
         public static bool Locked;
         static readonly HashSet<ulong> members = new HashSet<ulong>();
+
+        // Host migration: when the host's game is gone, the next player takes over.
+        /// <summary>True while we are switching from client to host (nothing should send us home).</summary>
+        public static bool TakingOver { get; private set; }
+        static readonly HashSet<ulong> rejoiners = new HashSet<ulong>();
+        static CSteamID rejoinHost;
+        static float rejoinAt, rejoinGiveUp;
+        static bool directJoin;
         public static int MaxPlayers = 4;
 
         static readonly NetPlayer[] slots = new NetPlayer[Protocol.MaxPlayers];
@@ -145,6 +153,70 @@ namespace MSCMP.Net
             SteamNet.JoinLobby(lobby);
         }
 
+        // ------------------------------------------------------------ host migration
+
+        /// <summary>Client: the host's game is gone. The remaining player with the lowest slot
+        /// keeps playing and becomes the host; everyone else reconnects to them.</summary>
+        static bool TryTakeOver()
+        {
+            if (Local == null) return false;
+            NetPlayer heir = null;
+            List<ulong> others = new List<ulong>();
+            foreach (NetPlayer p in Players)
+            {
+                if (p.IsHost) continue;
+                if (heir == null || p.Slot < heir.Slot) heir = p;
+                if (!p.IsLocal) others.Add(p.SteamId.m_SteamID);
+            }
+            if (heir == null) return false;
+            NetPlayer oldHost = BySlot(0);
+            string oldName = oldHost != null ? oldHost.Name : "The host";
+            if (heir.IsLocal)
+            {
+                if (!MP.InGame) return false; // nothing to host from
+                Log.Info("Host lost: taking over as host.");
+                TakingOver = true;
+                try { Reset("host lost - taking over"); }
+                finally { TakingOver = false; }
+                foreach (ulong id in others) rejoiners.Add(id);
+                Saves.SaveSync.PrepareTakeover();
+                Notifications.Show(oldName + "'s game is gone. You are the host now - your friends are reconnecting.");
+                Host();
+                return true;
+            }
+            if (!heir.SteamId.IsValid()) return false;
+            rejoinHost = heir.SteamId;
+            rejoinAt = Time.realtimeSinceStartup + 12f;
+            rejoinGiveUp = Time.realtimeSinceStartup + 120f;
+            Notifications.Show(oldName + "'s game is gone. " + heir.Name + " takes over - reconnecting in a moment.");
+            Reset("host lost - " + heir.Name + " takes over");
+            return true;
+        }
+
+        /// <summary>Joins a player directly (after a host migration: no lobby invite needed).</summary>
+        public static void JoinDirect(CSteamID host)
+        {
+            if (Active || !SteamNet.Init()) return;
+            Role = Role.Client;
+            Connected = false;
+            HostId = host;
+            directJoin = true;
+            joinStarted = Time.realtimeSinceStartup;
+            nextHello = 0f;
+            Status = "Reconnecting to " + SteamNet.NameOf(host) + "...";
+            Log.Info("Reconnecting directly to " + host.m_SteamID);
+        }
+
+        static void UpdateRejoin()
+        {
+            if (rejoinAt <= 0f) return;
+            float now = Time.realtimeSinceStartup;
+            if (Active || now > rejoinGiveUp) { rejoinAt = 0f; return; }
+            if (now < rejoinAt || !MP.InMenu) return;
+            rejoinAt = 0f;
+            JoinDirect(rejoinHost);
+        }
+
         /// <summary>Leaves the session. Host: ends it for everybody.</summary>
         public static void Leave(string reason)
         {
@@ -168,6 +240,8 @@ namespace MSCMP.Net
         {
             Locked = false;
             members.Clear();
+            rejoiners.Clear();
+            directJoin = false;
             bool wasActive = Active;
             List<NetPlayer> remotes = new List<NetPlayer>(Remotes);
             foreach (NetPlayer p in remotes)
@@ -299,6 +373,7 @@ namespace MSCMP.Net
             if (!SteamNet.Available) return;
 
             SteamNet.Poll(OnPacket);
+            UpdateRejoin();
             if (!Active) return;
 
             float now = Time.realtimeSinceStartup;
@@ -312,7 +387,7 @@ namespace MSCMP.Net
                 joinStarted += gap;
             }
 
-            if (IsClient && !Connected && SteamNet.InLobby)
+            if (IsClient && !Connected && (SteamNet.InLobby || directJoin))
             {
                 if (now >= nextHello)
                 {
@@ -347,6 +422,7 @@ namespace MSCMP.Net
                         }
                         else
                         {
+                            if (Options.HostMigration && TryTakeOver()) return;
                             Notifications.Show("Lost connection to the host.");
                             Leave("host timeout");
                             return;
@@ -420,7 +496,7 @@ namespace MSCMP.Net
             if (!Active) return false;
             if (IsClient) return id == HostId;
             // Host: anyone who is in our lobby (friends-only) may connect.
-            return BySteam(id) != null || SteamNet.IsLobbyMember(id);
+            return BySteam(id) != null || SteamNet.IsLobbyMember(id) || rejoiners.Contains(id.m_SteamID);
         }
 
         // ------------------------------------------------------------ lobby events

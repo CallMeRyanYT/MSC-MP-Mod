@@ -109,12 +109,15 @@ namespace MSCMP.Net
         SessionSummary = 93,    // host -> all: the summary text
         CarryRequest = 94,      // carrier -> host -> carried: pick them up
         CarryState = 95,        // carrier, carried, on/off
+
+        // --- 0.13 ---
+        AmbientStates = 96,     // host -> all (State): traffic, NPC cars, train, villagers, animals that moved
     }
 
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 7;          // 7: races, dents, carrying, summary; 6: map routes, hand-overs, locks...
+        public const ushort Version = 8;          // 8: shared traffic/villagers/animals; 7: races, dents, carrying...
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

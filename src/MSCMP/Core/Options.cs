@@ -10,7 +10,7 @@ namespace MSCMP
     internal static class Options
     {
         static SettingsDropDownList body, shirt, pants, face;
-        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, ownBody, emoteCam;
+        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, ownBody, emoteCam, migration;
         static SettingsSliderInt maxPlayers;
         public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey, MapKey, GiveKey;
 
@@ -31,6 +31,7 @@ namespace MSCMP
             hearMusic = Settings.AddCheckBox("mscmp_hearmusic", "Play friends' songs", true, null);
             ownBody = Settings.AddCheckBox("mscmp_ownbody", "See my own body (look down)", true, null);
             emoteCam = Settings.AddCheckBox("mscmp_emotecam", "Show my emotes from the front for a moment", true, null);
+            migration = Settings.AddCheckBox("mscmp_migration", "If the host's game is gone, the next player takes over", true, null);
             verbose = Settings.AddCheckBox("mscmp_verbose", "Detailed log (for bug reports)", false, () => Log.Verbose = verbose.GetValue());
             Settings.AddButton("Open log folder", OpenLogFolder);
 
@@ -125,6 +126,11 @@ namespace MSCMP
         public static bool NameTags
         {
             get { try { return nameTags == null || nameTags.GetValue(); } catch { return true; } }
+        }
+
+        public static bool HostMigration
+        {
+            get { try { return migration == null || migration.GetValue(); } catch { return true; } }
         }
 
         public static bool ShowOwnBody
