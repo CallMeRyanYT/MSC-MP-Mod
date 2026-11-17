@@ -86,13 +86,22 @@ namespace MSCMP.UI
             if (chatOpen && (!MP.InGame || !Session.Connected)) chatOpen = false;
 
             MultiplayerUIState.Typing = chatOpen;
-            MultiplayerUIState.PanelOpen = panelOpen;
+            // Emotes: the wave key, and the emote menu (pick with the mouse or 1-8).
+            bool canEmote = MP.InGame && LocalPlayer.Bound && !chatOpen;
+            if (canEmote && !emoteOpen && Options.KeyDown(Options.WaveKey)) Emotes.Play(Emotes.Wave);
+            if (canEmote && Options.KeyDown(Options.EmoteKey)) { emoteOpen = !emoteOpen; if (emoteOpen) panelOpen = false; }
+            if (!canEmote) emoteOpen = false;
+            if (emoteOpen)
+                for (int i = 1; i <= Emotes.Count && i <= 9; i++)
+                    if (Input.GetKeyDown(KeyCode.Alpha0 + i)) { Emotes.Play((byte)i); emoteOpen = false; }
+
+            MultiplayerUIState.PanelOpen = panelOpen || emoteOpen;
 
             // The game's own pause menu (Esc) closes ours, so the two never fight over the mouse.
-            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; }
+            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; emoteOpen = false; }
 
             // In game the cursor belongs to the game; borrow it while our panel or chat is open.
-            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen);
+            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || emoteOpen);
             if (wantCursor != cursorTaken)
             {
                 cursorTaken = wantCursor;
@@ -136,6 +145,7 @@ namespace MSCMP.UI
                 EnsureStyles();
                 GUI.depth = -100;
                 if (Options.NameTags && MP.InGame) DrawNameTags();
+                if (MP.InGame) Markers.Draw();
                 DrawToasts();
                 DrawChat();
                 DrawLoadingBanner();
@@ -143,6 +153,7 @@ namespace MSCMP.UI
                 if (!panelOpen && !chatOpen && Options.Key(Options.PlayerListKey) && Session.Active) DrawPlayerList(false);
                 if (MP.InMenu && !panelOpen) DrawHint();
                 if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
+                if (emoteOpen) DrawEmoteMenu();
             }
             catch (Exception e) { Log.ExceptionOnce("MultiplayerUI.OnGUI", e); }
         }
@@ -253,6 +264,8 @@ namespace MSCMP.UI
         {
             if (!MP.InGame) return;
             GUILayout.Space(8);
+            bool loop = GUILayout.Toggle(Loopback.On, " Test: see yourself and your bots as friends see you", text);
+            if (loop != Loopback.On) Loopback.Set(loop);
             GUILayout.Label("Bots (" + Bots.All.Count + ")" + (Session.Connected ? " - everyone in the game sees them" : ""), header);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Spawn bot", button)) Bots.Spawn();
@@ -399,7 +412,9 @@ namespace MSCMP.UI
                     GUILayout.Label("<color=#ffb060>" + SaveSync.HostProblem + "</color>", small);
             }
             GUILayout.Space(6);
-            DrawPlayers(true);
+            DrawPlayers(true, true);
+            if (Session.Connected)
+                Session.Locked = GUILayout.Toggle(Session.Locked, " Lock the game (nobody new can join)", text);
             GUILayout.Space(6);
             if (GUILayout.Button("Stop hosting", button, GUILayout.Height(28))) Session.Leave("host stopped hosting");
         }
@@ -429,17 +444,17 @@ namespace MSCMP.UI
                 GUILayout.Label(GameSession.CatchingUp ? "Syncing with " + host + "..." : "Playing in " + host + "'s world.", text);
             }
             GUILayout.Space(6);
-            DrawPlayers(false);
+            DrawPlayers(false, true);
             GUILayout.Space(6);
             if (GUILayout.Button("Leave", button, GUILayout.Height(28)))
                 Session.Leave("left the game");
             GUILayout.Label("When you leave, your own save comes back exactly as it was.", small);
         }
 
-        void DrawPlayers(bool canKick)
+        void DrawPlayers(bool host, bool interactive)
         {
             GUILayout.Label("Players (" + Session.PlayerCount + "/" + Session.MaxPlayers + ")", header);
-            foreach (NetPlayer p in Session.Players)
+            foreach (NetPlayer p in new List<NetPlayer>(Session.Players))
             {
                 GUILayout.BeginHorizontal();
                 string name = "<color=#" + ColorUtility(SlotColors[p.Slot % SlotColors.Length]) + ">" + Escape(p.Name) + "</color>";
@@ -447,12 +462,37 @@ namespace MSCMP.UI
                 if (p.IsLocal) name += " <size=10>(you)</size>";
                 GUILayout.Label(name, text, GUILayout.Width(190));
                 GUILayout.Label(PhaseText(p), small, GUILayout.Width(110));
-                if (canKick && !p.IsLocal)
+                GUILayout.EndHorizontal();
+                string status = p.HasStatus ? p.Status.Describe() : "";
+                if (status.Length > 0) GUILayout.Label("    <color=#c8c8c8>" + status + "</color>", small);
+                if (!interactive || p.IsLocal) continue;
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(12);
+                if (MP.InGame && p.Phase == PlayerPhase.Playing && GUILayout.Button("Go to", button, GUILayout.Width(56))) Markers.GoTo(p);
+                if (host)
                 {
+                    p.CanDrive = GUILayout.Toggle(p.CanDrive, " may drive", small, GUILayout.Width(80));
+                    p.SharedWallet = GUILayout.Toggle(p.SharedWallet, " shared money", small, GUILayout.Width(100));
                     if (GUILayout.Button("Kick", button, GUILayout.Width(48))) Session.Kick(p, "kicked by the host");
                 }
                 GUILayout.EndHorizontal();
             }
+        }
+
+        bool emoteOpen;
+
+        void DrawEmoteMenu()
+        {
+            float w = 300f, h = 70f + Emotes.Count * 30f;
+            GUILayout.BeginArea(new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h));
+            GUILayout.BeginVertical(panel);
+            GUILayout.Label("Emotes", header);
+            for (int i = 1; i <= Emotes.Count; i++)
+                if (GUILayout.Button(i + "   " + Emotes.Names[i], button)) { Emotes.Play((byte)i); emoteOpen = false; }
+            GUILayout.Label("Press a number or click. Esc closes.", small);
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
         }
 
         static string ColorUtility(Color c)
@@ -490,7 +530,7 @@ namespace MSCMP.UI
             float h = 60f + n * 26f;
             GUILayout.BeginArea(new Rect((Screen.width - w) / 2f, Screen.height * 0.18f, w, h));
             GUILayout.BeginVertical(panel);
-            DrawPlayers(false);
+            DrawPlayers(false, false);
             GUILayout.EndVertical();
             GUILayout.EndArea();
         }
@@ -595,6 +635,7 @@ namespace MSCMP.UI
             List<NetPlayer> shown = new List<NetPlayer>(Session.Remotes);
             foreach (Bots.Bot b in Bots.All) shown.Add(b.P);
             foreach (NetPlayer rb in Bots.RemotePlayers) shown.Add(rb);
+            if (Loopback.Player != null) shown.Add(Loopback.Player);
             foreach (NetPlayer p in shown)
             {
                 RemoteAvatar a = p.Avatar;

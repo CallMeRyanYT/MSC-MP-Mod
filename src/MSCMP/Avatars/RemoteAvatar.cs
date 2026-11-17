@@ -1,3 +1,4 @@
+using MSCMP.Game;
 using MSCMP.Net;
 using MSCMP.Sync;
 using UnityEngine;
@@ -99,7 +100,8 @@ namespace MSCMP.Avatars
                 new BoneGuard(Rig.Skeleton), new BoneGuard(Rig.Pelvis), new BoneGuard(Rig.SpineMiddle), new BoneGuard(Rig.SpineUpper),
                 new BoneGuard(Rig.HeadPivot), new BoneGuard(Rig.Head), new BoneGuard(Rig.ThighLeft), new BoneGuard(Rig.ThighRight),
                 new BoneGuard(Rig.KneeLeft), new BoneGuard(Rig.KneeRight), new BoneGuard(Rig.AnkleLeft), new BoneGuard(Rig.AnkleRight),
-                new BoneGuard(Rig.ShoulderLeft), new BoneGuard(Rig.ShoulderRight)
+                new BoneGuard(Rig.ShoulderLeft), new BoneGuard(Rig.ShoulderRight),
+                new BoneGuard(Rig.CollarLeft), new BoneGuard(Rig.CollarRight)
             };
             Object.SetActive(active || hasCurrent);
         }
@@ -116,11 +118,30 @@ namespace MSCMP.Avatars
             buffer.Add(Player.ToLocalTime(s.Time), s);
         }
 
+        // Emotes made from bone rotations (everything except the wave, which is the NPCs' own clip).
+        byte emote;
+        float emoteStart, emoteUntil;
+        static readonly float[] EmoteSeconds = { 0f, 0f, 2.5f, 2.5f, 2.2f, 3f, 2.5f, 60f, 6f };
+
+        bool Sleeping { get { return (current.Flags & PlayerSnapshot.FlagSleeping) != 0; } }
+
+        /// <summary>How drunk they look, 0..1.</summary>
+        float Drunk01 { get { return Player != null && Player.HasStatus ? Mathf.Clamp01(Player.Status.Drunk / 2.5f) : 0f; } }
+
         public void PlayGesture(byte gesture)
         {
-            if (Rig == null || Rig.RightArmAnim == null) return;
-            string clip = gesture == 1 ? AvatarFactory.Clips.Wave : null;
-            if (clip == null || Rig.RightArmAnim[clip] == null) return;
+            if (Rig == null) return;
+            if (gesture != Emotes.Wave)
+            {
+                if (gesture < 2 || gesture >= EmoteSeconds.Length) return;
+                emote = gesture;
+                emoteStart = Time.time;
+                emoteUntil = Time.time + EmoteSeconds[gesture];
+                return;
+            }
+            if (Rig.RightArmAnim == null) return;
+            string clip = AvatarFactory.Clips.Wave;
+            if (Rig.RightArmAnim[clip] == null) return;
             gestureClip = clip;
             AnimationState st = Rig.RightArmAnim[clip];
             st.wrapMode = WrapMode.Once;
@@ -169,9 +190,20 @@ namespace MSCMP.Avatars
             else
             {
                 SetPose(Pose.Standing);
+                if (Sleeping)
+                {
+                    // Lying on their back, head where their camera is (in bed).
+                    if (Rig.Collider != null) Rig.Collider.enabled = false;
+                    t.rotation = Quaternion.Euler(0f, current.Yaw, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                    t.position = current.Head - t.up * 1.55f - Vector3.up * 0.12f;
+                    UpdateWalkAnimation();
+                    return;
+                }
                 if (Rig.Collider != null) Rig.Collider.enabled = true;
                 t.position = current.Position + Vector3.up * groundOffset;
-                t.rotation = Quaternion.Euler(0f, current.Yaw, 0f);
+                float d = Drunk01, ph = Time.time * 1.3f;
+                // Drunk: the whole body sways a little.
+                t.rotation = Quaternion.Euler(0f, current.Yaw + Mathf.Sin(ph * 0.7f) * 6f * d, 0f) * Quaternion.Euler(Mathf.Sin(ph * 1.1f) * 3f * d, 0f, Mathf.Sin(ph) * 5f * d);
                 UpdateWalkAnimation();
             }
         }
@@ -182,6 +214,7 @@ namespace MSCMP.Avatars
             Vector3 flat = new Vector3(smoothVelocity.x, 0f, smoothVelocity.z);
             float speed = flat.magnitude;
             bool carrying = current.Held != 0;
+            if (emote == Emotes.Sit && speed > 0.6f) emoteUntil = Mathf.Min(emoteUntil, Time.time + 0.3f); // got up
             float dt = Mathf.Max(Time.deltaTime, 0.0001f);
             // Start fresh after spawning, leaving a car or being hidden, so the jump from the old
             // heading never reads as a fast turn.
@@ -277,14 +310,17 @@ namespace MSCMP.Avatars
 
         void PoseBones(Transform t)
         {
+            if (pose == Pose.Standing && Sleeping) return; // lying in bed: the plain pose is right
             if (pose == Pose.Standing)
             {
+                float ew = EmoteWeight();
                 if (legsClip == AvatarFactory.Clips.Run && Rig.Pelvis != null)
                     Rig.Pelvis.localPosition = restPelvisLocal; // the run clip is from a child's body
                 float groundY = t.position.y - groundOffset;   // where their feet really are
                 float bend = current.Crouch;
                 bool airborne = (current.Flags & PlayerSnapshot.FlagGrounded) == 0 && Mathf.Abs(current.Velocity.y) > 1.2f;
                 if (airborne) bend = Mathf.Max(bend, 0.25f); // tuck the legs while jumping or falling
+                if (emote == Emotes.Sit) bend = Mathf.Max(bend, ew);
                 float torsoLean = 0f;
                 if (bend > 0.02f) torsoLean = ApplyCrouch(bend, t, groundY);
                 else KeepFeetOnGround(groundY);
@@ -306,6 +342,15 @@ namespace MSCMP.Avatars
                 // The head leads into turns, and follows the camera up and down.
                 headLead = Mathf.Lerp(headLead, Mathf.Clamp(yawRate * 0.12f, -40f, 40f), Mathf.Clamp01(Time.deltaTime * 8f));
                 AimHead(headLead, current.Pitch, t, torsoLean + fwdAngle);
+                float d = Drunk01;
+                if (d > 0.01f)
+                {
+                    float ph = Time.time * 1.3f;
+                    Rotate(Rig.SpineMiddle, Mathf.Sin(ph) * 8f * d, t.forward);
+                    Rotate(Rig.SpineUpper, Mathf.Sin(ph * 1.3f + 1f) * 6f * d, t.forward);
+                    Rotate(head, Mathf.Sin(ph * 0.8f + 2f) * 12f * d, t.forward);
+                }
+                if (ew > 0f) ApplyEmote(t, ew);
                 ApplyReach();
             }
             else if (pose == Pose.Seated)
@@ -324,6 +369,69 @@ namespace MSCMP.Avatars
         }
 
         float headLead;
+
+        float EmoteWeight()
+        {
+            if (emote == 0 || Time.time >= emoteUntil) { emote = 0; return 0f; }
+            return Mathf.Min(Mathf.Clamp01((Time.time - emoteStart) / 0.3f), Mathf.Clamp01((emoteUntil - Time.time) / 0.3f));
+        }
+
+        /// <summary>Emotes made from bone rotations, on top of the normal pose. Arms hang
+        /// down: turning them about the body's right axis by a negative angle lifts them
+        /// forward; about the forward axis, positive moves an arm to the body's right.</summary>
+        void ApplyEmote(Transform t, float w)
+        {
+            Vector3 right = t.right, fwd = t.forward;
+            Transform head = Rig.HeadPivot ?? Rig.Head;
+            float time = Time.time - emoteStart;
+            bool rightFree = current.Held == 0 && Time.time >= gestureUntil;
+            switch (emote)
+            {
+                case Emotes.Point:
+                    if (rightFree) Rotate(Rig.ShoulderRight, -88f * w, right);
+                    break;
+                case Emotes.Cheer:
+                {
+                    float bounce = Mathf.Sin(time * 9f) * 12f;
+                    Rotate(Rig.ShoulderLeft, (-160f + bounce) * w, right);
+                    Rotate(Rig.ShoulderLeft, -15f * w, fwd);
+                    if (rightFree) { Rotate(Rig.ShoulderRight, (-160f - bounce) * w, right); Rotate(Rig.ShoulderRight, 15f * w, fwd); }
+                    Rotate(head, -12f * w, right);
+                    break;
+                }
+                case Emotes.Shrug:
+                    Rotate(Rig.CollarLeft, -14f * w, fwd);
+                    Rotate(Rig.CollarRight, 14f * w, fwd);
+                    Rotate(Rig.ShoulderLeft, -30f * w, right);
+                    Rotate(Rig.ShoulderLeft, -32f * w, fwd);
+                    if (rightFree) { Rotate(Rig.ShoulderRight, -30f * w, right); Rotate(Rig.ShoulderRight, 32f * w, fwd); }
+                    Rotate(head, 10f * w, fwd);
+                    break;
+                case Emotes.Drink:
+                    if (rightFree) { Rotate(Rig.ShoulderRight, -150f * w, right); Rotate(Rig.ShoulderRight, -25f * w, fwd); }
+                    Rotate(head, -28f * w * Mathf.Clamp01(time / 0.8f), right);
+                    break;
+                case Emotes.Facepalm:
+                    if (rightFree) { Rotate(Rig.ShoulderRight, -145f * w, right); Rotate(Rig.ShoulderRight, -32f * w, fwd); }
+                    Rotate(head, 24f * w, right);
+                    break;
+                case Emotes.Sit:
+                    // Hands on the knees.
+                    Rotate(Rig.ShoulderLeft, -30f * w, right);
+                    if (rightFree) Rotate(Rig.ShoulderRight, -30f * w, right);
+                    break;
+                case Emotes.Dance:
+                {
+                    float ph = time * 6.5f, s = Mathf.Sin(ph);
+                    if (Rig.Skeleton != null) Rig.Skeleton.position += right * s * 0.06f * w;
+                    Rotate(Rig.SpineMiddle, s * 10f * w, fwd);
+                    Rotate(Rig.ShoulderLeft, (-70f + s * 45f) * w, right);
+                    if (rightFree) Rotate(Rig.ShoulderRight, (-70f - s * 45f) * w, right);
+                    Rotate(head, Mathf.Sin(ph + 1f) * 9f * w, fwd);
+                    break;
+                }
+            }
+        }
 
         static float DeadZone(float v, float zone)
         {

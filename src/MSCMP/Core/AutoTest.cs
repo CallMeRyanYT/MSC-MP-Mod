@@ -22,6 +22,7 @@ namespace MSCMP
         static string folder;
         static readonly List<string> report = new List<string>();
         static int failures;
+        static int emoteStep;
 
         static float nextCheck;
 
@@ -94,6 +95,18 @@ namespace MSCMP
 
         static void Check(string what)
         {
+            // The loopback copies are what a friend's game draws: check them too.
+            List<KeyValuePair<string, RemoteAvatar>> remote = new List<KeyValuePair<string, RemoteAvatar>>();
+            if (Loopback.Player != null && Loopback.Player.Avatar != null) remote.Add(new KeyValuePair<string, RemoteAvatar>("you via loopback", Loopback.Player.Avatar));
+            foreach (Net.NetPlayer rp in Bots.RemotePlayers) if (rp.Avatar != null) remote.Add(new KeyValuePair<string, RemoteAvatar>(rp.Name, rp.Avatar));
+            foreach (KeyValuePair<string, RemoteAvatar> kv in remote)
+            {
+                bool bad = kv.Value.LooksBroken();
+                string line = (bad ? "FAIL " : "ok   ") + what + " / " + kv.Key + ": " + kv.Value.Diagnostics();
+                report.Add(line);
+                Log.Info("AUTOTEST " + line);
+                if (bad) failures++;
+            }
             foreach (Bots.Bot b in Bots.All)
             {
                 string d = b.P.Avatar.Diagnostics();
@@ -120,6 +133,7 @@ namespace MSCMP
                 case 0:
                     Shot("00_world");
                     for (int i = 0; i < Catalog.Bodies.Length && i < 4; i++) Bots.Spawn();
+                    Loopback.Set(true);
                     if (Bots.All.Count == 0) Fail("no bots could be spawned");
                     break;
                 case 1:
@@ -187,6 +201,22 @@ namespace MSCMP
                 case 12:
                     Check("more bodies");
                     Shot("10_bodies2");
+                    emoteStep = 2;
+                    break;
+                case 13:
+                    // Every emote on every bot (and on the loopback copies).
+                    if (emoteStep <= Emotes.Count)
+                    {
+                        foreach (Bots.Bot b in Bots.All) Bots.Emote(b, (byte)emoteStep);
+                        nextStep = now + 1.2f;
+                        step = 14;
+                    }
+                    break;
+                case 14:
+                    Check("emote " + Emotes.Names[emoteStep]);
+                    Shot("11_emote_" + emoteStep);
+                    emoteStep++;
+                    if (emoteStep <= Emotes.Count) step = 13;
                     break;
                 default:
                     Finish();

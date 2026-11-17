@@ -10,9 +10,9 @@ namespace MSCMP
     internal static class Options
     {
         static SettingsDropDownList body, shirt, pants, face;
-        static SettingsCheckBox nameTags, verbose;
+        static SettingsCheckBox nameTags, verbose, markers;
         static SettingsSliderInt maxPlayers;
-        public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey;
+        public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey;
 
         public static void Create()
         {
@@ -26,6 +26,7 @@ namespace MSCMP
             Settings.AddHeader("Multiplayer");
             maxPlayers = Settings.AddSlider("mscmp_maxplayers", "Max players when hosting", 2, Protocol.MaxPlayers, 4, null);
             nameTags = Settings.AddCheckBox("mscmp_nametags", "Show player names above heads", true, null);
+            markers = Settings.AddCheckBox("mscmp_markers", "Show where far-away friends are (name and distance)", true, null);
             verbose = Settings.AddCheckBox("mscmp_verbose", "Detailed log (for bug reports)", false, () => Log.Verbose = verbose.GetValue());
             Settings.AddButton("Open log folder", OpenLogFolder);
 
@@ -34,6 +35,8 @@ namespace MSCMP
             PlayerListKey = Keybind.Add("mscmp_players", "Show players", KeyCode.Tab);
             ChatKey = Keybind.Add("mscmp_chat", "Chat", KeyCode.T);
             WaveKey = Keybind.Add("mscmp_wave", "Wave to other players", KeyCode.G);
+            EmoteKey = Keybind.Add("mscmp_emotes", "Emote menu", KeyCode.B);
+            PingKey = Keybind.Add("mscmp_ping", "Ping: show friends where you look", KeyCode.Mouse2);
         }
 
         public static void Loaded()
@@ -116,6 +119,11 @@ namespace MSCMP
         public static bool NameTags
         {
             get { try { return nameTags == null || nameTags.GetValue(); } catch { return true; } }
+        }
+
+        public static bool FriendMarkers
+        {
+            get { try { return markers == null || markers.GetValue(); } catch { return true; } }
         }
 
         public static int MaxPlayers

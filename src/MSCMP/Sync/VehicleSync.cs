@@ -568,7 +568,9 @@ namespace MSCMP.Sync
             if (!Session.IsHost || from == null) return;
             NetVehicle v = ById(r.UInt());
             if (v == null) return;
-            if (v.Driver != 255 && v.Driver != from.Slot)
+            bool allowed = from.CanDrive;
+            if (!allowed) Session.SendNotice(from, "The host hasn't allowed you to drive.");
+            if (!allowed || v.Driver != 255 && v.Driver != from.Slot)
             {
                 NetWriter w = Session.Begin(Msg.VehOwnDeny);
                 w.UInt(v.Id);

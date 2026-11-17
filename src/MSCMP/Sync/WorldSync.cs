@@ -110,7 +110,10 @@ namespace MSCMP.Sync
                             NetWriter w = Session.Begin(Msg.Money);
                             w.Byte(0);
                             w.Float(m);
-                            Session.BroadcastInGame(true, Channel.Reliable);
+                            // Players with their own wallet keep their own money.
+                            foreach (NetPlayer p in Session.Remotes)
+                                if (p.SharedWallet && (p.Phase == PlayerPhase.Playing || p.Phase == PlayerPhase.Syncing))
+                                    Session.SendTo(p, true, Channel.Reliable);
                         }
                     }
                     else
@@ -216,7 +219,7 @@ namespace MSCMP.Sync
                 lastMoney = v;
                 moneyKnown = true;
             }
-            else if (kind == 1 && Session.IsHost && from != null && !from.IsLocal)
+            else if (kind == 1 && Session.IsHost && from != null && !from.IsLocal && from.SharedWallet)
             {
                 if (float.IsNaN(v) || float.IsInfinity(v) || Mathf.Abs(v) > 1000000f) return;
                 money.Value = money.Value + v; // the change is broadcast by Update
@@ -231,7 +234,7 @@ namespace MSCMP.Sync
                 WriteTimeWeather(Session.Begin(Msg.TimeWeather));
                 Session.SendTo(p, true, Channel.Reliable);
             }
-            if (money != null)
+            if (money != null && p.SharedWallet)
             {
                 NetWriter w = Session.Begin(Msg.Money);
                 w.Byte(0);

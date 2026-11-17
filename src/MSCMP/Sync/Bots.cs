@@ -89,7 +89,7 @@ namespace MSCMP.Sync
         static readonly List<Bot> bots = new List<Bot>();
         static readonly Dictionary<int, RemoteBot> remote = new Dictionary<int, RemoteBot>();
         static readonly Queue<KeyValuePair<float, Vector3>> reaches = new Queue<KeyValuePair<float, Vector3>>();
-        static readonly Queue<float> waves = new Queue<float>();
+        static readonly Queue<KeyValuePair<float, byte>> emotes = new Queue<KeyValuePair<float, byte>>();
         static readonly NetWriter writer = new NetWriter(128);
         static readonly NetReader reader = new NetReader();
         static float nextSample, nextReport, nextSend;
@@ -211,10 +211,19 @@ namespace MSCMP.Sync
             Log.Info(b.P.Name + " " + b.OrderText);
         }
 
-        public static void Wave(Bot b)
+        public static void Wave(Bot b) { Emote(b, Emotes.Wave); }
+
+        /// <summary>Plays an emote on a bot (gesture id, see <see cref="Emotes"/>).</summary>
+        public static void Emote(Bot b, byte id)
         {
-            b.P.Avatar.PlayGesture(1);
-            SendAction(b, 1, Vector3.zero);
+            b.P.Avatar.PlayGesture(id);
+            SendAction(b, (byte)(id == Emotes.Wave ? 1 : 10 + id), Vector3.zero);
+        }
+
+        /// <summary>Copying bots repeat your emotes.</summary>
+        public static void MirrorEmote(byte id)
+        {
+            if (Any) emotes.Enqueue(new KeyValuePair<float, byte>(Time.realtimeSinceStartup + CopyDelay, id));
         }
 
         // ---------------------------------------------------------------- jobs
@@ -344,7 +353,7 @@ namespace MSCMP.Sync
         {
             for (int i = bots.Count - 1; i >= 0; i--) Remove(bots[i]);
             reaches.Clear();
-            waves.Clear();
+            emotes.Clear();
             // Other players' bots come back when we are in the world again.
             foreach (RemoteBot rb in remote.Values) DestroyAvatar(rb);
         }
@@ -357,7 +366,6 @@ namespace MSCMP.Sync
             if (bots.Count == 0) return;
             if (!MP.InGame || !LocalPlayer.Bound) { OnWorldLeft(); return; }
             float now = Time.realtimeSinceStartup;
-            if (Options.KeyDown(Options.WaveKey) && !MultiplayerUIState.Typing) waves.Enqueue(now + CopyDelay);
 
             bool sample = now >= nextSample;
             PlayerSnapshot mine = default(PlayerSnapshot);
@@ -425,10 +433,10 @@ namespace MSCMP.Sync
                         SendAction(b, 2, at);
                     }
             }
-            while (waves.Count > 0 && waves.Peek() <= now)
+            while (emotes.Count > 0 && emotes.Peek().Key <= now)
             {
-                waves.Dequeue();
-                foreach (Bot b in bots) if (b.Order == Order.Copy) Wave(b);
+                byte id = emotes.Dequeue().Value;
+                foreach (Bot b in bots) if (b.Order == Order.Copy) Emote(b, id);
             }
 
             if (now >= nextSend)
@@ -894,45 +902,73 @@ namespace MSCMP.Sync
         // like a player's own updates.
 
         static bool Online { get { return Session.Active && Session.Connected && Session.Local != null; } }
+        static bool Wanted { get { return Online || Loopback.On; } }
+        static readonly NetReader loopReader = new NetReader();
+
+        /// <summary>Sends the message in the session writer, and with the loopback test on also
+        /// hands it to our own receiving code as if a friend had sent it.</summary>
+        static void Emit(NetWriter w, Msg msg, bool reliable, int channel, NetPlayer onlyTo)
+        {
+            if (Online)
+            {
+                if (onlyTo != null) Session.SendTo(onlyTo, reliable, channel);
+                else Session.SendToAll(reliable, channel);
+            }
+            if (Loopback.On && onlyTo == null)
+            {
+                // Skip the message id and our slot; the loopback "friend" owns these.
+                loopReader.Set(w.Buffer, 2, w.Length - 2);
+                try
+                {
+                    switch (msg)
+                    {
+                        case Msg.BotSpawn: HandleSpawn(Loopback.BotOwner, loopReader, false); break;
+                        case Msg.BotRemove: HandleRemove(Loopback.BotOwner, loopReader, false); break;
+                        case Msg.BotStates: HandleStates(Loopback.BotOwner, loopReader, false); break;
+                        case Msg.BotAction: HandleAction(Loopback.BotOwner, loopReader, false); break;
+                    }
+                }
+                catch (Exception e) { Log.ExceptionOnce("Bot loopback " + msg, e); }
+            }
+        }
 
         static void SendSpawn(Bot b, NetPlayer onlyTo)
         {
-            if (!Online) return;
+            if (!Wanted) return;
             NetWriter w = Session.Begin(Msg.BotSpawn);
-            w.Byte(Session.Local.Slot);
+            w.Byte(Session.LocalSlot);
             w.Byte(b.NetId);
             w.String(b.P.Name);
             b.P.Look.Write(w);
-            if (onlyTo != null) Session.SendTo(onlyTo, true, Channel.Reliable);
-            else Session.SendToAll(true, Channel.Reliable);
+            Emit(w, Msg.BotSpawn, true, Channel.Reliable, onlyTo);
         }
 
         static void SendRemove(byte id)
         {
-            if (!Online) return;
+            if (!Wanted) return;
             NetWriter w = Session.Begin(Msg.BotRemove);
-            w.Byte(Session.Local.Slot);
+            w.Byte(Session.LocalSlot);
             w.Byte(id);
-            Session.SendToAll(true, Channel.Reliable);
+            Emit(w, Msg.BotRemove, true, Channel.Reliable, null);
         }
 
-        /// <summary>kind 1 = wave, 2 = reach towards a point.</summary>
+        /// <summary>kind 1 = wave, 2 = reach towards a point, 10 + id = another emote.</summary>
         static void SendAction(Bot b, byte kind, Vector3 at)
         {
-            if (!Online) return;
+            if (!Wanted) return;
             NetWriter w = Session.Begin(Msg.BotAction);
-            w.Byte(Session.Local.Slot);
+            w.Byte(Session.LocalSlot);
             w.Byte(b.NetId);
             w.Byte(kind);
             if (kind == 2) w.Vector3(at);
-            Session.SendToAll(true, Channel.Reliable);
+            Emit(w, Msg.BotAction, true, Channel.Reliable, null);
         }
 
         static void SendStates()
         {
-            if (!Online) return;
+            if (!Wanted) return;
             NetWriter w = Session.Begin(Msg.BotStates);
-            w.Byte(Session.Local.Slot);
+            w.Byte(Session.LocalSlot);
             int countPos = w.Length;
             w.Byte(0);
             byte n = 0;
@@ -945,16 +981,31 @@ namespace MSCMP.Sync
             }
             if (n == 0) return;
             w.Buffer[countPos] = n;
-            Session.SendToAll(false, Channel.State);
+            Emit(w, Msg.BotStates, false, Channel.State, null);
+        }
+
+        /// <summary>The loopback test was switched on or off: show or hide the mirrored bots.</summary>
+        public static void LoopbackChanged(bool on)
+        {
+            if (on) { foreach (Bot b in bots) SendSpawn(b, null); }
+            else RemoveRemoteOf(Loopback.BotOwner.Slot);
         }
 
         /// <summary>Host: tells a player who just joined about every bot in the session.</summary>
         public static void SendCatchUp(NetPlayer p)
         {
-            foreach (Bot b in bots) SendSpawn(b, p);
+            foreach (Bot b in bots)
+            {
+                NetWriter w = Session.Begin(Msg.BotSpawn);
+                w.Byte(Session.LocalSlot);
+                w.Byte(b.NetId);
+                w.String(b.P.Name);
+                b.P.Look.Write(w);
+                Session.SendTo(p, true, Channel.Reliable);
+            }
             foreach (RemoteBot rb in remote.Values)
             {
-                if (rb.Owner == p.Slot) continue;
+                if (rb.Owner == p.Slot || rb.Owner == Loopback.BotOwner.Slot) continue;
                 NetWriter w = Session.Begin(Msg.BotSpawn);
                 w.Byte(rb.Owner);
                 w.Byte(rb.Id);
@@ -973,13 +1024,16 @@ namespace MSCMP.Sync
 
         static int Key(byte owner, byte id) { return (owner << 8) | id; }
 
-        static void OnSpawn(NetPlayer from, NetReader r)
+        static void OnSpawn(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleSpawn(OwnerOf(from, slot), r, Session.IsHost); }
+        static void OnRemove(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleRemove(OwnerOf(from, slot), r, Session.IsHost); }
+        static void OnStates(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleStates(OwnerOf(from, slot), r, Session.IsHost); }
+        static void OnAction(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleAction(OwnerOf(from, slot), r, Session.IsHost); }
+
+        static void HandleSpawn(NetPlayer owner, NetReader r, bool relay)
         {
-            byte slot = r.Byte();
             byte id = r.Byte();
             string name = r.String();
             Appearance look = Appearance.Read(r);
-            NetPlayer owner = OwnerOf(from, slot);
             if (owner == null || owner.IsLocal || id == 0) return;
             if (name.Length > 24) name = name.Substring(0, 24);
 
@@ -1002,7 +1056,7 @@ namespace MSCMP.Sync
             rb.P.Look = look;
             if (changed) rb.P.Avatar.Rebuild(look);
 
-            if (Session.IsHost)
+            if (relay)
             {
                 NetWriter w = Session.Begin(Msg.BotSpawn);
                 w.Byte(owner.Slot);
@@ -1013,11 +1067,9 @@ namespace MSCMP.Sync
             }
         }
 
-        static void OnRemove(NetPlayer from, NetReader r)
+        static void HandleRemove(NetPlayer owner, NetReader r, bool relay)
         {
-            byte slot = r.Byte();
             byte id = r.Byte();
-            NetPlayer owner = OwnerOf(from, slot);
             if (owner == null || owner.IsLocal) return;
             RemoteBot rb;
             if (remote.TryGetValue(Key(owner.Slot, id), out rb))
@@ -1025,7 +1077,7 @@ namespace MSCMP.Sync
                 DestroyAvatar(rb);
                 remote.Remove(Key(owner.Slot, id));
             }
-            if (Session.IsHost)
+            if (relay)
             {
                 NetWriter w = Session.Begin(Msg.BotRemove);
                 w.Byte(owner.Slot);
@@ -1036,11 +1088,9 @@ namespace MSCMP.Sync
 
         static readonly List<KeyValuePair<byte, PlayerSnapshot>> incoming = new List<KeyValuePair<byte, PlayerSnapshot>>();
 
-        static void OnStates(NetPlayer from, NetReader r)
+        static void HandleStates(NetPlayer owner, NetReader r, bool relay)
         {
-            byte slot = r.Byte();
             int n = r.Byte();
-            NetPlayer owner = OwnerOf(from, slot);
             if (owner == null || owner.IsLocal) return;
             incoming.Clear();
             for (int i = 0; i < n; i++)
@@ -1048,17 +1098,19 @@ namespace MSCMP.Sync
                 byte id = r.Byte();
                 incoming.Add(new KeyValuePair<byte, PlayerSnapshot>(id, PlayerSnapshot.Read(r)));
             }
+            bool mirrored = owner == Loopback.BotOwner;
             foreach (KeyValuePair<byte, PlayerSnapshot> kv in incoming)
             {
                 RemoteBot rb;
                 if (!remote.TryGetValue(Key(owner.Slot, kv.Key), out rb)) continue;
                 PlayerSnapshot s = kv.Value;
                 s.Time = owner.ToLocalTime(s.Time); // the bot's NetPlayer keeps local time
+                if (mirrored && s.Vehicle == 0) { s.Position += Loopback.Offset; s.Head += Loopback.Offset; }
                 rb.P.Last = s;
                 rb.P.HasState = true;
                 if (rb.P.Avatar != null) rb.P.Avatar.Push(s);
             }
-            if (Session.IsHost && incoming.Count > 0)
+            if (relay && incoming.Count > 0)
             {
                 NetWriter w = Session.Begin(Msg.BotStates);
                 w.Byte(owner.Slot);
@@ -1068,21 +1120,21 @@ namespace MSCMP.Sync
             }
         }
 
-        static void OnAction(NetPlayer from, NetReader r)
+        static void HandleAction(NetPlayer owner, NetReader r, bool relay)
         {
-            byte slot = r.Byte();
             byte id = r.Byte();
             byte kind = r.Byte();
             Vector3 at = kind == 2 ? r.Vector3() : Vector3.zero;
-            NetPlayer owner = OwnerOf(from, slot);
             if (owner == null || owner.IsLocal) return;
+            Vector3 shown = owner == Loopback.BotOwner ? at + Loopback.Offset : at;
             RemoteBot rb;
             if (remote.TryGetValue(Key(owner.Slot, id), out rb) && rb.P.Avatar != null && rb.P.Avatar.Visible)
             {
-                if (kind == 1) rb.P.Avatar.PlayGesture(1);
-                else if (kind == 2 && (rb.P.Avatar.HeadPosition - at).sqrMagnitude < 9f) rb.P.Avatar.Reach(at);
+                if (kind == 1) rb.P.Avatar.PlayGesture(Emotes.Wave);
+                else if (kind > 10) rb.P.Avatar.PlayGesture((byte)(kind - 10));
+                else if (kind == 2 && (rb.P.Avatar.HeadPosition - shown).sqrMagnitude < 9f) rb.P.Avatar.Reach(shown);
             }
-            if (Session.IsHost)
+            if (relay)
             {
                 NetWriter w = Session.Begin(Msg.BotAction);
                 w.Byte(owner.Slot);

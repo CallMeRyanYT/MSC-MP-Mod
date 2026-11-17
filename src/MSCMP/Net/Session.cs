@@ -34,6 +34,9 @@ namespace MSCMP.Net
         public static string Status = "";
         /// <summary>Client side: what the host is doing.</summary>
         public static bool HostInGame;
+        /// <summary>Host: nobody new may join (players who were already here may come back).</summary>
+        public static bool Locked;
+        static readonly HashSet<ulong> members = new HashSet<ulong>();
         public static int MaxPlayers = 4;
 
         static readonly NetPlayer[] slots = new NetPlayer[Protocol.MaxPlayers];
@@ -163,6 +166,8 @@ namespace MSCMP.Net
 
         static void Reset(string reason)
         {
+            Locked = false;
+            members.Clear();
             bool wasActive = Active;
             List<NetPlayer> remotes = new List<NetPlayer>(Remotes);
             foreach (NetPlayer p in remotes)
@@ -561,6 +566,7 @@ namespace MSCMP.Net
         {
             slots[p.Slot] = p;
             bySteam[p.SteamId.m_SteamID] = p;
+            members.Add(p.SteamId.m_SteamID);
         }
 
         static void RemovePlayer(NetPlayer p, bool announce)
@@ -619,6 +625,11 @@ namespace MSCMP.Net
             if (proto != Protocol.Version)
             {
                 RejectStranger(from, "Version mismatch: host runs MSCMP " + BuildInfo.Version + ", you run " + modVersion + ". Both players need the same version.");
+                return;
+            }
+            if (Locked && !members.Contains(from.m_SteamID))
+            {
+                RejectStranger(from, "The host has locked this game.");
                 return;
             }
             byte slot = FreeSlot();

@@ -207,6 +207,31 @@ namespace MSCMP
             }
         }
 
+        /// <summary>Layers that count as solid ground/walls for placing people (not "Ignore
+        /// Raycast", not player bodies).</summary>
+        public static int WorldMask { get { return ~((1 << 2) | (1 << 23)); } }
+
+        /// <summary>True for colliders of the local player, other players' bodies and bots.</summary>
+        public static bool IsPersonCollider(Collider c)
+        {
+            Transform r = c.transform.root;
+            return r.name == "PLAYER" || r.name.StartsWith("MSCMP", StringComparison.Ordinal);
+        }
+
+        /// <summary>Puts a point on the ground below or just above it (terrain, floors, roads).</summary>
+        public static Vector3 GroundPoint(Vector3 p)
+        {
+            RaycastHit[] hits = Physics.RaycastAll(p + Vector3.up * 1.6f, Vector3.down, 30f, WorldMask);
+            float best = float.MaxValue;
+            Vector3 result = p;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider.isTrigger || IsPersonCollider(hits[i].collider) || hits[i].rigidbody != null && !hits[i].rigidbody.isKinematic) continue;
+                if (hits[i].distance < best) { best = hits[i].distance; result = hits[i].point; }
+            }
+            return result;
+        }
+
         public static FsmFloat GlobalFloat(string name)
         {
             try { return FsmVariables.GlobalVariables.FindFsmFloat(name); } catch { return null; }

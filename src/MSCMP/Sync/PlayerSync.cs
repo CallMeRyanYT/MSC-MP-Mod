@@ -64,13 +64,6 @@ namespace MSCMP.Sync
                 Session.SendToAll(false, Channel.State);
             }
 
-            if (Options.KeyDown(Options.WaveKey) && !MultiplayerUIState.Typing)
-            {
-                NetWriter w = Session.Begin(Msg.Gesture);
-                w.Byte(Session.Local.Slot);
-                w.Byte(1);
-                Session.SendToAll(true, Channel.Reliable);
-            }
 
             foreach (NetPlayer p in Session.Remotes)
             {
@@ -105,6 +98,16 @@ namespace MSCMP.Sync
                 s.Write(w);
                 Session.BroadcastInGame(false, Channel.State, subject);
             }
+        }
+
+        /// <summary>Shows an emote (gesture id, see <see cref="Emotes"/>) to everyone.</summary>
+        public static void SendGesture(byte gesture)
+        {
+            if (!Session.Active || !Session.Connected || Session.Local == null) return;
+            NetWriter w = Session.Begin(Msg.Gesture);
+            w.Byte(Session.Local.Slot);
+            w.Byte(gesture);
+            Session.SendToAll(true, Channel.Reliable);
         }
 
         static void OnGesture(NetPlayer from, NetReader r)

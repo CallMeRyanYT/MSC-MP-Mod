@@ -30,6 +30,12 @@ namespace MSCMP.Net
         public RemoteAvatar Avatar;
         public PlayerSnapshot Last;       // most recent state received
         public bool HasState;
+        public PlayerStatus Status;       // needs (hunger, thirst, drunk...), every few seconds
+        public bool HasStatus;
+
+        // Host decides (host side only)
+        public bool CanDrive = true;      // may take the driver's seat
+        public bool SharedWallet = true;  // shares the host's money; off = keeps their own
 
         public bool IsHost { get { return Slot == 0; } }
 

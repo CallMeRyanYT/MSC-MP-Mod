@@ -51,6 +51,10 @@ namespace MSCMP.Net
         BotRemove = 43,         // owner slot, bot id
         BotStates = 44,         // State channel: owner slot, count, (bot id, snapshot)...
         BotAction = 45,         // owner slot, bot id, 1 = wave / 2 = reach (+ point)
+        PlayerStatus = 46,      // client -> host -> all: slot, needs (hunger, thirst, drunk...)
+        PlayerRestore = 47,     // host -> client: put back at the last place, with the same needs
+        MapPing = 48,           // client -> host -> all: slot, point, "look here" marker
+        PlayerDied = 49,        // client -> host: forget their saved place (they start fresh)
 
         // --- objects ---
         ObjOwnRequest = 50,
@@ -85,7 +89,7 @@ namespace MSCMP.Net
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 3;          // 3: bots everyone sees (Bot*); 2: world values, batches from clients
+        public const ushort Version = 4;          // 4: needs, restore, pings, emotes; 3: bots (Bot*); 2: world values
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

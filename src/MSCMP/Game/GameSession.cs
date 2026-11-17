@@ -21,6 +21,7 @@ namespace MSCMP.Game
         static float returnToMenuAt;
         static float saveRequestedAt = -100f;
         static bool leftWorldVoluntarily;
+        static float respawnAt;              // after dying: when to load back in
 
         public static bool CatchingUp { get { return catchingUp; } }
         public static bool WaitingToRejoin { get { return Session.IsClient && Session.Connected && MP.InMenu && Session.HostInGame && !autoJoinWorld; } }
@@ -125,8 +126,19 @@ namespace MSCMP.Game
             else
             {
                 // Our game may have saved (toilet) or deleted (death) the copy on disk.
+                bool died = !System.IO.File.Exists(System.IO.Path.Combine(Application.persistentDataPath, "defaultES2File.txt"));
                 SaveSync.MarkStale();
-                if (Session.HostInGame) leftWorldVoluntarily = true;
+                if (died && Session.HostInGame)
+                {
+                    // Dying deletes the save, like in single player. Come back fresh by ourselves.
+                    PlayerCare.ReportDeath();
+                    respawnAt = Time.realtimeSinceStartup + 8f;
+                    autoJoinWorld = true;
+                    leftWorldVoluntarily = false;
+                    Notifications.Show("You died. You'll be back in " + HostName() + "'s world in a moment.");
+                    Log.Info("Died in the host's world; respawning.");
+                }
+                else if (Session.HostInGame) leftWorldVoluntarily = true;
             }
         }
 
@@ -141,6 +153,7 @@ namespace MSCMP.Game
 
             if (!Session.IsClient || !Session.Connected || !MP.InMenu) return;
             if (!Session.HostInGame || !autoJoinWorld || MenuControl.Starting) return;
+            if (now < respawnAt) return;
 
             if (!SaveSync.ClientHasHostSave)
             {
@@ -258,6 +271,7 @@ namespace MSCMP.Game
             if (!Session.IsHost || from == null) return;
             from.Phase = PlayerPhase.Playing;
             Notifications.Show(from.Name + " is now in your world.");
+            PlayerCare.OnClientReady(from);
         }
 
         static string HostName()

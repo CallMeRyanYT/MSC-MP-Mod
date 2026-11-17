@@ -2,6 +2,7 @@ using System;
 using HutongGames.PlayMaker;
 using MSCMP.Net;
 using MSCMP.Sync;
+using MSCMP.UI;
 using UnityEngine;
 
 namespace MSCMP.Game
@@ -94,7 +95,7 @@ namespace MSCMP.Game
             if (PassengerOf != null) ExitPassenger(false);
             SetInputBlocked(false);
             Player = null; View = null; PitchPivot = null; Controller = null;
-            pickUp = null; pickedObject = null; itemPivot = null;
+            pickUp = null; pickedObject = null; itemPivot = null; sleeps = null; needs = null;
         }
 
         // ------------------------------------------------------------ sampling
@@ -217,11 +218,58 @@ namespace MSCMP.Game
             if (flat.magnitude > 3.6f) flags |= PlayerSnapshot.FlagRunning;
             if (InMenu) flags |= PlayerSnapshot.FlagInMenu;
             if (Controller != null && Controller.enabled && Controller.isGrounded) flags |= PlayerSnapshot.FlagGrounded;
+            if (sleeps == null) sleeps = GameUtil.GlobalBool("PlayerSleeps");
+            if (sleeps != null && sleeps.Value) flags |= PlayerSnapshot.FlagSleeping;
             s.Flags = flags;
 
             GameObject held = HeldObject;
             s.Held = held != null ? ObjectSync.IdOf(held) : 0u;
             return s;
+        }
+
+        static FsmBool sleeps;
+        static FsmFloat[] needs;
+
+        /// <summary>Your needs as the game has them right now.</summary>
+        public static PlayerStatus ReadStatus()
+        {
+            PlayerStatus s = new PlayerStatus();
+            if (needs == null)
+            {
+                needs = new FsmFloat[PlayerStatus.GlobalNames.Length];
+                for (int i = 0; i < needs.Length; i++) needs[i] = GameUtil.GlobalFloat(PlayerStatus.GlobalNames[i]);
+            }
+            for (int i = 0; i < needs.Length; i++) if (needs[i] != null) s[i] = needs[i].Value;
+            return s;
+        }
+
+        /// <summary>Puts your needs back (after rejoining someone's world).</summary>
+        public static void ApplyStatus(PlayerStatus s)
+        {
+            ReadStatus(); // makes sure the variables are found
+            for (int i = 0; i < needs.Length; i++)
+                if (needs[i] != null) needs[i].Value = Mathf.Clamp(s[i], 0f, i == 6 ? 10f : 100f);
+        }
+
+        /// <summary>Moves you to a place on foot (on the ground there, facing <paramref name="yaw"/>).</summary>
+        public static bool Teleport(Vector3 feet, float yaw)
+        {
+            if (!Bound) return false;
+            if (PassengerOf != null || !string.IsNullOrEmpty(CurrentVehicleName))
+            {
+                Notifications.Show("Get out of the vehicle first.");
+                return false;
+            }
+            Vector3 ground = GameUtil.GroundPoint(feet);
+            bool was = Controller != null && Controller.enabled;
+            if (Controller != null) Controller.enabled = false;
+            // The PLAYER object's position is its centre; keep the same height above the feet.
+            Player.position = ground + (Player.position - Feet) + Vector3.up * 0.05f;
+            Player.rotation = Quaternion.Euler(0f, yaw, 0f);
+            if (Controller != null) Controller.enabled = was;
+            lastPos = Player.position;
+            velocity = Vector3.zero;
+            return true;
         }
 
         // ------------------------------------------------------------ input blocking (chat/menu)

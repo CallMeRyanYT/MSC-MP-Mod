@@ -51,6 +51,7 @@ namespace MSCMP
         public static void OnNewGame()
         {
             SaveSync.OnNewGameStarted();
+            if (!Session.IsClient) PlayerCare.OnNewGame();
         }
 
         public static void OnGameLoaded()
@@ -68,6 +69,7 @@ namespace MSCMP
         {
             Log.Info("Game saved (toilet save & quit).");
             SaveSync.OnHostSaved();
+            Safe("PlayerCare.Saved", PlayerCare.OnHostSaved);
         }
 
         static bool gameBuildRead;
@@ -97,6 +99,8 @@ namespace MSCMP
                 WorldSync.Init();
                 VarSync.Init();
                 Bots.Init();
+                PlayerCare.Init();
+                Markers.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -188,6 +192,9 @@ namespace MSCMP
                 Safe("VehicleSync", VehicleSync.Update);
                 Safe("WorldSync", WorldSync.Update);
                 Safe("VarSync", VarSync.Update);
+                Safe("PlayerCare", PlayerCare.Update);
+                Safe("Markers", Markers.Update);
+                Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
             Safe("CharacterPreview", UI.CharacterPreview.Update);

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0 - 2026-11-17
+
+**Both players need 0.10.0** (the network protocol changed).
+
+- **Friends' progress is saved with the world.** Everybody's needs (hunger, thirst, tiredness, stress, toilet, dirt, drunkenness) are shared every few seconds. When the host saves at the toilet, every friend's last place and needs are written next to the host's save (`friends_progress.txt` in the mod's settings folder). When a friend loads into that world again, they're put back where they were with the same needs. Starting a new game forgets them.
+- **Rejoin after a crash**: a friend who reconnects is put back where they were, even without a save in between.
+- **Respawn after death**: a friend who dies comes back into the host's world by themselves after a few seconds, starting fresh, instead of having to click Rejoin.
+- **Find each other**: markers with name and distance for friends who are far away or behind you (can be switched off in the settings). **Ping** (middle mouse button) shows everyone where you're looking for 10 seconds. **Go to** in the F2 panel teleports you to a player.
+- **Emotes**: an emote menu (**B**, rebindable) with wave, point, cheer, shrug, drink, facepalm, sit down and dance. Pick with the number keys or the mouse. Copying bots repeat your emotes.
+- **See how your friends are doing**: drunk players sway, sleeping players lie in bed, and the player list says who is drunk, hungry, thirsty, tired or needs the toilet.
+- **Host controls**: per player *may drive* and *shared money* (untick to give them their own wallet), **Kick**, and **Lock the game** so nobody new can join (players from this session can still come back).
+- **Loopback test**: *Test: see yourself and your bots as friends see you* in the F2 panel draws a copy of you and your bots next to you, sent through the real network format. The self-test also checks these copies and every emote.
+
 ## 0.9.3 - 2026-11-17
 
 Works together with 0.9.2 (same network protocol), but both players should update for the fixes.
