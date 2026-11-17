@@ -70,6 +70,13 @@ namespace MSCMP
             SaveSync.OnHostSaved();
         }
 
+        static bool gameBuildRead;
+
+        static void ReadGameBuild()
+        {
+            try { GameBuildId = SteamApps.GetAppBuildId(); } catch { GameBuildId = 0; }
+        }
+
         static void EnsureProcessInit()
         {
             if (processInit) return;
@@ -79,10 +86,7 @@ namespace MSCMP
                 Log.Init(MSCLoader.ModLoader.GetModSettingsFolder(Mod));
                 Log.Info("MSC Multiplayer " + BuildInfo.Version + " starting.");
                 PatchSteamShutdown();
-                if (SteamNet.Init())
-                {
-                    try { GameBuildId = SteamApps.GetAppBuildId(); } catch { GameBuildId = 0; }
-                }
+                SteamNet.Init();
                 Session.Init();
                 GameSession.Init();
                 SaveSync.Init();
@@ -162,6 +166,8 @@ namespace MSCMP
                 lastLevel = level;
             }
 
+            if (SteamNet.RetryIfNeeded()) Notifications.Show("Connected to Steam. Multiplayer is ready.");
+            if (SteamNet.Available && !gameBuildRead) { gameBuildRead = true; ReadGameBuild(); }
             try { Session.Update(); }
             catch (Exception e) { Log.ExceptionOnce("Session.Update", e); }
 

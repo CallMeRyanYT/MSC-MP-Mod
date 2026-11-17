@@ -41,23 +41,52 @@ namespace MSCMP.Net
         static byte[] readBuffer = new byte[64 * 1024];
         static bool initTried;
 
+        /// <summary>Why Steam is not available, in words for the player ("" when it is).</summary>
+        public static string Problem { get; private set; }
+        static float nextRetry;
+
+        /// <summary>Tries again every few seconds while Steam is unavailable: Steam may still be
+        /// starting, or the game may set it up after the mod loaded.</summary>
+        public static bool RetryIfNeeded()
+        {
+            if (Available) return false;
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (now < nextRetry) return false;
+            nextRetry = now + 5f;
+            return Init();
+        }
+
         public static bool Init()
         {
             if (Available) return true;
-            if (initTried && !Available) { /* allow a retry later */ }
+            bool firstTry = !initTried;
             initTried = true;
+            string problem;
             try
             {
-                if (!SteamAPI.IsSteamRunning())
+                bool running = false;
+                try { running = SteamAPI.IsSteamRunning(); } catch (Exception e) { Log.ExceptionOnce("SteamAPI.IsSteamRunning", e); }
+                if (!running)
                 {
-                    Log.Warn("Steam is not running - multiplayer is unavailable.");
-                    return false;
+                    problem = "Steam is not running. Start Steam, then start My Summer Car from your Steam library.";
+                    return Fail(problem, firstTry);
+                }
+                // Make sure the Steam API is started before using it. The game normally does this
+                // itself; if it hasn't (yet), or the game was not started through Steam, start it
+                // here. Starting it again when it is already running is harmless.
+                bool apiReady;
+                try { apiReady = SteamAPI.Init(); }
+                catch (Exception e) { Log.ExceptionOnce("SteamAPI.Init", e); apiReady = false; }
+                if (!apiReady)
+                {
+                    problem = "Steam is running, but the game could not connect to it. Close the game and start My Summer Car from your Steam library (not from the .exe or a shortcut). If Steam runs as administrator, the game must too (or neither).";
+                    return Fail(problem, firstTry);
                 }
                 LocalId = SteamUser.GetSteamID();
                 if (LocalId.m_SteamID == 0)
                 {
-                    Log.Warn("Steam user is not available - multiplayer is unavailable.");
-                    return false;
+                    problem = "Steam is running, but no Steam user is logged in. Log in to Steam and try again.";
+                    return Fail(problem, firstTry);
                 }
                 LocalName = SteamFriends.GetPersonaName();
                 cbSessionRequest = Callback<P2PSessionRequest_t>.Create(OnSessionRequest);
@@ -69,14 +98,32 @@ namespace MSCMP.Net
                 crLobbyEnter = CallResult<LobbyEnter_t>.Create(OnLobbyEnter);
                 SteamNetworking.AllowP2PPacketRelay(true);
                 Available = true;
-                Log.Info("Steam ready as " + LocalName + " (" + LocalId.m_SteamID + ")");
+                Problem = "";
+                Log.Info("Steam ready as " + LocalName + " (" + LocalId.m_SteamID + ")" + (firstTry ? "" : " (after retrying)"));
             }
             catch (Exception e)
             {
                 Available = false;
                 Log.Exception("Steam initialisation", e);
+                return Fail("Steam could not be started (" + e.GetType().Name + "). Please send your mscmp.log.", firstTry);
             }
             return Available;
+        }
+
+        static bool Fail(string problem, bool firstTry)
+        {
+            Available = false;
+            if (problem != Problem || firstTry)
+            {
+                // Details that tell a bug report how the game was started.
+                string appIdFile = "?";
+                try { appIdFile = System.IO.File.Exists("steam_appid.txt") ? "yes" : "no"; } catch { }
+                string launchedBySteam = Environment.GetEnvironmentVariable("SteamAppId") ?? Environment.GetEnvironmentVariable("SteamGameId");
+                Log.Warn("Steam unavailable: " + problem + " [started by Steam: " + (launchedBySteam != null ? "yes (" + launchedBySteam + ")" : "no") +
+                         ", steam_appid.txt: " + appIdFile + "] Retrying every 5 s.");
+            }
+            Problem = problem;
+            return false;
         }
 
         /// <summary>Pump Steam callbacks. The game's SteamManager does not survive

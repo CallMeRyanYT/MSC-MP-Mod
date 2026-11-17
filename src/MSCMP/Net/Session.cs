@@ -120,7 +120,7 @@ namespace MSCMP.Net
         public static void Host()
         {
             if (Active) return;
-            if (!SteamNet.Init()) { Notifications.Show("Steam is not available, so multiplayer cannot start."); return; }
+            if (!SteamNet.Init()) { Notifications.Show(SteamNet.Problem); return; }
             Role = Role.Host;
             Connected = false;
             Status = "Opening a Steam lobby...";
@@ -129,7 +129,7 @@ namespace MSCMP.Net
 
         public static void Join(CSteamID lobby)
         {
-            if (!SteamNet.Init()) { Notifications.Show("Steam is not available, so multiplayer cannot start."); return; }
+            if (!SteamNet.Init()) { Notifications.Show(SteamNet.Problem); return; }
             if (Active)
             {
                 if (SteamNet.Lobby == lobby) return;

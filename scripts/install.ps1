@@ -110,6 +110,17 @@ try {
         }
     }
 
+    # Renamed copies of this mod (e.g. "MSCMP (1).dll" from a browser download) would load twice.
+    foreach ($f in @(Get-ChildItem -LiteralPath $mods -Filter '*.dll' -File -ErrorAction SilentlyContinue)) {
+        if ($f.Name -eq $ModFileName) { continue }
+        $orig = $null
+        try { $orig = $f.VersionInfo.OriginalFilename } catch { }
+        if ($orig -eq 'MSCMP.dll') {
+            Remove-Item -LiteralPath $f.FullName -Force
+            Write-Ok "Removed duplicate copy $($f.Name)"
+        }
+    }
+
     # 7. Copy the mod
     $target = Join-Path $mods $ModFileName
     Copy-Item -LiteralPath $dll -Destination $target -Force

@@ -208,7 +208,9 @@ namespace MSCMP.UI
             GUILayout.Label("MSC Multiplayer <size=11><color=#bbbbbb>v" + BuildInfo.Version + "</color></size>", title);
             if (!SteamNet.Available)
             {
-                GUILayout.Label("Steam is not running (or the game was not started from Steam). Multiplayer needs Steam.", text);
+                GUILayout.Label(string.IsNullOrEmpty(SteamNet.Problem) ? "Connecting to Steam..." : SteamNet.Problem, text);
+                GUILayout.Label("The mod keeps trying every few seconds.", small);
+                if (GUILayout.Button("Try again now", button) && SteamNet.Init()) Notifications.Show("Connected to Steam. Multiplayer is ready.");
                 Footer();
                 return;
             }
