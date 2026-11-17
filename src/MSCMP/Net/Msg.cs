@@ -100,12 +100,21 @@ namespace MSCMP.Net
         VehLock = 86,           // vehicle, locked by slot (255 = unlocked)
         ShopList = 87,          // host -> all: the shared shopping list
         ShopEdit = 88,          // client -> host: add / tick / remove
+
+        // --- 0.12 ---
+        RaceStart = 89,         // host -> all: race id, laps, checkpoints, start time, racers
+        RaceProgress = 90,      // racer -> host -> all: checkpoints passed, finish time
+        RaceEnd = 91,           // host -> all
+        VehDent = 92,           // Bulk: a car panel's new shape after a crash
+        SessionSummary = 93,    // host -> all: the summary text
+        CarryRequest = 94,      // carrier -> host -> carried: pick them up
+        CarryState = 95,        // carrier, carried, on/off
     }
 
     internal static class Protocol
     {
         /// <summary>Bump whenever the wire format changes. Peers must match exactly.</summary>
-        public const ushort Version = 6;          // 6: map routes, hand-overs, locks, knock-downs, shopping list
+        public const ushort Version = 7;          // 7: races, dents, carrying, summary; 6: map routes, hand-overs, locks...
         public const int MaxPlayers = 8;
         public const int MaxPacket = 1100;          // unreliable payload budget (Steam limit is 1200)
         public const int MaxReliablePacket = 512 * 1024;

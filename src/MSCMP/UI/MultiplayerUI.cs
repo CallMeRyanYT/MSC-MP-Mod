@@ -162,6 +162,8 @@ namespace MSCMP.UI
                 if (MP.InMenu && !panelOpen) DrawHint();
                 if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
                 if (emoteOpen) DrawEmoteMenu();
+                if (MP.InGame) Races.Draw();
+                Stats.Draw();
                 if (MapView.Open) MapView.Draw();
                 if (Together.SleepFade > 0f)
                 {
@@ -443,10 +445,76 @@ namespace MSCMP.UI
             GUILayout.Label("Items tick themselves when one turns up in the world (bought at Teimo's...).", small);
         }
 
+        bool showActivity, showRestore;
+        string confirmRestore;
+
+        void DrawRace()
+        {
+            if (!MP.InGame || Session.Active && !Session.IsHost) return;
+            GUILayout.Space(8);
+            GUILayout.Label("Race", header);
+            if (Races.Active)
+            {
+                if (GUILayout.Button("End the race", button)) Races.HostEnd();
+                return;
+            }
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Laps: " + Races.Laps, text, GUILayout.Width(70));
+            if (GUILayout.Button("-", button, GUILayout.Width(28))) Races.Laps = Mathf.Max(1, Races.Laps - 1);
+            if (GUILayout.Button("+", button, GUILayout.Width(28))) Races.Laps = Mathf.Min(9, Races.Laps + 1);
+            if (GUILayout.Button("Start (3-2-1)", button)) { Races.HostStart(); panelOpen = false; }
+            GUILayout.EndHorizontal();
+            GUILayout.Label("The track is your route on the map (M): its waypoints are the checkpoints, the last one is the finish.", small);
+        }
+
+        void DrawActivity()
+        {
+            if (Activity.Lines.Count == 0) return;
+            GUILayout.Space(8);
+            if (GUILayout.Button("What happened " + (showActivity ? "[-]" : "[+]"), header)) showActivity = !showActivity;
+            if (!showActivity) return;
+            for (int i = Mathf.Max(0, Activity.Lines.Count - 15); i < Activity.Lines.Count; i++)
+                GUILayout.Label("<color=#aaaaaa>" + Activity.Lines[i].Time + "</color>  " + Escape(Activity.Lines[i].Text), small);
+            if (Session.IsHost && GUILayout.Button("Show the session summary", button)) Stats.ShareSummary();
+        }
+
+        void DrawRestorePoints()
+        {
+            if (!MP.InMenu || Session.IsClient) return;
+            List<string> points = SaveSync.RestorePoints();
+            if (points.Count == 0) return;
+            GUILayout.Space(8);
+            if (GUILayout.Button("Restore points (" + points.Count + ") " + (showRestore ? "[-]" : "[+]"), header)) showRestore = !showRestore;
+            if (!showRestore) return;
+            GUILayout.Label("Your save as it was at these times. Restoring keeps your current save as a restore point too.", small);
+            foreach (string pt in points)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(PrettyPoint(pt), text, GUILayout.Width(200));
+                bool confirming = confirmRestore == pt;
+                if (GUILayout.Button(confirming ? "Click again to restore" : "Restore", button))
+                {
+                    if (!confirming) confirmRestore = pt;
+                    else { confirmRestore = null; Notifications.Show(SaveSync.Restore(pt) ? "Save restored. Press Continue to load it." : "Could not restore that save."); }
+                }
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        static string PrettyPoint(string folder)
+        {
+            DateTime t;
+            if (DateTime.TryParseExact(folder, "yyyyMMdd-HHmmss", null, System.Globalization.DateTimeStyles.None, out t)) return t.ToString("ddd d MMM, HH:mm");
+            return folder;
+        }
+
         void Footer()
         {
             DrawVehicleLock();
+            DrawRace();
             DrawShoppingList();
+            DrawActivity();
+            DrawRestorePoints();
             DrawCharacter();
             DrawTestTools();
             GUILayout.Space(8);

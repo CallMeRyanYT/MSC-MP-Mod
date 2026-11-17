@@ -762,6 +762,7 @@ namespace MSCMP.Sync
             b.P.Avatar.Reach(at);
             SendAction(b, 2, at);
             Log.Info(b.P.Name + " picked up " + o.Name);
+            Activity.Add(b.P.Name + " picked up the " + Pretty(o.Name) + ".");
         }
 
         /// <summary>The nearest loose item a bot may move (owned by this game). With a kind, only

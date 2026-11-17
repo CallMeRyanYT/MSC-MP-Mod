@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.0 - 2026-11-18
+
+**Both players need 0.12.0** (the network protocol changed).
+
+- **Races.** The host's map route is the track (waypoints = checkpoints, the last = finish). Pick the laps, start: 3-2-1 for everyone, the next checkpoint shown in the world, time and place on screen, results at the end.
+- **Towing.** Vehicles joined by a tow rope or hitch are simulated by the game of whoever drives one of them, so two games never pull against each other.
+- **Carry a friend** who is asleep, passed out or knocked down (H). They ride on your shoulder; H again to put them down.
+- **Crash damage looks the same for everyone.** Dented panels are sent after a crash, and to players who join later.
+- **Restore points.** The host's save is copied each time it changes (the last 6). Restore one from the F2 panel in the main menu; the current save is kept as a restore point first.
+- **What happened**: a short log of who did what, in the F2 panel.
+- **Session summary** for everyone when the host saves (or from the F2 panel): distance walked and driven, money earned and spent, how drunk, knock-downs, hand-overs, races won.
+- Friends' places and needs are saved every 3 minutes too.
+
 ## 0.11.5 - 2026-11-18
 
 **Both players need 0.11.5** (the network protocol changed).

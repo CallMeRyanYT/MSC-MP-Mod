@@ -356,6 +356,11 @@ namespace MSCMP.Sync
             }
 
             float now = Time.realtimeSinceStartup;
+            if (Session.IsHost && now >= nextTowCheck)
+            {
+                nextTowCheck = now + 1f;
+                try { AssignTowed(); } catch (Exception e) { Log.ExceptionOnce("AssignTowed", e); }
+            }
             if (now >= nextSend)
             {
                 nextSend = now + SendInterval;
@@ -578,8 +583,60 @@ namespace MSCMP.Sync
 
         // ================================================================ messages
 
+        static void NoteDriver(NetVehicle v, byte before, byte after)
+        {
+            if (before == after) return;
+            string what = UI.MapView.VehicleLabel(v);
+            NetPlayer p = Session.BySlot(after == 255 ? before : after);
+            if (p == null) return;
+            Activity.Add(after == 255 ? p.Name + " got out of the " + what + "." : p.Name + " is driving the " + what + ".");
+        }
+
+        static float nextTowCheck;
+
+        /// <summary>Host: vehicles joined together (tow rope, trailer hitch...) are simulated by
+        /// the game of whoever drives one of them, so two games never pull against each other.</summary>
+        static void AssignTowed()
+        {
+            Dictionary<Rigidbody, Rigidbody> parent = new Dictionary<Rigidbody, Rigidbody>();
+            UnityEngine.Object[] joints = UnityEngine.Object.FindObjectsOfType(typeof(Joint));
+            for (int i = 0; i < joints.Length; i++)
+            {
+                Joint j = joints[i] as Joint;
+                if (j == null) continue;
+                Rigidbody a = j.GetComponent<Rigidbody>(), b = j.connectedBody;
+                if (a != null && b != null) Union(parent, a, b);
+            }
+            Dictionary<Rigidbody, NetVehicle> driverOf = new Dictionary<Rigidbody, NetVehicle>();
+            foreach (NetVehicle v in vehicles)
+                if (v.Body != null && v.Driver != 255) driverOf[Find(parent, v.Body)] = v;
+            foreach (NetVehicle v in vehicles)
+            {
+                if (v.Body == null || v.Driver != 255) continue;
+                NetVehicle tower;
+                if (!driverOf.TryGetValue(Find(parent, v.Body), out tower) || tower == v || v.Owner == tower.Owner) continue;
+                SetOwner(v, tower.Owner, 255);
+                NetPlayer p = Session.BySlot(tower.Owner);
+                if (p != null) Activity.Add(p.Name + " is towing the " + UI.MapView.VehicleLabel(v) + ".");
+            }
+        }
+
+        static Rigidbody Find(Dictionary<Rigidbody, Rigidbody> parent, Rigidbody x)
+        {
+            Rigidbody p;
+            while (parent.TryGetValue(x, out p) && p != x) x = p;
+            return x;
+        }
+
+        static void Union(Dictionary<Rigidbody, Rigidbody> parent, Rigidbody a, Rigidbody b)
+        {
+            Rigidbody ra = Find(parent, a), rb = Find(parent, b);
+            if (ra != rb) parent[ra] = rb;
+        }
+
         static void SetOwner(NetVehicle v, byte owner, byte driver)
         {
+            NoteDriver(v, v.Driver, driver);
             v.Owner = owner;
             v.Driver = driver;
             ApplyRole(v);
@@ -637,6 +694,7 @@ namespace MSCMP.Sync
             byte owner = r.Byte();
             byte driver = r.Byte();
             if (v == null) return;
+            NoteDriver(v, v.Driver, driver);
             v.Owner = owner;
             v.Driver = driver;
             ApplyRole(v);

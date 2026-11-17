@@ -57,6 +57,20 @@ Press **M**. It's a picture of the whole world taken from above when you load in
 - **Connection**: the player list shows how good each connection is (good / ok / poor, ping, lost updates), and warns you when it gets bad.
 - **Shopping list**: in the F2 panel. Anyone can add, tick and remove items; an item ticks itself when one turns up in the world (bought at Teimo's...). The host's list is kept between sessions.
 
+## Races
+
+The host plans a track on the map (M): the route's waypoints are the checkpoints, the last one is the finish. In the F2 panel, under **Race**, pick the number of laps and press **Start (3-2-1)**. Everyone in the world gets a countdown, the next checkpoint in the world, their time and place. Results show at the end (the host can end a race early).
+
+## More together
+
+- **Carry a friend**: look at a friend who is asleep, passed out or knocked down and press **H** to pick them up. Press **H** again to put them down (they can also press it to get down).
+- **Towing**: when vehicles are joined (tow rope, trailer), the game of whoever drives simulates all of them, so they don't pull against each other.
+- **Dents**: crash damage looks the same for everyone, also for players who join later.
+- **What happened**: a short list in the F2 panel of who did what (joins, driving, money, deaths, knock-downs, hand-overs...).
+- **Session summary**: when the host saves at the toilet (or from the F2 panel), everyone sees how far each player walked and drove, money earned and spent, how drunk they got and more.
+- **Restore points**: in the main menu, the host's F2 panel lists the last 6 versions of their save. **Restore** (click twice) puts one back; the current save is kept as a restore point first, so it can be undone.
+- Friends' places and needs are also saved every 3 minutes, so a crash of the host's game doesn't lose where everyone was.
+
 ## Music
 
 Put your own `.ogg` songs in the game's `Radio` or `CD1`–`CD3` folders, as in single player. When you play one on the radio or the CD player, your friends hear the same song from the same speaker, at the same moment. If they don't have the song, their game fetches it from you through the host first (a few seconds), and keeps it in `music_cache` in the mod's settings folder so it only travels once. The cache cleans itself up above 500 MB.

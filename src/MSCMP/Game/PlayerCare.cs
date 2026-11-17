@@ -75,6 +75,7 @@ namespace MSCMP.Game
                 Session.SendToAll(true, Channel.Reliable);
             }
 
+            Autosave();
             if (Session.IsHost && now >= nextRemember)
             {
                 nextRemember = now + 1f;
@@ -215,14 +216,32 @@ namespace MSCMP.Game
             Load();
             records.Remove(from.SteamId.m_SteamID);
             Notifications.Show(from.Name + " died. They'll be back in a moment.");
+            Activity.Add(from.Name + " died.");
         }
 
         // ================================================================ host: disk
 
-        /// <summary>Host saved the game (toilet): write every friend's progress next to it.</summary>
+        /// <summary>Host saved the game (toilet): write every friend's progress next to it, and
+        /// show everyone the session summary.</summary>
         public static void OnHostSaved()
         {
             if (Session.IsClient) return;
+            if (Session.Connected) Stats.ShareSummary();
+            WriteProgress();
+        }
+
+        static float nextAutosave;
+
+        /// <summary>Every few minutes, so a crash of the host's game doesn't lose where everyone was.</summary>
+        static void Autosave()
+        {
+            if (!Session.IsHost || Time.realtimeSinceStartup < nextAutosave) return;
+            nextAutosave = Time.realtimeSinceStartup + 180f;
+            WriteProgress();
+        }
+
+        static void WriteProgress()
+        {
             foreach (NetPlayer p in Session.Remotes) if (p.Phase == PlayerPhase.Playing) Remember(p);
             Load();
             try

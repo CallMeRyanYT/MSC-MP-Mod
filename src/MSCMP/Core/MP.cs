@@ -105,6 +105,10 @@ namespace MSCMP
                 MapView.Init();
                 Together.Init();
                 ShoppingList.Init();
+                Races.Init();
+                CrashSync.Init();
+                Activity.Init();
+                Stats.Init();
                 SaveSync.RecoverInterruptedSession();
                 Session.JoinFromCommandLine();
             }
@@ -201,6 +205,9 @@ namespace MSCMP
                 Safe("Markers", Markers.Update);
                 Safe("MapView", MapView.Update);
                 Safe("Together", Together.Update);
+                Safe("Races", Races.Update);
+                Safe("CrashSync", CrashSync.Update);
+                Safe("Stats", Stats.Update);
                 Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
@@ -250,6 +257,7 @@ namespace MSCMP
             Safe("VarSync.WorldReady", VarSync.OnWorldReady);
             Safe("MusicSync.WorldReady", MusicSync.OnWorldReady);
             Safe("MapView.WorldReady", MapView.OnWorldReady);
+            Safe("CrashSync.WorldReady", CrashSync.OnWorldReady);
             Safe("PlayerSync.WorldReady", PlayerSync.OnWorldReady);
             Safe("GameSession.WorldReady", GameSession.OnWorldReady);
         }
@@ -268,6 +276,7 @@ namespace MSCMP
             Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
             Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
             Safe("MapView.WorldLeft", MapView.OnWorldLeft);
+            Safe("CrashSync.WorldLeft", CrashSync.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);
             Safe("Loopback.WorldLeft", Loopback.OnWorldLeft);
             Safe("LocalPlayer.WorldLeft", LocalPlayer.OnWorldLeft);

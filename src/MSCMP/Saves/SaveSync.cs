@@ -124,11 +124,96 @@ namespace MSCMP.Saves
                 snapshotValid = hasMain;
                 snapshotProblem = hasMain ? "" : "You have no saved game yet. Start a game, save it once at a toilet, then host.";
                 Log.Info("Save snapshot: " + snapshot.Count + " files" + (hasMain ? "" : " (no main save)"));
+                if (hasMain) MakeRestorePoint(false);
             }
             catch (Exception e)
             {
                 snapshotProblem = "Could not read your save: " + e.Message;
                 Log.Exception("Reading save files", e);
+            }
+        }
+
+        // ================================================================ restore points
+
+        static string RestoreRoot { get { return Path.Combine(Application.persistentDataPath, "MSCMP_restore"); } }
+
+        /// <summary>Keeps a copy of your save each time it changes (the last 6), so a session that
+        /// went badly can be undone from the main menu.</summary>
+        static void MakeRestorePoint(bool always)
+        {
+            try
+            {
+                SaveFile main = snapshot.Find(f => f.Name == "defaultES2File.txt");
+                if (main == null) return;
+                Directory.CreateDirectory(RestoreRoot);
+                string[] existing = Directory.GetDirectories(RestoreRoot);
+                Array.Sort(existing, StringComparer.Ordinal);
+                if (!always && existing.Length > 0)
+                {
+                    string crcFile = Path.Combine(existing[existing.Length - 1], "crc.txt");
+                    if (File.Exists(crcFile) && File.ReadAllText(crcFile).Trim() == main.Crc.ToString()) return; // unchanged
+                }
+                string folder = Path.Combine(RestoreRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+                Directory.CreateDirectory(folder);
+                foreach (SaveFile f in snapshot) File.WriteAllBytes(Path.Combine(folder, f.Name), f.Data);
+                File.WriteAllText(Path.Combine(folder, "crc.txt"), main.Crc.ToString());
+                existing = Directory.GetDirectories(RestoreRoot);
+                Array.Sort(existing, StringComparer.Ordinal);
+                for (int i = 0; i < existing.Length - 6; i++) Directory.Delete(existing[i], true);
+                Log.Info("Restore point " + Path.GetFileName(folder));
+            }
+            catch (Exception e) { Log.Exception("Restore point", e); }
+        }
+
+        /// <summary>Restore points, newest first (folder names are their time).</summary>
+        public static List<string> RestorePoints()
+        {
+            List<string> r = new List<string>();
+            try
+            {
+                if (!Directory.Exists(RestoreRoot)) return r;
+                foreach (string d in Directory.GetDirectories(RestoreRoot)) r.Add(Path.GetFileName(d));
+                r.Sort(StringComparer.Ordinal);
+                r.Reverse();
+            }
+            catch { }
+            return r;
+        }
+
+        /// <summary>Puts a restore point back as your save (main menu only). The save you had
+        /// is kept as a restore point first, so this can be undone too.</summary>
+        public static bool Restore(string name)
+        {
+            if (MP.InGameScene || Session.IsClient) return false;
+            string folder = Path.Combine(RestoreRoot, name);
+            if (!Directory.Exists(folder) || !File.Exists(Path.Combine(folder, "defaultES2File.txt"))) return false;
+            try
+            {
+                TakeSnapshotOnly();
+                MakeRestorePoint(true);
+                for (int i = 0; i < SaveFiles.Length; i++)
+                {
+                    string dst = Path.Combine(SaveDir, SaveFiles[i]);
+                    string src = Path.Combine(folder, SaveFiles[i]);
+                    if (File.Exists(dst)) File.Delete(dst);
+                    if (File.Exists(src)) File.Copy(src, dst, true);
+                }
+                TakeSnapshot();
+                Log.Info("Restored the save from " + name);
+                return true;
+            }
+            catch (Exception e) { Log.Exception("Restoring " + name, e); return false; }
+        }
+
+        static void TakeSnapshotOnly()
+        {
+            snapshot = new List<SaveFile>();
+            for (int i = 0; i < SaveFiles.Length; i++)
+            {
+                string path = Path.Combine(SaveDir, SaveFiles[i]);
+                if (!File.Exists(path)) continue;
+                byte[] data = File.ReadAllBytes(path);
+                snapshot.Add(new SaveFile { Name = SaveFiles[i], Data = data, Crc = Crc32.Compute(data, 0, data.Length) });
             }
         }
 

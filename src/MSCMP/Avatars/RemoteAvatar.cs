@@ -138,6 +138,8 @@ namespace MSCMP.Avatars
 
         float knockedUntil;
         bool Knocked { get { return Time.time < knockedUntil; } }
+        public bool IsKnocked { get { return Knocked; } }
+        bool Carried { get { return (current.Flags & PlayerSnapshot.FlagCarried) != 0; } }
 
         /// <summary>Hit by a car: lies on the ground for a moment.</summary>
         public void Knock(float seconds) { knockedUntil = Time.time + seconds; }
@@ -228,6 +230,15 @@ namespace MSCMP.Avatars
                     if (Rig.Collider != null) Rig.Collider.enabled = false;
                     t.rotation = Quaternion.Euler(0f, current.Yaw, 0f) * Quaternion.Euler(-90f, 0f, 0f);
                     t.position = current.Head - t.up * 1.55f - Vector3.up * 0.12f;
+                    UpdateWalkAnimation();
+                    return;
+                }
+                if (Carried)
+                {
+                    // Over somebody's shoulder, face down, across them.
+                    if (Rig.Collider != null) Rig.Collider.enabled = false;
+                    t.rotation = Quaternion.Euler(0f, current.Yaw + 90f, 0f) * Quaternion.Euler(90f, 0f, 0f);
+                    t.position = current.Position - t.up * 0.95f;
                     UpdateWalkAnimation();
                     return;
                 }
@@ -350,7 +361,7 @@ namespace MSCMP.Avatars
 
         void PoseBones(Transform t)
         {
-            if (pose == Pose.Standing && (Sleeping || Knocked)) return; // lying down: the plain pose is right
+            if (pose == Pose.Standing && (Sleeping || Knocked || Carried)) return; // lying down: the plain pose is right
             if (pose == Pose.Standing)
             {
                 float ew = EmoteWeight();

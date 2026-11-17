@@ -18,6 +18,6 @@ namespace MSCMP
     internal static class BuildInfo
     {
         /// <summary>Mod version. Both players must run the same protocol version.</summary>
-        public const string Version = "0.11.5";
+        public const string Version = "0.12.0";
     }
 }

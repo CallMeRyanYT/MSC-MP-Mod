@@ -22,6 +22,8 @@ namespace MSCMP.Game
             Session.On(Msg.GiveItem, OnGive);
             Session.On(Msg.Knocked, OnKnocked);
             Session.On(Msg.SessionRules, OnRules);
+            Session.On(Msg.CarryRequest, OnCarryRequest);
+            Session.On(Msg.CarryState, OnCarryState);
             Session.ChatReceived += (p, msg) =>
             {
                 if (p == null) return;
@@ -75,6 +77,7 @@ namespace MSCMP.Game
 
         public static void LateUpdate()
         {
+            UpdateCarried();
             UpdateGift();
             UpdateWatchCamera();
         }
@@ -173,9 +176,17 @@ namespace MSCMP.Game
         {
             if (!Session.Connected || MultiplayerUIState.Typing || MultiplayerUIState.PanelOpen) return;
             if (!Options.KeyDown(Options.GiveKey)) return;
+            if (carrying != 255) { SendCarryState(Session.Local.Slot, carrying, false); return; }  // put them down
+            if (carriedBy != 255) { SendCarryState(carriedBy, Session.Local.Slot, false); return; } // wriggle free
             GameObject held = LocalPlayer.HeldObject;
             NetObject o = held != null ? ObjectSync.Of(held) : null;
-            if (o == null) { Notifications.Show("Hold something, look at a friend and press the key to hand it over."); return; }
+            if (o == null)
+            {
+                NetPlayer t = PlayerInFront(2.5f);
+                if (t != null && CanBeCarried(t)) { RequestCarry(t); return; }
+                Notifications.Show("Hold something and look at a friend to hand it over (or look at a friend who is asleep or knocked down to carry them).");
+                return;
+            }
             NetPlayer to = PlayerInFront(3.5f);
             if (to == null) { Notifications.Show("Look at a friend standing close to you to hand it over."); return; }
             LocalPlayer.ForceDrop();
@@ -213,6 +224,8 @@ namespace MSCMP.Game
             NetObject o = ObjectSync.ById(id);
             if (o == null || !o.Alive || to == null) return;
             ObjectSync.GiveTo(o, to.Slot);
+            Stats.Handed(giver);
+            Activity.Add((giver != null ? giver.Name : "Someone") + " handed the " + Bots.Pretty(o.Name) + " to " + to.Name + ".");
             if (to.IsLocal) StartGift(o, giver != null ? giver.Name : "Someone");
             else
             {
@@ -322,6 +335,8 @@ namespace MSCMP.Game
             NetPlayer who = Session.IsHost ? from : Session.BySlot(slot);
             if (who == null || who.IsLocal) return;
             if (who.Avatar != null) who.Avatar.Knock(2.5f);
+            Stats.Knocked(who);
+            Activity.Add(who.Name + " got run over.");
             if (Session.IsHost)
             {
                 NetWriter w = Session.Begin(Msg.Knocked);
@@ -332,6 +347,120 @@ namespace MSCMP.Game
 
         /// <summary>A dark flash while you are knocked down (drawn by the UI).</summary>
         public static float StunFade { get { return stunned ? Mathf.Clamp01((stunUntil - Time.realtimeSinceStartup) / 2.5f) * 0.7f : 0f; } }
+
+        // ================================================================ carrying a friend
+
+        static byte carriedBy = 255;   // we are being carried by this slot
+        static byte carrying = 255;    // we carry this slot
+        static float carryUntil;
+
+        public static bool BeingCarried { get { return carriedBy != 255; } }
+
+        static bool CanBeCarried(NetPlayer p)
+        {
+            return p.HasState && ((p.Last.Flags & PlayerSnapshot.FlagSleeping) != 0 || p.Avatar != null && p.Avatar.IsKnocked) && p.Last.Vehicle == 0;
+        }
+
+        static void RequestCarry(NetPlayer target)
+        {
+            if (Session.IsHost) { HostCarry(Session.Local, target); return; }
+            NetWriter w = Session.Begin(Msg.CarryRequest);
+            w.Byte(Session.Local.Slot);
+            w.Byte(target.Slot);
+            Session.SendToHost(true, Channel.Reliable);
+        }
+
+        static void OnCarryRequest(NetPlayer from, NetReader r)
+        {
+            byte carrier = r.Byte();
+            byte target = r.Byte();
+            if (from == null) return;
+            if (Session.IsHost) { HostCarry(from, Session.BySlot(target)); return; }
+            if (!from.IsHost || Session.Local == null || target != Session.Local.Slot) return;
+            AcceptCarry(carrier);
+        }
+
+        static void HostCarry(NetPlayer carrier, NetPlayer target)
+        {
+            if (carrier == null || target == null) return;
+            if (target.IsLocal) { AcceptCarry(carrier.Slot); return; }
+            NetWriter w = Session.Begin(Msg.CarryRequest);
+            w.Byte(carrier.Slot);
+            w.Byte(target.Slot);
+            Session.SendTo(target, true, Channel.Reliable);
+        }
+
+        /// <summary>Somebody wants to pick us up: fine if we're asleep or knocked down.</summary>
+        static void AcceptCarry(byte carrier)
+        {
+            bool asleep = (LocalPlayer.Sample().Flags & PlayerSnapshot.FlagSleeping) != 0;
+            if (!asleep && !stunned) return;
+            SendCarryState(carrier, Session.Local.Slot, true);
+        }
+
+        static void SendCarryState(byte carrier, byte carried, bool on)
+        {
+            ApplyCarryState(carrier, carried, on);
+            NetWriter w = Session.Begin(Msg.CarryState);
+            w.Byte(carrier);
+            w.Byte(carried);
+            w.Bool(on);
+            Session.SendToAll(true, Channel.Reliable);
+        }
+
+        static void OnCarryState(NetPlayer from, NetReader r)
+        {
+            byte carrier = r.Byte();
+            byte carried = r.Byte();
+            bool on = r.Bool();
+            if (from == null) return;
+            if (Session.IsHost)
+            {
+                if (from.Slot != carrier && from.Slot != carried) return; // only the two of them
+                NetWriter w = Session.Begin(Msg.CarryState);
+                w.Byte(carrier);
+                w.Byte(carried);
+                w.Bool(on);
+                Session.BroadcastInGame(true, Channel.Reliable, from);
+            }
+            ApplyCarryState(carrier, carried, on);
+        }
+
+        static void ApplyCarryState(byte carrier, byte carried, bool on)
+        {
+            if (Session.Local == null) return;
+            byte me = Session.Local.Slot;
+            NetPlayer c = Session.BySlot(carrier), d = Session.BySlot(carried);
+            if (on)
+            {
+                if (carried == me) { carriedBy = carrier; carryUntil = Time.realtimeSinceStartup + 180f; LocalPlayer.SetStunned(true); Notifications.Show((c != null ? c.Name : "Someone") + " picked you up. Press the hand-over key to get down."); }
+                if (carrier == me) { carrying = carried; Notifications.Show("You're carrying " + (d != null ? d.Name : "them") + ". Press the hand-over key to put them down."); }
+                Activity.Add((c != null ? c.Name : "Someone") + " is carrying " + (d != null ? d.Name : "someone") + ".");
+            }
+            else
+            {
+                if (carried == me && carriedBy != 255)
+                {
+                    carriedBy = 255;
+                    if (!stunned) LocalPlayer.SetStunned(false);
+                    if (LocalPlayer.Bound) LocalPlayer.Teleport(LocalPlayer.Feet - Vector3.up * 1.3f + LocalPlayer.Player.right * 0.6f, LocalPlayer.Player.eulerAngles.y);
+                }
+                if (carrier == me) carrying = 255;
+            }
+        }
+
+        /// <summary>Being carried: our feet ride on the carrier's shoulder.</summary>
+        static void UpdateCarried()
+        {
+            if (carriedBy == 255) return;
+            NetPlayer c = Session.BySlot(carriedBy);
+            Vector3 feet; float yaw;
+            bool ok = c != null && PlayerCare.WorldFeet(c, out feet, out yaw) && !c.Last.Seated && Time.realtimeSinceStartup < carryUntil;
+            if (!ok) { SendCarryState(carriedBy, Session.Local.Slot, false); return; }
+            PlayerCare.WorldFeet(c, out feet, out yaw);
+            Vector3 right = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
+            LocalPlayer.HoldFeetAt(feet + Vector3.up * 1.4f + right * 0.3f);
+        }
 
         // ================================================================ watching a friend
 

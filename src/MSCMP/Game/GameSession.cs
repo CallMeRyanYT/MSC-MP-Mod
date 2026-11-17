@@ -234,6 +234,7 @@ namespace MSCMP.Game
                 MusicSync.SendCatchUp(from);
                 Together.SendCatchUp(from);
                 ShoppingList.SendList(from);
+                CrashSync.SendCatchUp(from);
             }
             catch (Exception e)
             {

@@ -11,6 +11,7 @@ namespace MSCMP
         public const byte FlagSleeping = 4;
         public const byte FlagInMenu = 8;      // paused / in a menu
         public const byte FlagGrounded = 16;
+        public const byte FlagCarried = 32;    // being carried by another player
 
         public float Time;          // sender's clock
         public uint Vehicle;        // 0 = on foot. Otherwise Position/Yaw/Head are local to that vehicle.

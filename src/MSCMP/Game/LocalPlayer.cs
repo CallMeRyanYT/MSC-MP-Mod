@@ -287,6 +287,7 @@ namespace MSCMP.Game
             if (Controller != null && Controller.enabled && Controller.isGrounded) flags |= PlayerSnapshot.FlagGrounded;
             if (sleeps == null) sleeps = GameUtil.GlobalBool("PlayerSleeps");
             if (sleeps != null && sleeps.Value) flags |= PlayerSnapshot.FlagSleeping;
+            if (Together.BeingCarried) flags |= PlayerSnapshot.FlagCarried;
             s.Flags = flags;
 
             GameObject held = HeldObject;
@@ -379,6 +380,14 @@ namespace MSCMP.Game
         public static bool InputBlocked { get { return inputBlocked; } }
 
         static bool stunned, stunSavedInput = true, stunSavedMotor = true;
+
+        /// <summary>Puts your feet at a point (while being carried).</summary>
+        public static void HoldFeetAt(Vector3 feet)
+        {
+            if (!Bound) return;
+            Player.position = feet + (Player.position - Feet);
+            lastPos = Player.position;
+        }
 
         /// <summary>Can't walk (knocked down, or watching a friend). Looking around still works.</summary>
         public static void SetStunned(bool on)

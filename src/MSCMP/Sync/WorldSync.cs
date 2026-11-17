@@ -223,6 +223,7 @@ namespace MSCMP.Sync
             {
                 if (float.IsNaN(v) || float.IsInfinity(v) || Mathf.Abs(v) > 1000000f) return;
                 money.Value = money.Value + v; // the change is broadcast by Update
+                Stats.Money(from, v);
                 Log.Debug(from.Name + (v >= 0 ? " earned " : " spent ") + Mathf.Abs(v).ToString("0.##") + " mk");
             }
         }
