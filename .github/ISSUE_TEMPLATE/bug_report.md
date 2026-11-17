@@ -1,29 +1,27 @@
 ---
 name: Bug report
-about: Report a failure in an implemented feature
+about: Something doesn't work or isn't the same for both players
 title: "[Bug] "
 labels: bug
 ---
 
 ## What happened?
-Describe expected and actual behavior.
+What you did, what you expected, and what happened instead.
 
 ## Steps to reproduce
 1.
 2.
 3.
 
-## Test setup
-- MSC-MP release:
-- Game build / MSCLoader version:
-- Host or client:
-- Same LAN or private tailnet (no public addresses needed):
-- Other mods:
-- Disposable test profile prepared:
+## Setup
+- MSC Multiplayer version (MSCLoader mod list):
+- Were you the host or the friend?
+- Number of players:
+- Other mods installed:
 
-## Evidence
-Press F7 and attach reviewed feedback-latest.log/problem-latest.log if relevant.
-Include both players' panel states and the failed step.
-Do not upload saves, game DLLs, credentials or entire folders.
+## Logs
+Attach `mscmp.log` from **both** players: `My Summer Car\Mods\Config\Mod Settings\MSCMP\mscmp.log`.
+If the game showed errors, also attach `My Summer Car\output_log.txt`.
+Turning on **Detailed log** in the mod settings before reproducing helps a lot.
 
-Shared gameplay marked unavailable in the feature ledger is not yet implemented.
+Please don't upload save files or game files.

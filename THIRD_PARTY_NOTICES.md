@@ -1,16 +1,16 @@
 # Third-party notices
 
-The compiled mod embeds source from **LiteNetLib0.7.7.2**, commit `5ba2470394092ac5924b1ea45da588cfa5a1e948`, by RevenantX and contributors, under the MIT license.
+MSC Multiplayer ships a single file, `MSCMP.dll`, plus the installer scripts. It contains no code or assets from other projects.
 
-- [Upstream repository](https://github.com/RevenantX/LiteNetLib)
-- Full required license: `vendor/LiteNetLib/LICENSE.txt`
-- Local modifications: `vendor/LiteNetLib/PATCHES.md`
-- Exact source hashes: `dependencies.lock.json`
+At runtime it uses libraries that are already part of your game or of MSCLoader. They are **not** distributed with this mod:
 
-Keep this license with redistributed builds. The unused legacy serializer and upstream assembly-info file are excluded from this pinned runtime subset. No transitive networking package is required.
+- **My Summer Car** by Amistech Games: Unity engine, game code, PlayMaker state machines, character models, clothes and animations. Player models are rebuilt at runtime from the copy of the game you own; nothing is extracted or redistributed.
+- **Steamworks.NET** and the Steamworks API (Valve), shipped with the game.
+- **MSCLoader** by piotrulos, and **Harmony** by Andreas Pardeike (MIT), shipped with MSCLoader.
 
-Character preview geometry is original procedural project code; it does not clone or redistribute My Summer Car characters.
+Build-time only:
 
-Compilation references the user's installed UnityEngine, MSCLoader and PlayMaker assemblies and Microsoft's .NET Framework3.5 references. These remain in their installations and are not shipped. Game binaries, decompiled game source, scene data, saves and private configuration must never be packaged. Those products retain their owners' respective rights.
+- **Microsoft.NETFramework.ReferenceAssemblies** (MIT) for compiling against .NET 3.5.
+- The build references your own installed game assemblies (`mysummercar_Data\Managed`). They stay on your PC and must never be committed or packaged.
 
-UnityPy, TypeTreeGeneratorAPI and ILSpy were local inspection tools; they are not runtime dependencies and their outputs/tools are excluded from the release package. See `docs/GAMEPLAY_EVIDENCE.md` for versions and method.
+Large parts of this mod were written with the help of AI (Claude by Anthropic).

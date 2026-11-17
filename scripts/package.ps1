@@ -1,28 +1,23 @@
-[CmdletBinding()]
-param()
-. (Join-Path $PSScriptRoot 'common.ps1')
-$built = Join-Path $script:RepositoryRoot 'artifacts\current'
-$manifestPath = Join-Path $built 'build-manifest.json'
-if (!(Test-Path -LiteralPath $manifestPath)) { throw 'Build first.' }
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$assembly = Join-Path $built 'MSCMP.Mod.dll'
-if ((Get-FileHash -LiteralPath $assembly -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Build artifact changed. Rebuild first.' }
-Assert-CurrentSources $manifest
-$stamp = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
-$staging = Join-Path $script:RepositoryRoot ('.local\package\' + $stamp)
-New-Item -ItemType Directory -Path (Join-Path $staging 'Mods'), (Join-Path $staging 'docs'), (Join-Path $staging 'vendor\LiteNetLib'), (Join-Path $staging 'scripts') -Force | Out-Null
-Copy-Item -LiteralPath $assembly -Destination (Join-Path $staging 'Mods\MSCMP.Mod.dll')
-foreach ($name in @('README.md', 'COMPATIBILITY.md', 'THIRD_PARTY_NOTICES.md', 'ARCHITECTURE.md', 'PROTOCOL.md', 'HANDOFF.md', 'CHANGELOG.md', 'CONTRIBUTING.md')) {
-    Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot $name) -Destination (Join-Path $staging $name)
-}
-foreach ($name in @('TESTING.md', 'FEATURE_SUPPORT.md', 'KNOWN_ISSUES.md', 'BINDINGS.md', 'PROJECT_BRIEF.md', 'TRANSPORT.md', 'WORLD_SYNC.md', 'PERSISTENCE.md', 'SHARED_SAVES.md', 'GAMEPLAY_EVIDENCE.md', 'CHARACTERS.md', 'PLAYER_CHECKS.md', 'FEEDBACK.md', 'ITEM_BINDING_EVIDENCE.md', 'SHARED_ITEM_CATALOGUE.md', 'VEHICLE_BINDING_EVIDENCE.md', 'INSTALL.md', 'RUNTIME_EVIDENCE.md')) {
-    Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot ('docs\' + $name)) -Destination (Join-Path $staging ('docs\' + $name))
-}
-Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $staging 'build-manifest.json')
-foreach ($name in @('dependencies.lock.json', 'vendor\LiteNetLib\LICENSE.txt', 'vendor\LiteNetLib\PATCHES.md', 'scripts\test-profile.ps1', 'scripts\shared-save.ps1')) {
-    Copy-Item -LiteralPath (Join-Path $script:RepositoryRoot $name) -Destination (Join-Path $staging $name)
-}
-$output = Join-Path $script:RepositoryRoot ('artifacts\MSC-MP-Mod-0.5.0-experimental-' + $stamp + '.zip')
-Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $output
-Write-Host "Created experimental development package: $output"
-Write-Host 'Allowlist includes this mod DLL, hashes, license/patch notices, player documentation and the profile-recovery tool. No game data or personal saves.'
+# Builds the mod and creates the release zip in .\artifacts (what players download).
+param([string]$GameDir)
+
+$ErrorActionPreference = 'Stop'
+$root = Resolve-Path (Join-Path $PSScriptRoot '..')
+& (Join-Path $PSScriptRoot 'build.ps1') -GameDir $GameDir
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+$dll = Join-Path $root 'build\MSCMP.dll'
+$version = (Get-Item -LiteralPath $dll).VersionInfo.ProductVersion
+$stage = Join-Path $root "artifacts\MSCMP-$version"
+if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
+New-Item -ItemType Directory -Path $stage -Force | Out-Null
+
+Copy-Item -LiteralPath $dll -Destination $stage
+foreach ($f in @('Install.bat', 'Uninstall.bat')) { Copy-Item -LiteralPath (Join-Path $root $f) -Destination $stage }
+foreach ($f in @('install.ps1', 'uninstall.ps1', 'msc-paths.ps1')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination $stage }
+Copy-Item -LiteralPath (Join-Path $root 'docs\RELEASE_README.txt') -Destination (Join-Path $stage 'README.txt')
+
+$zip = Join-Path $root "artifacts\MSCMP-$version.zip"
+if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
+Write-Host "Release package: $zip" -ForegroundColor Green

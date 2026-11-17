@@ -1,79 +1,73 @@
-# MSC-MP
+# MSC Multiplayer
 
-Cooperative multiplayer development for **My Summer Car**.
+**Play My Summer Car together with your friends.** Invite them through Steam, they load straight into your world, and you build the Satsuma, drink beer at the lake and crash the van together.
 
-**v0.5.0 adds a front passenger in the Hayosiko and host-owned shared save/resume for the supported world. The owner reported the previous build working; these new passenger and save integrations still need in-game verification. Use disposable profiles.**
+> **Status: 0.9.0, the first test build of a complete rewrite.** Everything below is built and compiles against the real game, but it has not had a full two-player playtest yet. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
 
-Shared mode covers 22 persistent pickup items and the Hayosiko. Native Save & Quit now captures the shared checkpoint before releasing native saving. An offline tool bundles the disposable native files, checkpoint and protected PlayerPrefs. It does not add live synchronization for unsupported progression or vehicles. See [passenger and shared-save guide](docs/SHARED_SAVES.md).
+## What it does
 
-[Download experimental build](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases) · [Install and playtest with a friend](docs/INSTALL.md) · [Report a problem](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues/new/choose) · [Feature status](docs/FEATURE_SUPPORT.md)
+- **Steam invites.** No IP addresses, port forwarding, Hamachi or Tailscale. Invite a friend from the game and they click *Join*.
+- **You share one world.** Your friend gets an exact copy of your save when they join. Their own save is backed up first and put back automatically when they leave, even if the game crashed.
+- **Real My Summer Car people as player models.** The players are rebuilt from the game's own character models, clothes and animations. They walk, run, crouch, look around, sit in cars, steer and wave. You can pick your body and clothes in the mod settings.
+- **Everything you pick up is shared.** Carrying, dropping and throwing items and car parts works for everyone. Things the game creates (removed parts, bought groceries) appear for everyone too.
+- **All the cars.** One player drives and everyone else sees the wheels turn, the suspension work and the engine rev. You can ride in the passenger seat when a friend drives.
+- **The world reacts to everyone.** Doors, light switches, taps, the TV and radio, dashboard buttons, the ignition, and building the car together: assembling and removing parts, tightening every bolt, wiring.
+- **One clock, one sky, one wallet.** Everybody has the host's time of day and weather. Money is shared between all players.
+- **Join any time.** A friend who joins later sees the world exactly as it is right now.
+- **Chat, player list and name tags.**
+- **No fights over objects.** The host decides who is holding or driving what, so items can't be duplicated or pulled out of someone's hands.
 
-## What is available?
+## Install (both players)
 
-| Area | Current state |
+1. **Install MSCLoader**, the My Summer Car mod loader, if you don't have it: [Nexus Mods](https://www.nexusmods.com/mysummercar/mods/147). Run `MSCLInstaller.exe` and start the game once.
+2. **Download** the latest `MSCMP-x.y.z.zip` from [Releases](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases/latest) and unzip it anywhere.
+3. **Double-click `Install.bat`.** It finds your game, checks MSCLoader, removes old versions and installs the mod.
+
+That's it. The detailed step-by-step guide is in **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+## Play
+
+| Host | Friend |
 | --- | --- |
-| Host / Join / Leave | Private LAN/tailnet sessions, matching-build checks, ping and reliable probes |
-| Characters | Original low-poly male/female meshes, portraits, walking, carrying and seated poses; visual verification still needed |
-| Remote walking | Starts after the baseline; host-approved positions, correlated rejection correction and bounded movement history; game validation pending |
-| Error feedback | Automatic local mod-error reports, F7 capture and a player note |
-| 22 persistent items | Exclusive holder, pickup/drop/throw, compound colliders and host body simulation; special use actions gated. [Exact catalogue](docs/SHARED_ITEM_CATALOGUE.md) |
-| Hayosiko | Driver plus one front passenger, seat conflicts, stationary entry/exit, host physics, replica seats and disconnect cleanup; doors/dashboard disabled |
-| Authority and replication | Bounded late join, host checkpoint save/resume, stable item IDs and fresh session identity |
-| Wider game | Dynamic items, item use, other vehicles, assembly and live economy/progression sync remain unfinished |
+| Start My Summer Car from Steam. | Start My Summer Car from Steam. |
+| In the main menu press **F2**, then **Host game**. | Wait in the main menu. |
+| Click **Invite friends** and invite them in the Steam overlay. | Accept the invite (or Steam friends list → right-click → **Join Game**). |
+| Press **Continue**. | Your game downloads the host's world and loads it by itself. |
 
-This is an early development project. See the [known limitations](docs/KNOWN_ISSUES.md).
+Controls in game:
 
-## Give it to a friend
-
-1. Send your friend the [Releases page](https://github.com/CallMeRyanYT/MSC-MP-Mod/releases). Download the attached **MSC-MP-Mod-0.5.0-experimental.zip**, not GitHub's source-code ZIP.
-2. Each player needs their own My Summer Car installation and MSCLoader. The inspected target is **Steam build 20171487 / Unity 5.0.0f4 / MSCLoader 1.4.2.410**.
-3. Follow [installation and save isolation](docs/INSTALL.md) on each PC. Both players must use the same package and compatible game/mod files.
-4. Load the disposable game first. Both enable **Shared world**. One player chooses **Host shared world**; the other chooses **Join** using the host's reachable numeric IPv4 address and port **20577**.
-5. Wait for **Shared items and van ready (22 items)**. Follow the [end-of-build checklist](docs/PLAYER_CHECKS.md) when ready to test.
-
-Hosting with zero peers is normal until someone joins. A scene change closes the session, so host again after entering the game. `127.0.0.1` refers to your own PC, not your friend's. LAN play needs no router port forwarding; private tailnet setup is described in the guide.
-
-## Controls and feedback
-
-| Key | Action |
+| Key | What it does |
 | --- | --- |
-| F6 | Check player/cup bindings without changing the world |
-| F7 | Save a local problem report |
-| F8 | Show/hide the diagnostics panel |
-| F9 | Inspect the aimed object's collider/FSM names |
-| F10 | Export a bounded diagnostic log |
+| **F2** | Multiplayer menu (invite, players, leave) |
+| **T** | Chat |
+| **Tab** (hold) | Player list |
+| **G** | Wave |
+| **Enter** at the passenger door | Ride along when a friend is driving (Enter again to get out) |
 
-Use the pause/menu screen to click panel controls. Keys can be changed in MSCLoader settings. Reports stay on the player's PC; they are **not automatically uploaded** to GitHub or a developer. See [feedback and privacy](docs/FEEDBACK.md) and the [player checklist](docs/PLAYER_CHECKS.md).
+All keys can be changed in the MSCLoader mod settings. More in **[docs/HOW_TO_PLAY.md](docs/HOW_TO_PLAY.md)**.
 
-## Validation
+### Saving
 
-Legacy automated checks cover authority, three-client UDP fanout, world bootstrap, driver controls, character messages, feedback and mod-only persistence, plus deployment/package and profile-recovery fixtures. The fanout regression sends 100,800 addressed payloads across sequence wrap; it fails against the previous socket source. A metadata audit checks the built DLL against the actual shipped game libraries. These checks do not prove working multiplayer inside the game. Exact current build and test evidence is in the ignored build manifest and test results.
+Only the **host's** world is saved. The host saves the usual way, with the toilet. Friends play in a copy: when a friend leaves, their own save comes back exactly as it was. The backups are in `%USERPROFILE%\AppData\LocalLow\Amistech\My Summer Car\MSCMP_backups`.
 
-Observed v0.2.0 single-game diagnostics include menu/GAME initialization, loader-ready callbacks, local hosting, F7 reporting and read-only bindings. The observed join attempt failed. The owner subsequently reported the 0.4.0 build working, without a per-scenario test record. The new 0.5.0 passenger and save/reload behavior still requires the final game checks. See [runtime evidence](docs/RUNTIME_EVIDENCE.md).
+## Not shared yet
 
-## Development
+Being honest about what isn't covered yet:
 
-Target: legacy .NET 3.5 / C# 3. Configure ignored `config/local.json` from `config/local.example.json`, or set `MSC_GAME_DIR`. Build references come from your own game and installed legacy framework; proprietary files are never included in the repository or download.
+- Liquid levels (fuel, oil, coolant, brake fluid poured from canisters), spray-paint colours and part wear/damage values.
+- Traffic, NPCs, jobs, phone calls and the shops' checkout. These run separately in each game. Anything you buy still appears for everybody.
+- Minigames such as video poker and darts are per player.
+- A car driven by a friend is updated 20 times a second with prediction, so very fast driving over rough ground can look slightly floaty.
 
-```powershell
-.\scripts\inspect.ps1
-.\scripts\build.ps1
-.\scripts\test.ps1
-.\scripts\deploy.ps1 -WhatIf
-.\scripts\deploy.ps1
-.\scripts\package.ps1
-```
+## Help
 
-Deployment requires the game closed, validates source/reference hashes and backs up the previous owned DLL. Uninstall/rollback only operates on the recorded unchanged mod. See [contributing](CONTRIBUTING.md).
+- [Installation guide](docs/INSTALL.md)
+- [How to play](docs/HOW_TO_PLAY.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [How it works (for developers)](docs/ARCHITECTURE.md) · [Building from source](docs/DEVELOPMENT.md)
 
-For pure-logic checks without a game installation, run `.\scripts\test-headless.ps1` on Windows. GitHub Actions runs this suite on a modern .NET Framework host; it does not compile the Unity mod or validate legacy Mono compatibility.
+## Credits
 
-## Next milestones
+Made by CallMeRyanYT. Large parts of this mod were written with the help of AI (Claude by Anthropic).
 
-- Validate two actual game clients, both character options, scene transitions and profile restoration.
-- Verify passenger travel, save/reload and host save transfer using the final checklist.
-- Extend supported vehicle families, assembly and wider world systems with inspected game bindings.
-
-[Compatibility](COMPATIBILITY.md) · [Architecture](ARCHITECTURE.md) · [Protocol](PROTOCOL.md) · [Testing](docs/TESTING.md) · [Changelog](CHANGELOG.md) · [Project brief](docs/PROJECT_BRIEF.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
-
-Unofficial project. Not affiliated with or endorsed by Amistech Games. My Summer Car and its assets belong to their respective owners.
+My Summer Car is made by Amistech Games. MSCLoader is made by piotrulos. This mod ships none of the game's files: it uses the game you own. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

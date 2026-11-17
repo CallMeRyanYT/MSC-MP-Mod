@@ -13,4 +13,4 @@ labels: enhancement
 Include relevant join, disconnect, contention or save/reload cases.
 
 ## Current feature status
-Check docs/FEATURE_SUPPORT.md and note whether this extends a planned milestone.
+Check the "Not shared yet" list in the README and say whether this is one of those.

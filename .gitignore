@@ -1,6 +1,7 @@
 # Local installations, inspection evidence and build output
 .local/
 artifacts/
+build/
 config/local.json
 **/bin/
 **/obj/
