@@ -30,7 +30,7 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Money** is one wallet for everybody: what anyone earns or spends changes everybody's money.
 - **Time and weather** follow the host. If a friend sleeps, they wake up at the host's time.
 - **Riding along**: you can stand on the boat, in the back of the van or on a trailer while somebody drives. You move with it, and everyone sees you on it.
-- **Your own body**: look down to see your character. Emotes are shown from the front for a moment (both can be switched off in the settings).
+- **Seeing your emotes**: in first person you don't see yourself, like in single player. When you play an emote, the view switches to third person for a few seconds so you see your character do it (switch this off in the settings).
 - **Waving**: press **G**. **Emotes**: press **B** and pick one (number keys or click): wave, point, cheer, shrug, drink, facepalm, sit down, dance.
 - **Finding each other**: friends who are far away or behind you get a marker with their name and distance. Press the **middle mouse button** to ping: everybody sees a marker where you're looking for 10 seconds. The host can teleport: in the F2 panel, **Go to** next to a player teleports the host to them, and **Bring** teleports that player to the host (on foot only).
 - **How friends are doing**: the player list (Tab / F2) shows if someone is drunk, hungry, thirsty, tired or needs the toilet. Drunk friends sway; sleeping friends lie in bed.

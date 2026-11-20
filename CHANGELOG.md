@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1 - 2026-11-20
+
+Works together with 0.13.0 (same network protocol).
+
+- First person is back to normal: you no longer see your own body (it clipped into the view when you looked down). When you play an emote, the view switches to third person for a few seconds and shows your character doing it. The *See my own body* setting is gone; *Switch to third person while I play an emote* turns the emote view off.
+
 ## 0.13.0 - 2026-11-18
 
 **Both players need 0.13.0** (the network protocol changed).

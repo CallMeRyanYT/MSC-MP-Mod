@@ -2,7 +2,7 @@
 
 **Play My Summer Car together with your friends.** Invite them through Steam, they load straight into your world, and you build the Satsuma, drink beer at the lake and crash the van together.
 
-> **Status: 0.13.0, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
+> **Status: 0.13.1, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
 
 ## What it does
 

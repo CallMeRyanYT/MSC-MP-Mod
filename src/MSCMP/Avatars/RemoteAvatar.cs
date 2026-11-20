@@ -41,11 +41,18 @@ namespace MSCMP.Avatars
         /// bumps into you, and the head can be hidden so it doesn't block the camera.</summary>
         public bool IsSelf;
 
-        public void SetHeadHidden(bool hidden)
+        Renderer[] renderers;
+        GameObject renderersOf;
+        bool shown = true;
+
+        /// <summary>Shows or hides the body without stopping it (it keeps moving and animating).</summary>
+        public void SetVisible(bool on)
         {
-            if (Rig == null || Rig.Head == null) return;
-            Vector3 want = hidden ? Vector3.one * 0.001f : Vector3.one;
-            if (Rig.Head.localScale != want) Rig.Head.localScale = want;
+            if (Object == null) return;
+            if (renderersOf != Object) { renderersOf = Object; renderers = Object.GetComponentsInChildren<Renderer>(true); shown = !on; }
+            if (shown == on) return;
+            shown = on;
+            for (int i = 0; i < renderers.Length; i++) if (renderers[i] != null) renderers[i].enabled = on;
         }
 
         public Vector3 HeadPosition

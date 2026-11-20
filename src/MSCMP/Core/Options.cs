@@ -10,7 +10,7 @@ namespace MSCMP
     internal static class Options
     {
         static SettingsDropDownList body, shirt, pants, face;
-        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, ownBody, emoteCam, migration;
+        static SettingsCheckBox nameTags, verbose, markers, shareMusic, hearMusic, emoteCam, migration;
         static SettingsSliderInt maxPlayers;
         public static SettingsKeybind PanelKey, ChatKey, WaveKey, PlayerListKey, EmoteKey, PingKey, MapKey, GiveKey;
 
@@ -29,8 +29,7 @@ namespace MSCMP
             markers = Settings.AddCheckBox("mscmp_markers", "Show where far-away friends are (name and distance)", true, null);
             shareMusic = Settings.AddCheckBox("mscmp_sharemusic", "Share my own songs (Radio / CD folders) with friends", true, null);
             hearMusic = Settings.AddCheckBox("mscmp_hearmusic", "Play friends' songs", true, null);
-            ownBody = Settings.AddCheckBox("mscmp_ownbody", "See my own body (look down)", true, null);
-            emoteCam = Settings.AddCheckBox("mscmp_emotecam", "Show my emotes from the front for a moment", true, null);
+            emoteCam = Settings.AddCheckBox("mscmp_emotecam", "Switch to third person while I play an emote", true, null);
             migration = Settings.AddCheckBox("mscmp_migration", "If the host's game is gone, the next player takes over", true, null);
             verbose = Settings.AddCheckBox("mscmp_verbose", "Detailed log (for bug reports)", false, () => Log.Verbose = verbose.GetValue());
             Settings.AddButton("Open log folder", OpenLogFolder);
@@ -131,11 +130,6 @@ namespace MSCMP
         public static bool HostMigration
         {
             get { try { return migration == null || migration.GetValue(); } catch { return true; } }
-        }
-
-        public static bool ShowOwnBody
-        {
-            get { try { return ownBody == null || ownBody.GetValue(); } catch { return true; } }
         }
 
         public static bool EmoteCamera

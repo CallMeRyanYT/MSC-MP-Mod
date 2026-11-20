@@ -5,10 +5,10 @@ using UnityEngine;
 namespace MSCMP.Avatars
 {
     /// <summary>
-    /// Your own body: the same character your friends see, drawn where you stand, so you see
-    /// your arms, legs and emotes when you look down. Its head is shrunk away so it never
-    /// blocks the camera. While you play an emote, a camera shows you from the front for a
-    /// few seconds so you can see the whole thing.
+    /// Seeing your own emotes. In first person you see nothing of yourself, like in single
+    /// player. When you play an emote the view switches to third person for a few seconds
+    /// and shows you your character (the one your friends see) doing it. The body keeps
+    /// following you invisibly in the meantime, so it is ready the moment you need it.
     /// </summary>
     internal static class SelfBody
     {
@@ -20,7 +20,7 @@ namespace MSCMP.Avatars
 
         public static void Update()
         {
-            bool want = Options.ShowOwnBody && MP.InGame && LocalPlayer.Bound;
+            bool want = Options.EmoteCamera && MP.InGame && LocalPlayer.Bound;
             if (!want) { Hide(); return; }
             if (me == null)
             {
@@ -49,12 +49,12 @@ namespace MSCMP.Avatars
         public static void LateUpdate()
         {
             if (me == null || me.Avatar == null) return;
-            me.Avatar.SetHeadHidden(!EmoteCamOn);
+            me.Avatar.SetVisible(EmoteCamOn); // only in the third-person emote view
             me.Avatar.LateUpdate();
             UpdateEmoteCamera();
         }
 
-        /// <summary>You played an emote: show it on your body (and from the front for a moment).</summary>
+        /// <summary>You played an emote: third person for a moment, showing your body doing it.</summary>
         public static void OnEmote(byte id)
         {
             if (me == null || me.Avatar == null) return;
