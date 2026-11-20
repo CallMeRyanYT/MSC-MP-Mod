@@ -30,8 +30,6 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Money** is one wallet for everybody: what anyone earns or spends changes everybody's money.
 - **Time and weather** follow the host. If a friend sleeps, they wake up at the host's time.
 - **Riding along**: you can stand on the boat, in the back of the van or on a trailer while somebody drives. You move with it, and everyone sees you on it.
-- **Seeing your emotes**: in first person you don't see yourself, like in single player. When you play an emote, the view switches to third person for a few seconds so you see your character do it (switch this off in the settings).
-- **Waving**: press **G**. **Emotes**: hold **B** to open the emote wheel, point the mouse at an emote and let go (let go in the middle to cancel). Or tap **B** and click one, or press 1-8: wave, point, cheer, shrug, drink, facepalm, sit down, dance. Change the key in the F2 panel (*Emote wheel key: Change*, then press the key you want) or in MSCLoader's keybinds.
 - **Finding each other**: friends who are far away or behind you get a marker with their name and distance. Press the **middle mouse button** to ping: everybody sees a marker where you're looking for 10 seconds. The host can teleport: in the F2 panel, **Go to** next to a player teleports the host to them, and **Bring** teleports that player to the host (on foot only).
 - **How friends are doing**: the player list (Tab / F2) shows if someone is drunk, hungry, thirsty, tired or needs the toilet. Drunk friends sway; sleeping friends lie in bed.
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.
@@ -93,7 +91,7 @@ Bots are the host's tool (or yours when you play alone). Press **F2** in the wor
   - **Tidy up here**: piles up the loose items within 15 m (shop goods, tools, bottles; never car parts).
   - **Fetch anything**: brings you the nearest thing it can carry.
   - **Take that to** home / Teimo's / Fleetari's: carries the item there and waits. Tick *Teleport* to skip the walk.
-- **Wave**, **Next body**, **Remove**.
+- **Next body**, **Remove**.
 
 Bots can only move things nobody else is holding or using, and nothing heavier than about 60 kg.
 
@@ -115,7 +113,7 @@ Open MSCLoader's **Settings** in the main menu → **MSC Multiplayer**:
 - **Detailed log** (only needed when reporting a bug).
 - **Show where far-away friends are** (markers).
 - **Share my own songs** / **Play friends' songs** (music).
-- **Keybinds**: F2 menu, Tab player list, T chat, G wave, B emotes, middle mouse button ping, M map, H hand over.
+- **Keybinds**: F2 menu, Tab player list, T chat, middle mouse button ping, M map, H hand over.
 
 ## Hosting tools
 
@@ -129,7 +127,7 @@ In the F2 panel, under each player:
 
 ## Testing alone
 
-**Test: see yourself and your bots as friends see you** in the F2 panel puts a copy of you (and of your bots) next to you, drawn exactly the way a friend's game draws you: walking, crouching, leaning, looking around, emotes, drunkenness, driving. Useful to check things without a second player.
+**Test: see yourself and your bots as friends see you** in the F2 panel puts a copy of you (and of your bots) next to you, drawn exactly the way a friend's game draws you: walking, crouching, leaning, looking around, drunkenness, driving. Useful to check things without a second player.
 
 ## Good to know
 

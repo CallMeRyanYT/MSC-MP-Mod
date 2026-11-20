@@ -89,7 +89,6 @@ namespace MSCMP.Sync
         static readonly List<Bot> bots = new List<Bot>();
         static readonly Dictionary<int, RemoteBot> remote = new Dictionary<int, RemoteBot>();
         static readonly Queue<KeyValuePair<float, Vector3>> reaches = new Queue<KeyValuePair<float, Vector3>>();
-        static readonly Queue<KeyValuePair<float, byte>> emotes = new Queue<KeyValuePair<float, byte>>();
         static readonly NetWriter writer = new NetWriter(128);
         static readonly NetReader reader = new NetReader();
         static float nextSample, nextReport, nextSend;
@@ -209,21 +208,6 @@ namespace MSCMP.Sync
             b.StuckTime = 0f;
             if (teleport) b.Feet = Ground(target + new Vector3(UnityEngine.Random.Range(-2f, 2f), 0f, UnityEngine.Random.Range(-2f, 2f)));
             Log.Info(b.P.Name + " " + b.OrderText);
-        }
-
-        public static void Wave(Bot b) { Emote(b, Emotes.Wave); }
-
-        /// <summary>Plays an emote on a bot (gesture id, see <see cref="Emotes"/>).</summary>
-        public static void Emote(Bot b, byte id)
-        {
-            b.P.Avatar.PlayGesture(id);
-            SendAction(b, (byte)(id == Emotes.Wave ? 1 : 10 + id), Vector3.zero);
-        }
-
-        /// <summary>Copying bots repeat your emotes.</summary>
-        public static void MirrorEmote(byte id)
-        {
-            if (Any) emotes.Enqueue(new KeyValuePair<float, byte>(Time.realtimeSinceStartup + CopyDelay, id));
         }
 
         // ---------------------------------------------------------------- jobs
@@ -353,7 +337,6 @@ namespace MSCMP.Sync
         {
             for (int i = bots.Count - 1; i >= 0; i--) Remove(bots[i]);
             reaches.Clear();
-            emotes.Clear();
             // Other players' bots come back when we are in the world again.
             foreach (RemoteBot rb in remote.Values) DestroyAvatar(rb);
         }
@@ -432,11 +415,6 @@ namespace MSCMP.Sync
                         b.P.Avatar.Reach(at);
                         SendAction(b, 2, at);
                     }
-            }
-            while (emotes.Count > 0 && emotes.Peek().Key <= now)
-            {
-                byte id = emotes.Dequeue().Value;
-                foreach (Bot b in bots) if (b.Order == Order.Copy) Emote(b, id);
             }
 
             if (now >= nextSend)
@@ -961,7 +939,7 @@ namespace MSCMP.Sync
             Emit(w, Msg.BotRemove, true, Channel.Reliable, null);
         }
 
-        /// <summary>kind 1 = wave, 2 = reach towards a point, 10 + id = another emote.</summary>
+        /// <summary>kind 2 = reach towards a point.</summary>
         static void SendAction(Bot b, byte kind, Vector3 at)
         {
             if (!Wanted) return;
@@ -1139,9 +1117,7 @@ namespace MSCMP.Sync
             RemoteBot rb;
             if (remote.TryGetValue(Key(owner.Slot, id), out rb) && rb.P.Avatar != null && rb.P.Avatar.Visible)
             {
-                if (kind == 1) rb.P.Avatar.PlayGesture(Emotes.Wave);
-                else if (kind > 10) rb.P.Avatar.PlayGesture((byte)(kind - 10));
-                else if (kind == 2 && (rb.P.Avatar.HeadPosition - shown).sqrMagnitude < 9f) rb.P.Avatar.Reach(shown);
+                if (kind == 2 && (rb.P.Avatar.HeadPosition - shown).sqrMagnitude < 9f) rb.P.Avatar.Reach(shown);
             }
             if (relay)
             {

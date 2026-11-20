@@ -22,7 +22,6 @@ namespace MSCMP
         static string folder;
         static readonly List<string> report = new List<string>();
         static int failures;
-        static int emoteStep;
 
         static float nextCheck;
 
@@ -156,12 +155,12 @@ namespace MSCMP
                 case 5:
                     Check("crouched fully");
                     Shot("03_crouch_full");
-                    foreach (Bots.Bot b in Bots.All) { b.ForceCrouch = -1f; Bots.Wave(b); }
+                    foreach (Bots.Bot b in Bots.All) b.ForceCrouch = -1f;
                     nextStep = now + 1f;
                     break;
                 case 6:
-                    Shot("04_waving");
-                    Check("waving");
+                    Shot("04_standing_again");
+                    Check("standing again");
                     foreach (Bots.Bot b in Bots.All) Bots.Command(b, Bots.Order.Wander);
                     nextStep = now + 7f;
                     break;
@@ -201,22 +200,6 @@ namespace MSCMP
                 case 12:
                     Check("more bodies");
                     Shot("10_bodies2");
-                    emoteStep = 2;
-                    break;
-                case 13:
-                    // Every emote on every bot (and on the loopback copies).
-                    if (emoteStep <= Emotes.Count)
-                    {
-                        foreach (Bots.Bot b in Bots.All) Bots.Emote(b, (byte)emoteStep);
-                        nextStep = now + 1.2f;
-                        step = 14;
-                    }
-                    break;
-                case 14:
-                    Check("emote " + Emotes.Names[emoteStep]);
-                    Shot("11_emote_" + emoteStep);
-                    emoteStep++;
-                    if (emoteStep <= Emotes.Count) step = 13;
                     break;
                 default:
                     Finish();

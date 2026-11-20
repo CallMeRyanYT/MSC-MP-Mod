@@ -36,6 +36,7 @@ namespace MSCMP.Sync
         public Collider[] GhostColliders;  // the colliders we changed
         public bool[] GhostWasTrigger, GhostWasEnabled;
         public bool Ghost;
+        public bool Installed;             // fitted onto a car or another part: the game is in charge
 
         public bool Alive { get { return Go != null && Body != null; } }
     }
@@ -309,7 +310,7 @@ namespace MSCMP.Sync
         {
             if (!o.Alive) return;
             bool replica = Session.Active && Session.Connected && !OwnedLocally(o);
-            if (LocalPlayer.HeldObject == o.Go)
+            if (o.Installed || LocalPlayer.HeldObject == o.Go)
             {
                 // In our own hand the game is in charge, exactly like single player: the item
                 // follows the hand and passes through walls and engine blocks. We only stop
@@ -377,6 +378,7 @@ namespace MSCMP.Sync
             if (!Session.Connected) return;
 
             CheckLocalHold();
+            if (now >= nextInstallCheck) { nextInstallCheck = now + 0.25f; CheckInstalled(); }
             UpdateGhosts();
             CheckDestroyed();
 
@@ -408,6 +410,7 @@ namespace MSCMP.Sync
                 NetObject o = all[i];
                 if (!o.Replica || !o.Alive) continue;
                 if (o == localHeld) continue; // picked up this instant; ownership is being sorted out
+                if (o.Installed) continue;    // fitted: it moves with the car
                 if (!o.Body.isKinematic)
                 {
                     o.OriginalKinematic = false; // the game switched its physics on: that's what it wants later
@@ -475,6 +478,45 @@ namespace MSCMP.Sync
             }
         }
 
+        // ================================================================ fitted parts
+
+        static float nextInstallCheck;
+
+        /// <summary>Notices parts that were fitted onto a car (or onto another part, like the
+        /// engine block) and parts that were taken off again. While fitted, the game moves them
+        /// with the car; the mod must not move them (a copy pushed towards where another game
+        /// thinks it is would shove the car's own body, and launch it).</summary>
+        static void CheckInstalled()
+        {
+            for (int i = 0; i < all.Count; i++)
+            {
+                NetObject o = all[i];
+                if (!o.Alive) continue;
+                bool inst = IsFitted(o);
+                if (inst == o.Installed) continue;
+                o.Installed = inst;
+                if (inst)
+                {
+                    // Hand it over to the game exactly as it is: no longer a copy we steer.
+                    o.Replica = false;
+                    o.Buffer.Clear();
+                    if (o.Ghost) { SetGhost(o, false); ghosts.Remove(o); }
+                }
+                else ApplyRole(o); // taken off again: back to normal sharing
+            }
+        }
+
+        static bool IsFitted(NetObject o)
+        {
+            Transform parent = o.Go.transform.parent;
+            if (parent == null) return false;
+            for (Transform t = parent; t != null; t = t.parent)
+                if (byInstance.ContainsKey(t.gameObject.GetInstanceID())) return true; // on another shared part
+            Transform root = parent.root;
+            foreach (NetVehicle v in VehicleSync.All) if (v.Root == root) return true;
+            return false;
+        }
+
         // ================================================================ held items pass through
 
         static readonly List<NetObject> ghosts = new List<NetObject>();
@@ -492,6 +534,7 @@ namespace MSCMP.Sync
             foreach (NetPlayer p in Bots.RemotePlayers) AddHeld(p);
             foreach (Bots.Bot b in Bots.All) if (b.Carry != null && b.Carry.Alive) wantGhost.Add(b.Carry);
 
+            wantGhost.RemoveWhere(o => o.Installed);
             for (int i = ghosts.Count - 1; i >= 0; i--)
                 if (!wantGhost.Contains(ghosts[i])) { SetGhost(ghosts[i], false); ghosts.RemoveAt(i); }
             foreach (NetObject o in wantGhost)
@@ -565,7 +608,7 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Alive || o.Replica || !OwnedLocally(o)) continue;
+                if (!o.Alive || o.Replica || !OwnedLocally(o) || o.Installed) continue;
                 if (!o.Go.activeInHierarchy) continue;
                 Transform t = o.Go.transform;
                 Vector3 pos = t.position;

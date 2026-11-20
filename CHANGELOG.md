@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.2 - 2026-11-20
+
+Works together with 0.13.0 and 0.13.1 (same network protocol).
+
+- **Much better frame rate.** If the game threw away the map's picture of the world (which can happen), the mod took the picture again every single frame: a render of the whole map, every frame. That's what dragged the game down to about 20 fps. The picture is now smaller and retaken at most every 30 seconds (3 times at most).
+- **Fixed: trees flickering black.** The same picture-taking switched on a temporary sun and changed the lighting for a moment, every frame. The temporary sun is now gone before the normal view is drawn.
+- **Fixed: the car flying away when a friend fitted a part (like a seat).** A fitted part was still moved by the mod to wherever the other game thought it was, which shoved it into the car's own body. Parts fitted onto a car or onto another part are now left to the game completely, and normal sharing comes back when they're taken off again.
+- **Emotes are gone**: the emote wheel, waving (G), the third-person emote view and bots waving.
+- The F2 panel shows how many milliseconds per frame the mod itself takes, and when it's more than 2 ms the most expensive parts are written to mscmp.log.
+- Towing checks for ropes and hitches every 5 seconds instead of every second (it searches the whole world).
+
 ## 0.13.1 - 2026-11-20
 
 Works together with 0.13.0 (same network protocol).

@@ -10,7 +10,7 @@ namespace MSCMP
     /// Two-player test without a second player: shows you a copy of yourself (and of your
     /// bots) exactly as a friend's game would draw it. Your updates are packed into the real
     /// network format, unpacked again and fed to a remote body standing next to you, so
-    /// walking, crouching, leaning, looking around, emotes, drunkenness and driving can all
+    /// walking, crouching, leaning, looking around, drunkenness and driving can all
     /// be checked alone. Switch it on in the F2 panel.
     /// </summary>
     internal static class Loopback
@@ -108,11 +108,6 @@ namespace MSCMP
         public static void LateUpdate()
         {
             if (On && me != null && me.Avatar != null) me.Avatar.LateUpdate();
-        }
-
-        public static void OnGesture(byte id)
-        {
-            if (On && me != null && me.Avatar != null) me.Avatar.PlayGesture(id);
         }
 
         public static void OnWorldLeft() { Set(false); }

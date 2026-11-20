@@ -86,26 +86,21 @@ namespace MSCMP.UI
             if (chatOpen && (!MP.InGame || !Session.Connected)) chatOpen = false;
 
             // Typing in a text box of the panel (shopping list) counts as typing too.
-            MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0 || EmoteWheel.Capturing;
+            MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0;
             // The map (M).
             if (MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing && Options.KeyDown(Options.MapKey))
             {
                 MapView.Open = !MapView.Open;
-                if (MapView.Open) { panelOpen = false; EmoteWheel.Close(); }
+                if (MapView.Open) panelOpen = false;
             }
 
-            // Emotes: the wave key, and the emote menu (pick with the mouse or 1-8).
-            bool canEmote = MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing;
-            if (canEmote && !EmoteWheel.Open && Options.KeyDown(Options.WaveKey)) Emotes.Play(Emotes.Wave);
-            EmoteWheel.Tick(canEmote && !panelOpen && !MapView.Open);
-
-            MultiplayerUIState.PanelOpen = panelOpen || EmoteWheel.Open || MapView.Open;
+            MultiplayerUIState.PanelOpen = panelOpen || MapView.Open;
 
             // The game's own pause menu (Esc) closes ours, so the two never fight over the mouse.
-            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape) && !EmoteWheel.Capturing) { panelOpen = false; chatOpen = false; EmoteWheel.Close(); MapView.Open = false; }
+            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; MapView.Open = false; }
 
             // In game the cursor belongs to the game; borrow it while our panel or chat is open.
-            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || EmoteWheel.Open || MapView.Open);
+            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || MapView.Open);
             if (wantCursor != cursorTaken)
             {
                 cursorTaken = wantCursor;
@@ -144,6 +139,7 @@ namespace MSCMP.UI
 
         void OnGUI()
         {
+            long t0 = Perf.Now;
             try
             {
                 EnsureStyles();
@@ -157,7 +153,6 @@ namespace MSCMP.UI
                 if (!panelOpen && !chatOpen && Options.Key(Options.PlayerListKey) && Session.Active) DrawPlayerList(false);
                 if (MP.InMenu && !panelOpen) DrawHint();
                 if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
-                EmoteWheel.Draw();
                 if (MP.InGame) Races.Draw();
                 Stats.Draw();
                 if (MapView.Open) MapView.Draw();
@@ -179,6 +174,7 @@ namespace MSCMP.UI
                     GUI.Box(new Rect(Screen.width / 2f - 160f, 20f, 320f, 30f), "Watching " + Together.Watching.Name + " - Esc to stop", toast);
             }
             catch (Exception e) { Log.ExceptionOnce("MultiplayerUI.OnGUI", e); }
+            finally { Perf.Add("UI", Perf.Now - t0); }
         }
 
         void EnsureStyles()
@@ -339,7 +335,6 @@ namespace MSCMP.UI
             botTeleport = GUILayout.Toggle(botTeleport, " Teleport instead of walking", text);
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Wave", button)) foreach (Bots.Bot b in SelectedBots()) Bots.Wave(b);
             if (GUILayout.Button("Next body", button)) foreach (Bots.Bot b in SelectedBots()) Bots.NextBody(b);
             if (GUILayout.Button("Remove", button)) { foreach (Bots.Bot b in SelectedBots()) Bots.Remove(b); botSelection = -1; }
             GUILayout.EndHorizontal();
@@ -506,7 +501,6 @@ namespace MSCMP.UI
 
         void Footer()
         {
-            DrawEmoteKey();
             DrawVehicleLock();
             DrawRace();
             DrawShoppingList();
@@ -515,6 +509,7 @@ namespace MSCMP.UI
             DrawCharacter();
             DrawTestTools();
             GUILayout.Space(8);
+            if (MP.InGame && Perf.MsPerFrame > 0f) GUILayout.Label("Multiplayer mod: " + Perf.MsPerFrame.ToString("0.0") + " ms per frame", small);
             GUILayout.Label("F2 hides this panel" + (MP.InGame ? " · T to chat · hold Tab for players" : ""), small);
             GUILayout.EndVertical();
             GUILayout.EndScrollView();
@@ -636,23 +631,6 @@ namespace MSCMP.UI
                 }
                 GUILayout.EndHorizontal();
             }
-        }
-
-        /// <summary>F2: which key opens the emote wheel.</summary>
-        void DrawEmoteKey()
-        {
-            GUILayout.Space(6);
-            GUILayout.BeginHorizontal();
-            if (EmoteWheel.Capturing)
-            {
-                GUILayout.Label("Press the key for the emote wheel... (Esc cancels)", text);
-            }
-            else
-            {
-                GUILayout.Label("Emote wheel key: <b>" + EmoteWheel.Key + "</b>", text);
-                if (GUILayout.Button("Change", button, GUILayout.Width(80))) EmoteWheel.StartCapture();
-            }
-            GUILayout.EndHorizontal();
         }
 
         static string ColorUtility(Color c)

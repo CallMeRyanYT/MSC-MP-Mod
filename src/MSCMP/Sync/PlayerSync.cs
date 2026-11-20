@@ -16,7 +16,6 @@ namespace MSCMP.Sync
         public static void Init()
         {
             Session.On(Msg.PlayerState, OnPlayerState);
-            Session.On(Msg.Gesture, OnGesture);
             Session.PlayerJoined += p => { if (MP.InGame) EnsureAvatar(p); };
             Session.PlayerLeft += RemoveAvatar;
             Session.Ended += reason => RemoveAll();
@@ -98,33 +97,6 @@ namespace MSCMP.Sync
                 w.Byte(subject.Slot);
                 s.Write(w);
                 Session.BroadcastInGame(false, Channel.State, subject);
-            }
-        }
-
-        /// <summary>Shows an emote (gesture id, see <see cref="Emotes"/>) to everyone.</summary>
-        public static void SendGesture(byte gesture)
-        {
-            if (!Session.Active || !Session.Connected || Session.Local == null) return;
-            NetWriter w = Session.Begin(Msg.Gesture);
-            w.Byte(Session.Local.Slot);
-            w.Byte(gesture);
-            Session.SendToAll(true, Channel.Reliable);
-        }
-
-        static void OnGesture(NetPlayer from, NetReader r)
-        {
-            if (from == null) return;
-            byte slot = r.Byte();
-            byte gesture = r.Byte();
-            NetPlayer subject = Session.IsHost ? from : Session.BySlot(slot);
-            if (subject == null || subject.IsLocal) return;
-            if (subject.Avatar != null) subject.Avatar.PlayGesture(gesture);
-            if (Session.IsHost)
-            {
-                NetWriter w = Session.Begin(Msg.Gesture);
-                w.Byte(subject.Slot);
-                w.Byte(gesture);
-                Session.BroadcastInGame(true, Channel.Reliable, subject);
             }
         }
 

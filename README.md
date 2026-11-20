@@ -2,13 +2,13 @@
 
 **Play My Summer Car together with your friends.** Invite them through Steam, they load straight into your world, and you build the Satsuma, drink beer at the lake and crash the van together.
 
-> **Status: 0.13.1, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
+> **Status: 0.13.2, an early test build of a complete rewrite.** Connecting works; the first two-player tests are under way. If something breaks, please [open an issue](https://github.com/CallMeRyanYT/MSC-MP-Mod/issues) and attach the log file ([where to find it](docs/TROUBLESHOOTING.md#log-files)).
 
 ## What it does
 
 - **Steam invites.** No IP addresses, port forwarding, Hamachi or Tailscale. Invite a friend from the game and they click *Join*.
 - **You share one world.** Your friend gets an exact copy of your save when they join. Their own save is backed up first and put back automatically when they leave, even if the game crashed.
-- **Real My Summer Car people as player models.** The players are rebuilt from the game's own character models, clothes and animations. They walk, run, crouch, look around, sit in cars, steer and wave. You can pick your body and clothes in the mod settings or the F2 panel, with a live preview.
+- **Real My Summer Car people as player models.** The players are rebuilt from the game's own character models, clothes and animations. They walk, run, crouch, look around, sit in cars and steer. You can pick your body and clothes in the mod settings or the F2 panel, with a live preview.
 - **Everything you pick up is shared.** Carrying, dropping and throwing items and car parts works for everyone. Things the game creates (removed parts, bought groceries) appear for everyone too.
 - **All the cars.** One player drives and everyone else sees the wheels turn, the suspension work and the engine rev. You can ride in the passenger seat when a friend drives.
 - **The world reacts to everyone.** Doors, light switches, taps, the TV and radio, dashboard buttons, the ignition, and building the car together: assembling and removing parts, tightening every bolt, wiring.
@@ -21,7 +21,7 @@
 - **One living world.** Traffic, police and other NPC cars, the bus, the train, the rally cars, villagers and animals are the same on every screen (the host's). If the host's game crashes, the next player takes over as host.
 - **Find each other.** Markers show where far-away friends are, a ping key shows everyone where you're looking, and the F2 panel can teleport you to a friend.
 - **Your music, for everyone.** Songs you put in the game's Radio or CD folders play for your friends too, from the same car radio or CD player, in time. They download your songs automatically the first time.
-- **Emotes.** An emote menu (B) with wave, point, cheer, shrug, drink, facepalm, sit down and dance. You can see when a friend is drunk (they sway), asleep (lying in bed), hungry or tired.
+- **See how your friends are doing.** You can see when a friend is drunk (they sway), asleep (lying in bed), hungry or tired.
 - **Host controls.** Choose who may drive and who shares your money, kick players, and lock the game.
 - **Join any time.** A friend who joins later sees the world exactly as it is right now.
 - **Chat, player list and name tags.**
@@ -51,7 +51,8 @@ Controls in game:
 | **F2** | Multiplayer menu (invite, players, leave) |
 | **T** | Chat |
 | **Tab** (hold) | Player list |
-| **G** | Wave |
+| **M** | Map |
+| **H** | Hand the item you hold to the friend you look at |
 | **Enter** at the passenger door | Ride along when a friend is driving (Enter again to get out) |
 
 All keys can be changed in the MSCLoader mod settings. More in **[docs/HOW_TO_PLAY.md](docs/HOW_TO_PLAY.md)**.

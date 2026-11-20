@@ -172,6 +172,7 @@ namespace MSCMP
 
         public static void Update()
         {
+            Perf.Frame();
             string level = Application.loadedLevelName;
             if (level != lastLevel)
             {
@@ -182,8 +183,7 @@ namespace MSCMP
 
             if (SteamNet.RetryIfNeeded()) Notifications.Show("Connected to Steam. Multiplayer is ready.");
             if (SteamNet.Available && !gameBuildRead) { gameBuildRead = true; ReadGameBuild(); }
-            try { Session.Update(); }
-            catch (Exception e) { Log.ExceptionOnce("Session.Update", e); }
+            Safe("Session", Session.Update);
 
             if (InGameScene && !InGame && gameLoadCalled && Time.realtimeSinceStartup - gameLoadTime > 1.5f)
                 TryEnterWorld();
@@ -213,7 +213,6 @@ namespace MSCMP
                 Safe("Loopback", Loopback.Update);
             }
             Safe("AutoTest", AutoTest.Update);
-            Safe("SelfBody", SelfBody.Update);
             Safe("CharacterPreview", UI.CharacterPreview.Update);
             Notifications.Prune();
         }
@@ -225,7 +224,6 @@ namespace MSCMP
             Safe("PlayerSync.Late", PlayerSync.LateUpdate);
             Safe("CharacterPreview.Late", UI.CharacterPreview.LateUpdate);
             Safe("Loopback.Late", Loopback.LateUpdate);
-            Safe("SelfBody.Late", SelfBody.LateUpdate);
             Safe("Together.Late", Together.LateUpdate);
             Safe("AmbientSync.Late", AmbientSync.LateUpdate);
             Safe("Bots.Late", Bots.LateUpdate);
@@ -242,8 +240,10 @@ namespace MSCMP
 
         static void Safe(string name, Action a)
         {
+            long t0 = Perf.Now;
             try { a(); }
             catch (Exception e) { Log.ExceptionOnce(name, e); }
+            finally { Perf.Add(name, Perf.Now - t0); }
         }
 
         // ------------------------------------------------------------ world

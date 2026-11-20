@@ -22,7 +22,9 @@ namespace MSCMP.UI
         static RenderTexture picture;
         static float xMin = -2600f, zMin = -2600f, size = 5200f;
         static float captureAt = -1f;
-        const int PictureSize = 4096;
+        const int PictureSize = 2048;   // about 2.5 m per pixel; small enough to be cheap
+        static int captures;
+        static float nextCaptureAllowed;
 
         // ---------------------------------------------------------------- view
         static Vector2 center;          // world x, z in the middle of the screen
@@ -53,6 +55,7 @@ namespace MSCMP.UI
         {
             Open = false;
             captureAt = -1f;
+            captures = 0;
             Route.Clear();
             Next = 0;
             Sharing = false;
@@ -66,7 +69,10 @@ namespace MSCMP.UI
             if (!MP.InGame || !LocalPlayer.Bound) { Open = false; return; }
             float now = Time.realtimeSinceStartup;
             if (captureAt > 0f && now >= captureAt) { captureAt = -1f; Capture(); }
-            if (picture != null && !picture.IsCreated()) Capture(); // lost (window minimised...)
+            // The game can throw the picture away (window minimised...). Take it again, but
+            // never more than every 30 seconds and at most 3 times: taking it is a full render
+            // of the whole world and must not happen every frame.
+            if (picture != null && !picture.IsCreated() && now >= nextCaptureAllowed && captures < 3) Capture();
 
             AdvanceRoute();
             if (Open) HandleInput();
@@ -88,6 +94,8 @@ namespace MSCMP.UI
         /// <summary>Takes the picture of the world from high above (once per load).</summary>
         static void Capture()
         {
+            captures++;
+            nextCaptureAllowed = Time.realtimeSinceStartup + 30f;
             GameObject go = null;
             Light sun = null;
             bool fog = RenderSettings.fog;
@@ -132,7 +140,7 @@ namespace MSCMP.UI
             {
                 RenderSettings.fog = fog;
                 RenderSettings.ambientLight = ambient;
-                if (go != null) UnityEngine.Object.Destroy(go);
+                if (go != null) UnityEngine.Object.DestroyImmediate(go); // gone before the normal view is drawn
             }
         }
 

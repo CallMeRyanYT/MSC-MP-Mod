@@ -358,7 +358,7 @@ namespace MSCMP.Sync
             float now = Time.realtimeSinceStartup;
             if (Session.IsHost && now >= nextTowCheck)
             {
-                nextTowCheck = now + 1f;
+                nextTowCheck = now + 5f; // looking for joints searches the whole world: not too often
                 try { AssignTowed(); } catch (Exception e) { Log.ExceptionOnce("AssignTowed", e); }
             }
             if (now >= nextSend)
