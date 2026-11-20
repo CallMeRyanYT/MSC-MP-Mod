@@ -238,7 +238,7 @@ namespace MSCMP.Sync
             if (o == null || !o.Alive) return "Look at an item first (it has to be in the middle of the screen).";
             if (o.Go == LocalPlayer.HeldObject) return "You're holding that yourself.";
             if (!ObjectSync.OwnedLocally(o) || o.Replica) return "Someone else is using that.";
-            if (o.Body.isKinematic) return "That is fixed in place.";
+            if (o.Body.isKinematic || o.Installed) return "That is fixed in place.";
             if (o.Body.mass > CarryMaxMass) return "That's too heavy to carry.";
             return null;
         }
@@ -712,7 +712,7 @@ namespace MSCMP.Sync
 
         static bool Gettable(Bot b, NetObject o)
         {
-            if (o == null || !o.Alive || !o.Go.activeInHierarchy || o.Replica || !ObjectSync.OwnedLocally(o)) return false;
+            if (o == null || !o.Alive || !o.Go.activeInHierarchy || o.Replica || o.Installed || !ObjectSync.OwnedLocally(o)) return false;
             if (o.HeldBy != 255 || o.Go == LocalPlayer.HeldObject) return false;
             foreach (Bot other in bots) if (other != b && (other.Carry == o || other.FetchTarget == o)) return false;
             return true;
@@ -753,7 +753,7 @@ namespace MSCMP.Sync
             foreach (NetObject o in ObjectSync.All)
             {
                 if (!o.Alive || !o.Go.activeInHierarchy || o.Replica || o.HeldBy != 255 || o.Go == mineInHand) continue;
-                if (!ObjectSync.OwnedLocally(o) || o.Body.isKinematic || o.Body.mass > CarryMaxMass) continue;
+                if (!ObjectSync.OwnedLocally(o) || o.Installed || o.Body.isKinematic || o.Body.mass > CarryMaxMass) continue;
                 Vector3 p = o.Go.transform.position;
                 float fromPile = Flat(p - around);
                 if (fromPile > radius || fromPile < leaveWithin) continue;

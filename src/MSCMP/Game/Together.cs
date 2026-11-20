@@ -23,6 +23,7 @@ namespace MSCMP.Game
             Session.On(Msg.Knocked, OnKnocked);
             Session.On(Msg.SessionRules, OnRules);
             Session.On(Msg.CarryRequest, OnCarryRequest);
+            ObjectSync.Registered += OnItemRegistered;
             Session.On(Msg.CarryState, OnCarryState);
             Session.ChatReceived += (p, msg) =>
             {
@@ -244,7 +245,8 @@ namespace MSCMP.Game
             if (Session.IsHost)
             {
                 NetObject o = ObjectSync.ById(id);
-                if (o == null || o.Owner != from.Slot) return; // only what you have
+                if (o == null) { Pend(id, from.Slot, slot, true); return; } // brand new: not linked here yet
+                if (o.Owner != from.Slot) return; // only what you have
                 HostGive(from, id, Session.BySlot(slot));
             }
             else if (from.IsHost)
@@ -252,11 +254,39 @@ namespace MSCMP.Game
                 NetObject o = ObjectSync.ById(id);
                 NetPlayer giver = Session.BySlot(slot);
                 if (o != null) StartGift(o, giver != null ? giver.Name : "A friend");
+                else Pend(id, slot, Session.Local != null ? Session.Local.Slot : (byte)0, false);
+            }
+        }
+
+        // A hand-over of an item this game hasn't linked yet (just created on the giver's side):
+        // wait a little for it instead of dropping the hand-over.
+        sealed class PendingGive { public uint Id; public byte Giver, To; public bool HostSide; public float Until; }
+        static readonly System.Collections.Generic.List<PendingGive> pending = new System.Collections.Generic.List<PendingGive>();
+
+        static void Pend(uint id, byte giver, byte to, bool hostSide)
+        {
+            pending.RemoveAll(x => Time.realtimeSinceStartup > x.Until);
+            pending.Add(new PendingGive { Id = id, Giver = giver, To = to, HostSide = hostSide, Until = Time.realtimeSinceStartup + 10f });
+        }
+
+        static void OnItemRegistered(NetObject o)
+        {
+            if (o == null || pending.Count == 0) return;
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                PendingGive pg = pending[i];
+                if (pg.Id != o.Id) continue;
+                pending.RemoveAt(i);
+                if (Time.realtimeSinceStartup > pg.Until) continue;
+                NetPlayer giver = Session.BySlot(pg.Giver);
+                if (pg.HostSide) HostGive(giver, o.Id, Session.BySlot(pg.To));
+                else StartGift(o, giver != null ? giver.Name : "A friend");
             }
         }
 
         static void StartGift(NetObject o, string giver)
         {
+            if (o.Alive && !o.Go.activeSelf) o.Go.SetActive(true); // it may still be switched off on our side
             gift = new Gift { O = o, Until = Time.realtimeSinceStartup + 8f };
             Notifications.Show(giver + " hands you the " + Bots.Pretty(o.Name) + " - click to take it.");
         }
@@ -269,7 +299,9 @@ namespace MSCMP.Game
             bool taken = o.Alive && LocalPlayer.HeldObject == o.Go;
             if (!o.Alive || taken || Time.realtimeSinceStartup > gift.Until || !LocalPlayer.Bound)
             {
-                if (o.Alive && !taken && !o.Replica) { o.Body.isKinematic = false; o.Body.WakeUp(); }
+                // Hand it back to normal physics (also when taken: the game handles it in your hand,
+                // and it must not stay frozen when you put it down).
+                if (o.Alive && !o.Replica) { o.Body.isKinematic = false; o.Body.WakeUp(); }
                 gift = null;
                 return;
             }

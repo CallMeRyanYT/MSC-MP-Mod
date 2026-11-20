@@ -37,6 +37,7 @@ namespace MSCMP.Sync
         public bool[] GhostWasTrigger, GhostWasEnabled;
         public bool Ghost;
         public bool Installed;             // fitted onto a car or another part: the game is in charge
+        public int SentActive = -1;        // owner: switched on (1) / off (0) as last told to others; -1 unknown
 
         public bool Alive { get { return Go != null && Body != null; } }
     }
@@ -370,7 +371,7 @@ namespace MSCMP.Sync
                 CheckDestroyed();
                 if (now >= nextScan)
                 {
-                    nextScan = now + 1.5f;
+                    nextScan = now + 0.75f;
                     ScanForNewObjects();
                 }
                 return;
@@ -384,7 +385,7 @@ namespace MSCMP.Sync
 
             if (now >= nextScan)
             {
-                nextScan = now + 1.5f;
+                nextScan = now + 0.75f;
                 ScanForNewObjects();
             }
             if (Session.IsHost && now >= nextCargoCheck)
@@ -488,6 +489,12 @@ namespace MSCMP.Sync
         /// thinks it is would shove the car's own body, and launch it).</summary>
         static void CheckInstalled()
         {
+            float now = Time.realtimeSinceStartup;
+            if (now >= nextJointScan || vehicleRoots.Count == 0)
+            {
+                nextJointScan = now + 1f;
+                ScanVehicleJoints();
+            }
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
@@ -506,14 +513,49 @@ namespace MSCMP.Sync
             }
         }
 
+        // Bodies joined to a vehicle by a physics joint that sits on the vehicle's side (the
+        // game can fit a part that way instead of making it part of the car). Refreshed now
+        // and then: looking through every vehicle for joints costs a little.
+        static readonly HashSet<Rigidbody> joinedToVehicle = new HashSet<Rigidbody>();
+        static readonly HashSet<Transform> vehicleRoots = new HashSet<Transform>();
+        static float nextJointScan;
+
+        static void ScanVehicleJoints()
+        {
+            joinedToVehicle.Clear();
+            vehicleRoots.Clear();
+            foreach (NetVehicle v in VehicleSync.All)
+            {
+                if (v.Root == null) continue;
+                vehicleRoots.Add(v.Root);
+                foreach (Joint j in v.Root.GetComponentsInChildren<Joint>(true))
+                {
+                    if (j == null || j.connectedBody == null) continue;
+                    joinedToVehicle.Add(j.connectedBody);
+                }
+            }
+        }
+
+        /// <summary>Fitted onto a car or another part, either by being made part of it (its
+        /// child) or by a physics joint to it. Either way the game moves it with the car.</summary>
         static bool IsFitted(NetObject o)
         {
             Transform parent = o.Go.transform.parent;
-            if (parent == null) return false;
-            for (Transform t = parent; t != null; t = t.parent)
-                if (byInstance.ContainsKey(t.gameObject.GetInstanceID())) return true; // on another shared part
-            Transform root = parent.root;
-            foreach (NetVehicle v in VehicleSync.All) if (v.Root == root) return true;
+            if (parent != null)
+            {
+                for (Transform t = parent; t != null; t = t.parent)
+                    if (byInstance.ContainsKey(t.gameObject.GetInstanceID())) return true; // on another shared part
+                if (vehicleRoots.Contains(parent.root)) return true;
+            }
+            if (joinedToVehicle.Contains(o.Body)) return true;
+            Joint[] joints = o.Go.GetComponents<Joint>();
+            for (int i = 0; i < joints.Length; i++)
+            {
+                Rigidbody other = joints[i].connectedBody;
+                if (other == null) continue;
+                if (vehicleRoots.Contains(other.transform.root)) return true;           // joined to a car
+                if (byInstance.ContainsKey(other.gameObject.GetInstanceID())) return true; // joined to another part
+            }
             return false;
         }
 
@@ -609,6 +651,13 @@ namespace MSCMP.Sync
             {
                 NetObject o = all[i];
                 if (!o.Alive || o.Replica || !OwnedLocally(o) || o.Installed) continue;
+                int act = o.Go.activeSelf ? 1 : 0;
+                if (o.SentActive != act)
+                {
+                    bool first = o.SentActive < 0;
+                    o.SentActive = act;
+                    if (!first) SendRest(o, null); // switched on or off: everyone at once, not only when it settles
+                }
                 if (!o.Go.activeInHierarchy) continue;
                 Transform t = o.Go.transform;
                 Vector3 pos = t.position;
@@ -783,7 +832,7 @@ namespace MSCMP.Sync
         /// <summary>Owner side: let the host take an object back once it has settled.</summary>
         static void CheckRelease(NetObject o)
         {
-            if (Session.IsHost || !OwnedLocally(o) || o.PendingOwnership || localHeld == o) return;
+            if (Session.IsHost || !OwnedLocally(o) || o.PendingOwnership || localHeld == o || o.Installed) return;
             if (!o.RestSent) return;
             if (VehicleSync.IsCargoOfLocalVehicle(o)) return;
             NetWriter w = Session.Begin(Msg.ObjRelease);
@@ -803,8 +852,11 @@ namespace MSCMP.Sync
             Quaternion rot = r.Quaternion();
             NetObject o = ById(id);
             if (o == null || !o.Alive || o.Owner != from.Slot) return;
-            o.Go.transform.position = pos;
-            o.Go.transform.rotation = rot;
+            if (!o.Installed)
+            {
+                o.Go.transform.position = pos;
+                o.Go.transform.rotation = rot;
+            }
             SetOwner(o, 0, true);
             o.Buffer.Clear();
             SendRest(o, null);
@@ -856,7 +908,11 @@ namespace MSCMP.Sync
                     WriteStateRaw(relay, id, s);
                     relayCount++;
                 }
-                if (o.Replica) o.Buffer.Add(local, s);
+                if (o.Replica)
+                {
+                    if (!o.Go.activeSelf) o.Go.SetActive(true); // the owner only sends what is switched on
+                    o.Buffer.Add(local, s);
+                }
             }
             if (Session.IsHost && relayCount > 0)
             {
@@ -905,6 +961,7 @@ namespace MSCMP.Sync
         static void ApplyRest(NetObject o, bool active, Vector3 pos, Quaternion rot)
         {
             if (o.Go.activeSelf != active) o.Go.SetActive(active);
+            if (o.Installed) return; // fitted: it is where the car puts it
             o.Buffer.Clear();
             o.Go.transform.position = pos;
             o.Go.transform.rotation = rot;
@@ -972,7 +1029,7 @@ namespace MSCMP.Sync
                 {
                     float first;
                     if (!hostSeen.TryGetValue(inst, out first)) { hostSeen[inst] = now; continue; }
-                    if (now - first < 1f) continue;
+                    if (now - first < 0.3f) continue; // still there a moment later: it's real
                     NetObject o = Register(0x80000000u | nextDynamicId++, rb, true);
                     AnnounceSpawn(o, 0, 0);
                 }
@@ -983,7 +1040,7 @@ namespace MSCMP.Sync
                     {
                         localSpawns[inst] = new LocalSpawn { Go = rb.gameObject, FirstSeen = now };
                     }
-                    else if (!ls.Requested && now - ls.FirstSeen > 6f)
+                    else if (!ls.Requested && now - ls.FirstSeen > 2f)
                     {
                         // The host never announced it, so it came from something only we did
                         // (e.g. we bought it). Ask the host to add it to the shared world.
@@ -1151,7 +1208,7 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Alive || !o.Go.activeInHierarchy) continue;
+                if (!o.Alive || !o.Go.activeInHierarchy || o.Installed) continue;
                 NetVehicle v = VehicleSync.VehicleContaining(o.Go.transform.position);
                 if (v == null || v.Owner == 0 || v.Owner == o.Owner) continue;
                 NetPlayer holder = Session.BySlot(o.Owner);

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.3 - 2026-11-21
+
+Works together with 0.13.0-0.13.2 (same network protocol), but both players should update: most of these fixes need both games.
+
+- **Fixed: the car sliding and spinning when a friend fitted a part.** The game sometimes fits a part by joining it to the car with a physics joint instead of making it part of the car. Those parts were still being moved by the mod to where the other game had them, and through the joint they dragged the whole car. Parts joined to a car or to another part now count as fitted and are left to the game.
+- **Fixed: fitted parts being moved anyway** when a friend's part came to rest, when it was handed back to the host, and when a player joined. They stay where the car has them.
+- **Fixed: items appearing late on other screens (like the envelope).** Items are now switched on and off for everyone the moment it happens (mail taken out, food eaten...), not only once they come to rest. New items are noticed every 0.75 s (was 1.5 s) and shared within half a second (was up to 6 s when only a friend's game created them).
+- **Fixed: handing over a brand-new item** did nothing when the other game hadn't linked it yet; it now waits for it. A handed-over item is switched on, and no longer stays frozen in the air after you take it and put it down.
+- **Fixed: the map was empty** ("Taking the picture of the world..."). The game threw the picture away right after it was taken; it's now copied into a normal image at once. The map is also no longer shrunk by huge sky and water planes.
+- **Map: place names**: home, Teimo's shop & pub, Fleetari's repair shop, inspection, Ventti's cabin, the dance hall, the landfill, the airport, the drag strip and more (whichever the game has).
+- Bots no longer pick up parts that are fitted to a car.
+
 ## 0.13.2 - 2026-11-20
 
 Works together with 0.13.0 and 0.13.1 (same network protocol).

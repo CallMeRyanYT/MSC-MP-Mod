@@ -40,6 +40,7 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 Press **M**. It's a picture of the whole world taken from above when you load in.
 
 - **Drag** to move it, **scroll** to zoom (around the mouse), **C** centres it on you.
+- Well-known places are named on it: home, Teimo's shop & pub, Fleetari's repair shop, inspection, Ventti's cabin, the dance hall, the landfill and more.
 - You see yourself, your friends (name, which way they face, and whether they're on foot, driving the van, riding the moped, on the boat...), parked vehicles, bots and pings.
 - **Click** to add waypoints and plan a route; **right-click** a waypoint to remove it, **Backspace** removes the last one, **Clear route** removes all. The next waypoint is also shown in the world with its distance, and ticks off when you get there.
 - **Share my route** shows your route on your friends' maps, and where it ends in their world.

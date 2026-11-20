@@ -19,7 +19,7 @@ namespace MSCMP.UI
         public static bool Open;
 
         // ---------------------------------------------------------------- picture of the world
-        static RenderTexture picture;
+        static Texture2D picture;        // a normal image: the game can't throw it away
         static float xMin = -2600f, zMin = -2600f, size = 5200f;
         static float captureAt = -1f;
         const int PictureSize = 2048;   // about 2.5 m per pixel; small enough to be cheap
@@ -59,7 +59,8 @@ namespace MSCMP.UI
             Route.Clear();
             Next = 0;
             Sharing = false;
-            if (picture != null) { picture.Release(); UnityEngine.Object.Destroy(picture); picture = null; }
+            if (picture != null) { UnityEngine.Object.Destroy(picture); picture = null; }
+            places.Clear();
         }
 
         // ================================================================ per frame
@@ -69,10 +70,9 @@ namespace MSCMP.UI
             if (!MP.InGame || !LocalPlayer.Bound) { Open = false; return; }
             float now = Time.realtimeSinceStartup;
             if (captureAt > 0f && now >= captureAt) { captureAt = -1f; Capture(); }
-            // The game can throw the picture away (window minimised...). Take it again, but
-            // never more than every 30 seconds and at most 3 times: taking it is a full render
-            // of the whole world and must not happen every frame.
-            if (picture != null && !picture.IsCreated() && now >= nextCaptureAllowed && captures < 3) Capture();
+            // If taking it failed, try again a little later (at most 3 times): it's a full
+            // render of the whole world and must never happen every frame.
+            if (picture == null && captureAt < 0f && captures > 0 && captures < 3 && now >= nextCaptureAllowed) Capture();
 
             AdvanceRoute();
             if (Open) HandleInput();
@@ -98,16 +98,15 @@ namespace MSCMP.UI
             nextCaptureAllowed = Time.realtimeSinceStartup + 30f;
             GameObject go = null;
             Light sun = null;
+            RenderTexture rt = null;
+            RenderTexture previous = RenderTexture.active;
             bool fog = RenderSettings.fog;
             Color ambient = RenderSettings.ambientLight;
             try
             {
                 ComputeBounds();
-                if (picture == null)
-                {
-                    picture = new RenderTexture(PictureSize, PictureSize, 24);
-                    picture.Create();
-                }
+                rt = new RenderTexture(PictureSize, PictureSize, 24);
+                rt.Create();
                 go = new GameObject("MSCMP_MapCamera");
                 Camera cam = go.AddComponent<Camera>();
                 cam.enabled = false;
@@ -118,7 +117,7 @@ namespace MSCMP.UI
                 cam.farClipPlane = 4000f;
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 cam.backgroundColor = new Color(0.16f, 0.24f, 0.30f, 1f);
-                cam.targetTexture = picture;
+                cam.targetTexture = rt;
                 go.transform.position = new Vector3(xMin + size * 0.5f, 2000f, zMin + size * 0.5f);
                 go.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // straight down, north up
 
@@ -133,13 +132,24 @@ namespace MSCMP.UI
                 RenderSettings.fog = false;
                 RenderSettings.ambientLight = new Color(0.55f, 0.55f, 0.55f, 1f);
                 cam.Render();
-                Log.Info("Map picture taken (" + size.ToString("0") + " m across).");
+                // Copy it into a normal image straight away: the render texture itself can be
+                // thrown away by the game at any moment.
+                RenderTexture.active = rt;
+                Texture2D img = new Texture2D(PictureSize, PictureSize, TextureFormat.RGB24, false);
+                img.ReadPixels(new Rect(0f, 0f, PictureSize, PictureSize), 0, 0);
+                img.Apply(false);
+                if (picture != null) UnityEngine.Object.Destroy(picture);
+                picture = img;
+                FindPlaces();
+                Log.Info("Map picture taken (" + size.ToString("0") + " m across, " + places.Count + " places named).");
             }
             catch (Exception e) { Log.Exception("Map picture", e); }
             finally
             {
+                RenderTexture.active = previous;
                 RenderSettings.fog = fog;
                 RenderSettings.ambientLight = ambient;
+                if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
                 if (go != null) UnityEngine.Object.DestroyImmediate(go); // gone before the normal view is drawn
             }
         }
@@ -155,15 +165,87 @@ namespace MSCMP.UI
                 if (root == null) continue;
                 foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (r.bounds.size.x < 50f && r.bounds.size.z < 50f) continue;
+                    Vector3 sz = r.bounds.size;
+                    if (sz.x < 50f && sz.z < 50f) continue;      // small things don't decide the size
+                    if (sz.x > 3000f || sz.z > 3000f) continue;   // sky domes, water planes...
                     if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
                 }
             }
             if (!any || b.size.x < 500f) return; // keep the default
-            float s = Mathf.Min(Mathf.Max(b.size.x, b.size.z) + 200f, 9000f);
+            float s = Mathf.Min(Mathf.Max(b.size.x, b.size.z) + 200f, 6000f);
             xMin = b.center.x - s * 0.5f;
             zMin = b.center.z - s * 0.5f;
             size = s;
+        }
+
+        // ================================================================ places
+
+        sealed class Place { public string Name; public Vector3 At; }
+        static readonly List<Place> places = new List<Place>();
+
+        /// <summary>Well-known places, found by the names they have in the game's world. A
+        /// spawn point is used when there is one; otherwise the middle of the place's buildings.</summary>
+        static readonly string[][] PlaceList =
+        {
+            new[] { "Home", "YARD/SpawnToHome", "YARD" },
+            new[] { "Teimo's shop & pub", "STORE/SpawnToStore", "STORE" },
+            new[] { "Fleetari's repair shop", "REPAIRSHOP/SpawnToRepair", "REPAIRSHOP" },
+            new[] { "Inspection", "INSPECTION" },
+            new[] { "Ventti's cabin", "CABIN" },
+            new[] { "Cottage", "COTTAGE" },
+            new[] { "Farm", "FARM" },
+            new[] { "Dance hall", "DANCEHALL" },
+            new[] { "Landfill", "LANDFILL" },
+            new[] { "Water facility", "WATERFACILITY" },
+            new[] { "Airport", "AIRPORT" },
+            new[] { "Drag strip", "DRAGRACE", "DRAGSTRIP" },
+            new[] { "Church", "CHURCH" },
+            new[] { "Kilju guy", "KILJUGUY" },
+            new[] { "Swamp", "SWAMP" },
+            new[] { "Sewage", "SEWAGE" },
+            new[] { "Soccer field", "SOCCER" },
+            new[] { "Peräjärvi", "PERAJARVI" },
+            new[] { "Rykipohja", "RYKIPOHJA" },
+            new[] { "Loppe", "LOPPE" },
+            new[] { "Kesseli", "KESSELI" },
+        };
+
+        static void FindPlaces()
+        {
+            places.Clear();
+            foreach (string[] entry in PlaceList)
+            {
+                try
+                {
+                    Vector3 at;
+                    if (Locate(entry, out at)) places.Add(new Place { Name = entry[0], At = at });
+                }
+                catch (Exception e) { Log.ExceptionOnce("Map place " + entry[0], e); }
+            }
+        }
+
+        static bool Locate(string[] entry, out Vector3 at)
+        {
+            at = Vector3.zero;
+            for (int i = 1; i < entry.Length; i++)
+            {
+                string path = entry[i];
+                Transform t = path.IndexOf('/') >= 0 ? GameUtil.FindPath(path) : GameUtil.FindRoot(path);
+                if (t == null) continue;
+                if (path.IndexOf('/') >= 0) { at = t.position; return true; } // a spawn point: exact
+                // A whole area: the middle of its buildings (leaving out huge things like terrain).
+                Bounds b = new Bounds();
+                bool any = false;
+                foreach (Renderer r in t.GetComponentsInChildren<Renderer>(true))
+                {
+                    Vector3 sz = r.bounds.size;
+                    if (sz.x > 300f || sz.z > 300f) continue;
+                    if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+                }
+                if (any && b.size.x < 1500f && b.size.z < 1500f) { at = b.center; return true; }
+                if (t.position.sqrMagnitude > 1f) { at = t.position; return true; }
+            }
+            return false;
         }
 
         // ================================================================ input
@@ -341,7 +423,7 @@ namespace MSCMP.UI
             GUI.color = Color.white;
 
             // The picture: only the visible part of it.
-            if (picture != null && picture.IsCreated())
+            if (picture != null)
             {
                 Vector2 tl = WorldToScreen(new Vector3(xMin, 0f, zMin + size));
                 Rect full = new Rect(tl.x, tl.y, size * ppm, size * ppm);
@@ -354,6 +436,14 @@ namespace MSCMP.UI
                 }
             }
             else GUI.Label(new Rect(20f, 60f, 500f, 30f), "Taking the picture of the world...", label);
+
+            // Places.
+            foreach (Place pl in places)
+            {
+                Vector2 p = WorldToScreen(pl.At);
+                DrawDot(p, 9f, new Color(1f, 0.55f, 0.2f, 0.95f));
+                Label(p + new Vector2(8f, -10f), pl.Name, new Color(1f, 0.75f, 0.45f, 1f), label);
+            }
 
             // Parked vehicles.
             foreach (NetVehicle v in VehicleSync.All)
