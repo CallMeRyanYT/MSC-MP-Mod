@@ -11,6 +11,7 @@ Works together with 0.13.0-0.13.2 (same network protocol), but both players shou
 - **Fixed: the map was empty** ("Taking the picture of the world..."). The game threw the picture away right after it was taken; it's now copied into a normal image at once. The map is also no longer shrunk by huge sky and water planes.
 - **Map: place names**: home, Teimo's shop & pub, Fleetari's repair shop, inspection, Ventti's cabin, the dance hall, the landfill, the airport, the drag strip and more (whichever the game has).
 - Bots no longer pick up parts that are fitted to a car.
+- **Fixed: players sitting twisted in vehicles** (for example sideways in the tractor with their arms off to the side). The body turned with the player's view, because the game turns the player when you look around while driving. Seated bodies now always face the way the seat faces, and only the head and a bit of the upper back follow where the player looks.
 
 ## 0.13.2 - 2026-11-20
 

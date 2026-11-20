@@ -172,7 +172,7 @@ namespace MSCMP.Avatars
             if (veh != null && veh.Root != null)
             {
                 SetPose(Pose.Seated);
-                t.rotation = veh.Root.rotation * current.Body; // exactly how they sit in it
+                t.rotation = SeatRotation(veh); // the way the seat faces; only the head follows their view
                 // Rough placement; LateUpdate aligns the head exactly with where they look from.
                 t.position = veh.Root.TransformPoint(current.Position);
                 if (Rig.Collider != null) Rig.Collider.enabled = false;
@@ -363,7 +363,8 @@ namespace MSCMP.Avatars
                     if (current.Seat == 1) ReachForWheel(t);
                     if (veh.IsBike) Straddle(t);
                     // Head looks where the player looks (relative to how the body sits).
-                    float look = Mathf.DeltaAngle(current.Body.eulerAngles.y, current.Yaw);
+                    float bodyYaw = (Quaternion.Inverse(veh.Root.rotation) * t.rotation).eulerAngles.y;
+                    float look = Mathf.DeltaAngle(bodyYaw, current.Yaw);
                     AimHead(Mathf.Clamp(look, -100f, 100f), current.Pitch, t, 0f);
                     // Move the whole body so the head sits exactly where their camera is.
                     Vector3 target = veh.Root.TransformPoint(current.Head) - t.up * 0.08f;
@@ -373,6 +374,20 @@ namespace MSCMP.Avatars
         }
 
         float headLead;
+
+        /// <summary>Which way a seat faces. The driver's camera point of every vehicle faces
+        /// forward along the seat (also on the moped, whose model is turned); the player's own
+        /// rotation can't be used, because the game turns it when you look around while driving.</summary>
+        static Quaternion SeatRotation(NetVehicle v)
+        {
+            Transform root = v.Root;
+            Transform pivot = v.DriverHead;
+            if (pivot == null) return root.rotation;
+            Vector3 up = Vector3.Dot(root.up, Vector3.up) > 0.5f ? root.up : pivot.up;
+            Vector3 fwd = Vector3.ProjectOnPlane(pivot.forward, up);
+            if (fwd.sqrMagnitude < 1e-4f) return root.rotation;
+            return Quaternion.LookRotation(fwd.normalized, up);
+        }
 
         static float DeadZone(float v, float zone)
         {
