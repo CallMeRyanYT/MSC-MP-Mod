@@ -31,7 +31,7 @@ Up to 8 players can play. The host sets the limit in the mod settings (default 4
 - **Time and weather** follow the host. If a friend sleeps, they wake up at the host's time.
 - **Riding along**: you can stand on the boat, in the back of the van or on a trailer while somebody drives. You move with it, and everyone sees you on it.
 - **Seeing your emotes**: in first person you don't see yourself, like in single player. When you play an emote, the view switches to third person for a few seconds so you see your character do it (switch this off in the settings).
-- **Waving**: press **G**. **Emotes**: press **B** and pick one (number keys or click): wave, point, cheer, shrug, drink, facepalm, sit down, dance.
+- **Waving**: press **G**. **Emotes**: hold **B** to open the emote wheel, point the mouse at an emote and let go (let go in the middle to cancel). Or tap **B** and click one, or press 1-8: wave, point, cheer, shrug, drink, facepalm, sit down, dance. Change the key in the F2 panel (*Emote wheel key: Change*, then press the key you want) or in MSCLoader's keybinds.
 - **Finding each other**: friends who are far away or behind you get a marker with their name and distance. Press the **middle mouse button** to ping: everybody sees a marker where you're looking for 10 seconds. The host can teleport: in the F2 panel, **Go to** next to a player teleports the host to them, and **Bring** teleports that player to the host (on foot only).
 - **How friends are doing**: the player list (Tab / F2) shows if someone is drunk, hungry, thirsty, tired or needs the toilet. Drunk friends sway; sleeping friends lie in bed.
 - **Chat**: press **T**, type, press **Enter**. **Esc** cancels.

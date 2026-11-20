@@ -5,6 +5,8 @@
 Works together with 0.13.0 (same network protocol).
 
 - First person is back to normal: you no longer see your own body (it clipped into the view when you looked down). When you play an emote, the view switches to third person for a few seconds and shows your character doing it. The *See my own body* setting is gone; *Switch to third person while I play an emote* turns the emote view off.
+- **Emote wheel.** Hold the emote key, point at an emote and let go to play it (let go in the middle to cancel); or tap the key and click one, or press 1-8.
+- **Pick the emote wheel key in the F2 panel**: *Change*, then press any key. It's remembered, and MSCLoader's keybind list follows.
 
 ## 0.13.0 - 2026-11-18
 

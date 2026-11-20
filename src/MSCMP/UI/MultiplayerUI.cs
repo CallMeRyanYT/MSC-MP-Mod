@@ -86,30 +86,26 @@ namespace MSCMP.UI
             if (chatOpen && (!MP.InGame || !Session.Connected)) chatOpen = false;
 
             // Typing in a text box of the panel (shopping list) counts as typing too.
-            MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0;
+            MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0 || EmoteWheel.Capturing;
             // The map (M).
             if (MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing && Options.KeyDown(Options.MapKey))
             {
                 MapView.Open = !MapView.Open;
-                if (MapView.Open) { panelOpen = false; emoteOpen = false; }
+                if (MapView.Open) { panelOpen = false; EmoteWheel.Close(); }
             }
 
             // Emotes: the wave key, and the emote menu (pick with the mouse or 1-8).
             bool canEmote = MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing;
-            if (canEmote && !emoteOpen && Options.KeyDown(Options.WaveKey)) Emotes.Play(Emotes.Wave);
-            if (canEmote && Options.KeyDown(Options.EmoteKey)) { emoteOpen = !emoteOpen; if (emoteOpen) panelOpen = false; }
-            if (!canEmote) emoteOpen = false;
-            if (emoteOpen)
-                for (int i = 1; i <= Emotes.Count && i <= 9; i++)
-                    if (Input.GetKeyDown(KeyCode.Alpha0 + i)) { Emotes.Play((byte)i); emoteOpen = false; }
+            if (canEmote && !EmoteWheel.Open && Options.KeyDown(Options.WaveKey)) Emotes.Play(Emotes.Wave);
+            EmoteWheel.Tick(canEmote && !panelOpen && !MapView.Open);
 
-            MultiplayerUIState.PanelOpen = panelOpen || emoteOpen || MapView.Open;
+            MultiplayerUIState.PanelOpen = panelOpen || EmoteWheel.Open || MapView.Open;
 
             // The game's own pause menu (Esc) closes ours, so the two never fight over the mouse.
-            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape)) { panelOpen = false; chatOpen = false; emoteOpen = false; MapView.Open = false; }
+            if (cursorTaken && Input.GetKeyDown(KeyCode.Escape) && !EmoteWheel.Capturing) { panelOpen = false; chatOpen = false; EmoteWheel.Close(); MapView.Open = false; }
 
             // In game the cursor belongs to the game; borrow it while our panel or chat is open.
-            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || emoteOpen || MapView.Open);
+            bool wantCursor = MP.InGame && LocalPlayer.Bound && (chatOpen || panelOpen || EmoteWheel.Open || MapView.Open);
             if (wantCursor != cursorTaken)
             {
                 cursorTaken = wantCursor;
@@ -161,7 +157,7 @@ namespace MSCMP.UI
                 if (!panelOpen && !chatOpen && Options.Key(Options.PlayerListKey) && Session.Active) DrawPlayerList(false);
                 if (MP.InMenu && !panelOpen) DrawHint();
                 if (!panelOpen && CharacterPreview.Popup) DrawPreviewPopup();
-                if (emoteOpen) DrawEmoteMenu();
+                EmoteWheel.Draw();
                 if (MP.InGame) Races.Draw();
                 Stats.Draw();
                 if (MapView.Open) MapView.Draw();
@@ -510,6 +506,7 @@ namespace MSCMP.UI
 
         void Footer()
         {
+            DrawEmoteKey();
             DrawVehicleLock();
             DrawRace();
             DrawShoppingList();
@@ -641,19 +638,21 @@ namespace MSCMP.UI
             }
         }
 
-        bool emoteOpen;
-
-        void DrawEmoteMenu()
+        /// <summary>F2: which key opens the emote wheel.</summary>
+        void DrawEmoteKey()
         {
-            float w = 300f, h = 70f + Emotes.Count * 30f;
-            GUILayout.BeginArea(new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h));
-            GUILayout.BeginVertical(panel);
-            GUILayout.Label("Emotes", header);
-            for (int i = 1; i <= Emotes.Count; i++)
-                if (GUILayout.Button(i + "   " + Emotes.Names[i], button)) { Emotes.Play((byte)i); emoteOpen = false; }
-            GUILayout.Label("Press a number or click. Esc closes.", small);
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            if (EmoteWheel.Capturing)
+            {
+                GUILayout.Label("Press the key for the emote wheel... (Esc cancels)", text);
+            }
+            else
+            {
+                GUILayout.Label("Emote wheel key: <b>" + EmoteWheel.Key + "</b>", text);
+                if (GUILayout.Button("Change", button, GUILayout.Width(80))) EmoteWheel.StartCapture();
+            }
+            GUILayout.EndHorizontal();
         }
 
         static string ColorUtility(Color c)
