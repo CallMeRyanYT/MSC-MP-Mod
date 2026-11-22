@@ -31,7 +31,30 @@ namespace MSCMP.Game
                 p.LastChat = msg;
                 p.LastChatTime = Time.realtimeSinceStartup;
             };
-            Session.Ended += r => { StopWatching(); CarsHurt = true; };
+            Session.Ended += r => { OnWorldLeft(); CarsHurt = true; };
+        }
+
+        public static void OnWorldLeft()
+        {
+            StopWatching();
+            if (watchCam != null) watchCam.enabled = false;
+            if (gift != null)
+            {
+                NetObject o = gift.O;
+                bool taken = o != null && o.Alive && LocalPlayer.HeldObject == o.Go;
+                if (o != null && !taken && o.HasBody && !o.Replica && !o.Installed)
+                {
+                    o.Body.isKinematic = false;
+                    o.Body.WakeUp();
+                }
+                gift = null;
+            }
+            pending.Clear();
+            carriedBy = 255;
+            carrying = 255;
+            if (stunned) { stunned = false; LocalPlayer.SetStunned(false); }
+            sleepFade = 0f;
+            toldHostSleeping = toldSleepAlone = toldOthersAsleep = false;
         }
 
         public static void SetCarsHurt(bool on)
@@ -175,7 +198,8 @@ namespace MSCMP.Game
 
         static void HandleGiveKey()
         {
-            if (!Session.Connected || MultiplayerUIState.Typing || MultiplayerUIState.PanelOpen) return;
+            if (!Session.Connected || MultiplayerUIState.Typing || MultiplayerUIState.PanelOpen || LocalPlayer.InMenu) return;
+            if (LocalPlayer.PassengerOf != null || !string.IsNullOrEmpty(LocalPlayer.CurrentVehicleName)) return;
             if (!Options.KeyDown(Options.GiveKey)) return;
             if (carrying != 255) { SendCarryState(Session.Local.Slot, carrying, false); return; }  // put them down
             if (carriedBy != 255) { SendCarryState(carriedBy, Session.Local.Slot, false); return; } // wriggle free
@@ -223,7 +247,7 @@ namespace MSCMP.Game
         static void HostGive(NetPlayer giver, uint id, NetPlayer to)
         {
             NetObject o = ObjectSync.ById(id);
-            if (o == null || !o.Alive || to == null) return;
+            if (o == null || !o.HasBody || o.Installed || to == null) return;
             ObjectSync.GiveTo(o, to.Slot);
             Stats.Handed(giver);
             Activity.Add((giver != null ? giver.Name : "Someone") + " handed the " + Bots.Pretty(o.Name) + " to " + to.Name + ".");
@@ -296,12 +320,12 @@ namespace MSCMP.Game
         {
             if (gift == null) return;
             NetObject o = gift.O;
-            bool taken = o.Alive && LocalPlayer.HeldObject == o.Go;
-            if (!o.Alive || taken || Time.realtimeSinceStartup > gift.Until || !LocalPlayer.Bound)
+            bool taken = o != null && o.Alive && LocalPlayer.HeldObject == o.Go;
+            if (o == null || !o.HasBody || o.Installed || taken || Time.realtimeSinceStartup > gift.Until || !LocalPlayer.Bound)
             {
-                // Hand it back to normal physics (also when taken: the game handles it in your hand,
-                // and it must not stay frozen when you put it down).
-                if (o.Alive && !o.Replica) { o.Body.isKinematic = false; o.Body.WakeUp(); }
+                // When the player picked it up, PickUp owns isKinematic (true in hand) - never
+                // override it. Only wake physics when the gift timed out or was cancelled.
+                if (o != null && !taken && o.HasBody && !o.Replica && !o.Installed) { o.Body.isKinematic = false; o.Body.WakeUp(); }
                 gift = null;
                 return;
             }

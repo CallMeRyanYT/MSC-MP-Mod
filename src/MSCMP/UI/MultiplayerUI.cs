@@ -72,11 +72,12 @@ namespace MSCMP.UI
                 wasInMenu = MP.InMenu;
                 if (wasInMenu) panelOpen = true;
             }
+            bool gameMenu = !cursorTaken && GameMenuOpen();
             if (!chatOpen && Options.KeyDown(Options.PanelKey))
             {
                 panelOpen = !panelOpen;
             }
-            if (MP.InGame && Session.Connected && !chatOpen && !panelOpen && Options.KeyDown(Options.ChatKey))
+            if (MP.InGame && Session.Connected && !chatOpen && !panelOpen && !gameMenu && Options.KeyDown(Options.ChatKey))
             {
                 chatOpen = true;
                 focusChat = true;
@@ -88,7 +89,7 @@ namespace MSCMP.UI
             // Typing in a text box of the panel (shopping list) counts as typing too.
             MultiplayerUIState.Typing = chatOpen || panelOpen && GUIUtility.keyboardControl != 0;
             // The map (M).
-            if (MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing && Options.KeyDown(Options.MapKey))
+            if (MP.InGame && LocalPlayer.Bound && !MultiplayerUIState.Typing && (!gameMenu || MapView.Open) && Options.KeyDown(Options.MapKey))
             {
                 MapView.Open = !MapView.Open;
                 if (MapView.Open) panelOpen = false;
@@ -800,7 +801,7 @@ namespace MSCMP.UI
                 float age = Time.realtimeSinceStartup - p.LastChatTime;
                 if (!string.IsNullOrEmpty(p.LastChat) && age < 7f)
                 {
-                    GUIContent said = new GUIContent(p.LastChat);
+                    GUIContent said = new GUIContent(Escape(p.LastChat));
                     float bw = Mathf.Min(320f, toast.CalcSize(said).x + 20f);
                     float bh = toast.CalcHeight(said, bw);
                     GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(7f - age) * alpha);

@@ -85,14 +85,16 @@ namespace MSCMP.Sync
             PlayerSnapshot s = PlayerSnapshot.Read(r);
             NetPlayer subject = Session.IsHost ? from : Session.BySlot(slot);
             if (subject == null || subject.IsLocal) return;
+            float localTime = from.ToLocalTime(s.Time);
             subject.Last = s;
             subject.HasState = true;
             subject.StatesReceived++;
-            if (subject.Avatar != null) subject.Avatar.Push(s);
+            if (subject.Avatar != null) subject.Avatar.Push(localTime, s);
 
             if (Session.IsHost)
             {
-                // Relay to the other clients, stamped with the real slot.
+                // Relay to the other clients on the host clock (clients only clock-sync with the host).
+                s.Time = localTime;
                 NetWriter w = Session.Begin(Msg.PlayerState);
                 w.Byte(subject.Slot);
                 s.Write(w);

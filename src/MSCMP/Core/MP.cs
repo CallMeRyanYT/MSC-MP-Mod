@@ -253,8 +253,8 @@ namespace MSCMP
             if (!LocalPlayer.Bind()) return; // PLAYER not ready yet
             InGame = true;
             Log.Info("World ready - building registries.");
-            Safe("ObjectSync.WorldReady", ObjectSync.OnWorldReady);
             Safe("VehicleSync.WorldReady", VehicleSync.OnWorldReady);
+            Safe("ObjectSync.WorldReady", ObjectSync.OnWorldReady);
             Safe("FsmSync.WorldReady", FsmSync.OnWorldReady);
             Safe("WorldSync.WorldReady", WorldSync.OnWorldReady);
             Safe("VarSync.WorldReady", VarSync.OnWorldReady);
@@ -280,6 +280,7 @@ namespace MSCMP
             Safe("VarSync.WorldLeft", VarSync.OnWorldLeft);
             Safe("MusicSync.WorldLeft", MusicSync.OnWorldLeft);
             Safe("MapView.WorldLeft", MapView.OnWorldLeft);
+            Safe("Together.WorldLeft", Together.OnWorldLeft);
             Safe("CrashSync.WorldLeft", CrashSync.OnWorldLeft);
             Safe("AmbientSync.WorldLeft", AmbientSync.OnWorldLeft);
             Safe("Bots.WorldLeft", Bots.OnWorldLeft);

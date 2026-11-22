@@ -127,7 +127,7 @@ namespace MSCMP.Game
             }
             // Beside their door: the driver sits on the left, the passenger on the right.
             feet = v.Root.TransformPoint(s.Position) + v.Root.right * (s.Seat == 1 ? -1.6f : 1.6f);
-            yaw = v.Root.eulerAngles.y;
+            yaw = v.Root.eulerAngles.y + (v.SeatFacesBack ? 180f : 0f);
             return true;
         }
 

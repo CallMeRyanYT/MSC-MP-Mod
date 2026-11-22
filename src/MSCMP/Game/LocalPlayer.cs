@@ -245,8 +245,9 @@ namespace MSCMP.Game
                 s.Seat = seat;
                 s.Position = r.InverseTransformPoint(feet);
                 s.Head = r.InverseTransformPoint(head);
-                s.Yaw = Mathf.DeltaAngle(0f, (Quaternion.Inverse(r.rotation) * View.transform.rotation).eulerAngles.y);
-                s.Pitch = Mathf.DeltaAngle(0f, (Quaternion.Inverse(r.rotation) * View.transform.rotation).eulerAngles.x);
+                Vector3 localFwd = Quaternion.Inverse(r.rotation) * View.transform.forward;
+                s.Yaw = Mathf.Atan2(localFwd.x, localFwd.z) * Mathf.Rad2Deg;
+                s.Pitch = -Mathf.Asin(Mathf.Clamp(localFwd.y, -1f, 1f)) * Mathf.Rad2Deg;
                 s.Velocity = veh.Body != null ? veh.Body.velocity : Vector3.zero;
                 s.Body = Quaternion.Inverse(r.rotation) * Player.rotation; // how the body really sits in it
             }
@@ -501,11 +502,15 @@ namespace MSCMP.Game
                 if (Player != null)
                 {
                     Player.SetParent(null, true);
-                    Vector3 exit = Player.position;
+                    Vector3 exit = Feet;
                     if (v != null && v.Root != null) exit = v.PassengerExitWorld();
-                    Player.position = exit;
+                    Vector3 ground = GameUtil.GroundPoint(exit);
+                    Vector3 feetTarget = Mathf.Abs(ground.y - exit.y) < 3f ? ground : exit;
+                    Player.position = feetTarget + (Player.position - Feet) + Vector3.up * 0.05f;
                     Vector3 e = Player.eulerAngles;
                     Player.rotation = Quaternion.Euler(0f, e.y, 0f);
+                    lastPos = Player.position;
+                    velocity = Vector3.zero;
                 }
                 if (Controller != null) Controller.enabled = savedController;
                 if (motor != null) motor.enabled = savedMotor;

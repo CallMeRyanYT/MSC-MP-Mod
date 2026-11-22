@@ -36,7 +36,7 @@ namespace MSCMP.UI
         {
             float now = Time.realtimeSinceStartup;
             pings.RemoveAll(p => now > p.Until);
-            if (!LocalPlayer.Bound || MultiplayerUIState.Typing || MultiplayerUIState.PanelOpen) return;
+            if (!LocalPlayer.Bound || LocalPlayer.InMenu || MultiplayerUIState.Typing || MultiplayerUIState.PanelOpen) return;
             if (!Options.KeyDown(Options.PingKey) || now < nextPingAllowed) return;
             nextPingAllowed = now + 1f;
 

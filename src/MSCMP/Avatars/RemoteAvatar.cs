@@ -34,6 +34,11 @@ namespace MSCMP.Avatars
         Vector3 smoothVelocity;
 
         public const float InterpDelay = 0.085f;   // 30 Hz updates + room for a late packet
+        // The seated clips (fat_get_car_idle1 / fat_get_van_idle1) drive Char.localRotation to
+        // +1.84 deg Y instead of the standing rest pose's -90 deg Y, because the game plays them
+        // on NPCs parented to GetInPivot (which is turned -90 deg Y relative to the car). Turning
+        // Pivot by -91.84 deg Y cancels that so the seated body faces straight forward (+Z).
+        static readonly Quaternion SeatPivotRotation = Quaternion.Euler(0f, -91.84f, 0f);
 
         public Vector3 HeadPosition
         {
@@ -87,6 +92,7 @@ namespace MSCMP.Avatars
             Rig = rig;
             builtLook = look;
             pose = Pose.None;
+            groundOffset = 0f;
             groundCalibrated = false;
             if (Object == null) return;
             Object.name = "MSCMP_Player_" + Player.Name;
@@ -114,6 +120,11 @@ namespace MSCMP.Avatars
         public void Push(PlayerSnapshot s)
         {
             buffer.Add(Player.ToLocalTime(s.Time), s);
+        }
+
+        public void Push(float localTime, PlayerSnapshot s)
+        {
+            buffer.Add(localTime, s);
         }
 
         bool Sleeping { get { return (current.Flags & PlayerSnapshot.FlagSleeping) != 0; } }
@@ -172,13 +183,14 @@ namespace MSCMP.Avatars
             if (veh != null && veh.Root != null)
             {
                 SetPose(Pose.Seated);
+                if (Rig.Pivot != null) Rig.Pivot.localRotation = SeatPivotRotation;
                 t.rotation = SeatRotation(veh); // the way the seat faces; only the head follows their view
                 // Rough placement; LateUpdate aligns the head exactly with where they look from.
                 t.position = veh.Root.TransformPoint(current.Position);
                 if (Rig.Collider != null) Rig.Collider.enabled = false;
                 string seatClip = veh.UsesVanSeat ? AvatarFactory.Clips.SitVan : AvatarFactory.Clips.SitCar;
                 if (Rig.SeatAnim != null && Rig.SeatAnim[seatClip] != null && !Rig.SeatAnim.IsPlaying(seatClip))
-                    Rig.SeatAnim.CrossFade(seatClip, 0.2f);
+                    Rig.SeatAnim.Play(seatClip);
             }
             else
             {
@@ -285,8 +297,10 @@ namespace MSCMP.Avatars
             if (pose == p) return;
             pose = p;
             if (Rig == null) return;
+            for (int i = 0; i < guards.Length; i++) guards[i].Reset();
             Rig.ResetPose();
             bool seated = p == Pose.Seated;
+            if (Rig.Pivot != null) Rig.Pivot.localRotation = seated ? SeatPivotRotation : Quaternion.identity;
             SetAnimEnabled(Rig.LegsAnim, !seated);
             SetAnimEnabled(Rig.BreathAnim, !seated);
             SetAnimEnabled(Rig.LeftArmAnim, !seated);
@@ -375,18 +389,11 @@ namespace MSCMP.Avatars
 
         float headLead;
 
-        /// <summary>Which way a seat faces. The driver's camera point of every vehicle faces
-        /// forward along the seat (also on the moped, whose model is turned); the player's own
-        /// rotation can't be used, because the game turns it when you look around while driving.</summary>
+        /// <summary>Which way a seat faces. Every wheeled vehicle's root +Z faces forward
+        /// (SATSUMA's DriverHeadPivot actually points -Z, backwards); the boat's bow is -Z.</summary>
         static Quaternion SeatRotation(NetVehicle v)
         {
-            Transform root = v.Root;
-            Transform pivot = v.DriverHead;
-            if (pivot == null) return root.rotation;
-            Vector3 up = Vector3.Dot(root.up, Vector3.up) > 0.5f ? root.up : pivot.up;
-            Vector3 fwd = Vector3.ProjectOnPlane(pivot.forward, up);
-            if (fwd.sqrMagnitude < 1e-4f) return root.rotation;
-            return Quaternion.LookRotation(fwd.normalized, up);
+            return v.SeatFacesBack ? v.Root.rotation * Quaternion.Euler(0f, 180f, 0f) : v.Root.rotation;
         }
 
         static float DeadZone(float v, float zone)
@@ -399,8 +406,8 @@ namespace MSCMP.Avatars
         /// <summary>On the moped: knees apart around the tank, leaning a little into the bars.</summary>
         void Straddle(Transform t)
         {
-            Rotate(Rig.ThighLeft, -14f, t.forward);
-            Rotate(Rig.ThighRight, 14f, t.forward);
+            Rotate(Rig.ThighLeft, -16f, t.up);
+            Rotate(Rig.ThighRight, 16f, t.up);
             Rotate(Rig.SpineMiddle, 10f, t.right);
             Rotate(Rig.ShoulderLeft, -20f, t.right);
             Rotate(Rig.ShoulderRight, -20f, t.right);
@@ -515,7 +522,7 @@ namespace MSCMP.Avatars
 
         static PlayerSnapshot Lerp(PlayerSnapshot a, PlayerSnapshot b, float t)
         {
-            if (a.Vehicle != b.Vehicle || t >= 1f) return t >= 0.5f ? b : a;
+            if (a.Vehicle != b.Vehicle || a.Seat != b.Seat || t >= 1f) return t >= 0.5f ? b : a;
             PlayerSnapshot r = b;
             r.Position = Vector3.Lerp(a.Position, b.Position, t);
             r.Head = Vector3.Lerp(a.Head, b.Head, t);
@@ -538,6 +545,8 @@ namespace MSCMP.Avatars
         bool has;
 
         public BoneGuard(Transform t) { this.t = t; }
+
+        public void Reset() { has = false; }
 
         public void Begin()
         {

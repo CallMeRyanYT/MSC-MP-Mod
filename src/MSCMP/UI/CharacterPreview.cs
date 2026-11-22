@@ -123,6 +123,12 @@ namespace MSCMP.UI
                 rig = null;
                 cam = null;
             }
+            if (texture != null)
+            {
+                texture.Release();
+                UnityEngine.Object.Destroy(texture);
+                texture = null;
+            }
         }
 
         static bool Same(Appearance a, Appearance b)

@@ -170,7 +170,7 @@ namespace MSCMP.Sync
                     Log.Debug("Clock set to the host's (" + time + ").");
                 }
                 if (Mathf.Abs(Mathf.DeltaAngle(sunRotation.Value, rot)) > 0.5f) sunRotation.Value = rot;
-                if (clock != null && clockHours != null && hours > 0f && Mathf.Abs(clockHours.Value - hours) >= 1f)
+                if (clock != null && clockHours != null && hours >= 0f && Mathf.Abs(clockHours.Value - hours) >= 1f)
                 {
                     string hourState = ((int)hours).ToString();
                     if (GameUtil.GetState(clock, hourState) != null) GameUtil.ForceState(clock, hourState);

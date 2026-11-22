@@ -81,11 +81,14 @@ namespace MSCMP.Sync
 
         sealed class LocalLink { public Hook Hook; public GameObject[] Before; public bool[] Done; public uint Serial; public int Frame; }
 
+        sealed class RemovalLink { public GameObject Go; public byte Origin; public uint Serial; public bool Local; public float Until; }
+
         static readonly Dictionary<uint, Entry> byId = new Dictionary<uint, Entry>();
         static readonly Dictionary<int, Entry> byComponent = new Dictionary<int, Entry>();
         static readonly List<Entry> queued = new List<Entry>();
         static readonly List<Reenable> reenable = new List<Reenable>();
         static readonly List<LocalLink> localLinks = new List<LocalLink>();
+        static readonly List<RemovalLink> removalLinks = new List<RemovalLink>();
         static readonly HashSet<NamedVariable> playerGlobals = new HashSet<NamedVariable>();
         static readonly Dictionary<Type, FieldInfo[]> eventFieldCache = new Dictionary<Type, FieldInfo[]>();
         static readonly Dictionary<Type, FieldInfo[]> varFieldCache = new Dictionary<Type, FieldInfo[]>();
@@ -197,6 +200,7 @@ namespace MSCMP.Sync
             queued.Clear();
             reenable.Clear();
             localLinks.Clear();
+            removalLinks.Clear();
             hookedStates = 0;
             applyingRemote = false;
         }
@@ -681,6 +685,9 @@ namespace MSCMP.Sync
             byte origin = Session.LocalSlot;
             Binding[] binds = CollectBindings(fsm);
 
+            if (e.Pm.FsmName == "Assembly" && binds != null)
+                for (int i = 0; i < binds.Length; i++) ObjectSync.PrepareForAssembly(ObjectSync.ById(binds[i].Object));
+
             NetWriter w = Session.Begin(Msg.FsmState);
             WriteEvent(w, e.Id, h.StateIndex, origin, serial, binds);
             if (Session.IsAuthority)
@@ -697,6 +704,10 @@ namespace MSCMP.Sync
                 GameObject[] before = new GameObject[h.Spawners.Length];
                 for (int i = 0; i < before.Length; i++) before[i] = h.Spawners[i].Value;
                 localLinks.Add(new LocalLink { Hook = h, Before = before, Done = new bool[before.Length], Serial = serial, Frame = Time.frameCount });
+            }
+            if (e.Pm.FsmName == "Removal" && ObjectSync.Of(e.Pm.gameObject) == null)
+            {
+                removalLinks.Add(new RemovalLink { Go = e.Pm.gameObject, Origin = origin, Serial = serial, Local = true, Until = now + 3f });
             }
         }
 
@@ -775,6 +786,38 @@ namespace MSCMP.Sync
                     else Session.SendToHost(true, Channel.Reliable);
                 }
                 if (last) localLinks.RemoveAt(i);
+            }
+        }
+
+        static void ProcessRemovalLinks()
+        {
+            if (removalLinks.Count == 0) return;
+            float now = Time.realtimeSinceStartup;
+            for (int i = removalLinks.Count - 1; i >= 0; i--)
+            {
+                RemovalLink rl = removalLinks[i];
+                if (rl.Go == null || now > rl.Until || ObjectSync.Of(rl.Go) != null)
+                {
+                    removalLinks.RemoveAt(i);
+                    continue;
+                }
+                uint id = SpawnId(rl.Origin, rl.Serial, 999);
+                NetObject o = ObjectSync.Link(rl.Go, id, rl.Origin);
+                if (o == null) continue;
+                removalLinks.RemoveAt(i);
+                if (!rl.Local) continue;
+                NetWriter w = Session.Begin(Msg.FsmSpawn);
+                w.UInt(id);
+                w.String(o.Name);
+                w.Vector3(rl.Go.transform.position);
+                w.Quaternion(rl.Go.transform.rotation);
+                w.Byte(rl.Origin);
+                if (Session.IsAuthority)
+                {
+                    WorldLog.Append(w);
+                    Session.BroadcastInGame(true, Channel.Reliable);
+                }
+                else Session.SendToHost(true, Channel.Reliable);
             }
         }
 
@@ -870,6 +913,7 @@ namespace MSCMP.Sync
                 while (e.Queue.Count > 0 && budget > 0 && (force || IsReady(e)))
                 {
                     Apply(e, e.Queue.Dequeue());
+                    e.QueueActiveSince = now;
                     budget--;
                     force = false;
                 }
@@ -897,6 +941,7 @@ namespace MSCMP.Sync
                     if (vars == null || vi >= vars.Length || vars[vi] == null) continue;
                     NetObject o = ObjectSync.ById(p.Bindings[i].Object);
                     vars[vi].Value = o != null && o.Alive ? o.Go : null;
+                    if (pm.FsmName == "Assembly" && o != null) ObjectSync.PrepareForAssembly(o);
                 }
             }
 
@@ -930,6 +975,19 @@ namespace MSCMP.Sync
             finally
             {
                 applyingRemote = false;
+            }
+
+            if (p.Bindings != null)
+            {
+                for (int i = 0; i < p.Bindings.Length; i++)
+                    ObjectSync.SyncFittedState(ObjectSync.ById(p.Bindings[i].Object));
+            }
+            if (pm.FsmName == "Removal")
+            {
+                NetObject existing = ObjectSync.Of(pm.gameObject);
+                if (existing != null) ObjectSync.SyncFittedState(existing);
+                else if (ObjectSync.Link(pm.gameObject, SpawnId(p.Origin, p.Serial, 999), p.Origin) == null)
+                    removalLinks.Add(new RemovalLink { Go = pm.gameObject, Origin = p.Origin, Serial = p.Serial, Local = false, Until = Time.realtimeSinceStartup + 3f });
             }
 
             // Show the other player reaching for what they used.
@@ -1010,6 +1068,7 @@ namespace MSCMP.Sync
         {
             if (!ready) return;
             ProcessLocalLinks();
+            ProcessRemovalLinks();
             ProcessQueues();
             ProcessReenable();
         }
@@ -1018,6 +1077,7 @@ namespace MSCMP.Sync
         {
             if (!ready) return;
             ProcessLocalLinks();
+            ProcessRemovalLinks();
         }
 
         /// <summary>Everything a joining player needs is already in the world log.</summary>

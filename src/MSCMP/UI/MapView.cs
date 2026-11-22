@@ -54,6 +54,7 @@ namespace MSCMP.UI
         public static void OnWorldLeft()
         {
             Open = false;
+            viewSet = false;
             captureAt = -1f;
             captures = 0;
             Route.Clear();
@@ -448,7 +449,7 @@ namespace MSCMP.UI
             // Parked vehicles.
             foreach (NetVehicle v in VehicleSync.All)
             {
-                if (v.Root == null) continue;
+                if (v.Root == null || !v.Root.gameObject.activeInHierarchy) continue;
                 Vector2 p = WorldToScreen(v.Root.position);
                 DrawDot(p, 7f, new Color(0.85f, 0.85f, 0.85f, 0.85f));
                 if (ppm > 0.8f) Label(p + new Vector2(7f, -9f), VehicleLabel(v), new Color(0.9f, 0.9f, 0.9f, 0.85f), small);

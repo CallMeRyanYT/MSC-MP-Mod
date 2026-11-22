@@ -6,19 +6,25 @@ using UnityEngine;
 namespace MSCMP.Sync
 {
     /// <summary>
-    /// The rest of the world that moves by itself is the host's: traffic, the police and other
-    /// NPC cars, the bus, the train, the rally cars, the villagers walking around and the
-    /// animals. Without this every game runs its own traffic, so a car that hits you might not
-    /// even exist on your friend's screen.
+    /// The rest of the world that moves by itself is the host's: highway and dirt-road traffic,
+    /// NPC cars, the bus, the train, the rally cars, the villagers walking around and the moose.
+    /// Without this every game runs its own traffic, so a car that hits you might not even exist
+    /// on your friend's screen.
     ///
-    /// Everything under those parts of the world that moves is found the same way on every
-    /// game (same scene, same order). The host sends whatever moved, ten times a second;
-    /// everybody else's copy follows (cars with physics are held still and moved along). When
-    /// the host's game has switched something off because the host is far away, nothing is
-    /// sent and your own game keeps running it near you, so nothing vanishes in front of you.
+    /// Only the actual moving actor roots are tracked (not static waypoints or child bones),
+    /// found in the same deterministic order on every game. The host sends whatever moved ten
+    /// times a second; clients smoothly interpolate them in world space. When the host's game
+    /// switches an actor off because the host is far away, nothing is sent and your own game
+    /// keeps running it near you.
     /// </summary>
     internal static class AmbientSync
     {
+        struct AmbState
+        {
+            public Vector3 Pos;
+            public Quaternion Rot;
+        }
+
         sealed class Thing
         {
             public uint Id;
@@ -29,17 +35,25 @@ namespace MSCMP.Sync
             public Vector3 SentPos;
             public Quaternion SentRot = Quaternion.identity;
             public bool EverMoved;
-            // client: the two latest poses from the host
-            public Vector3 FromPos, ToPos;
-            public Quaternion FromRot, ToRot;
-            public float ToTime, FromTime, LastHeard;
+            public readonly SnapshotBuffer<AmbState> Buffer = new SnapshotBuffer<AmbState>(10);
+            public float LastHeard;
         }
 
-        /// <summary>Parts of the world that move by themselves (top-level names, and sub-paths).</summary>
-        static readonly string[] Areas = { "TRAFFIC", "NPC_CARS", "TRAIN", "RALLY", "HUMANS/Randomizer" };
-        static readonly string[] Skip = { "wheel", "tire", "tyre", "rim", "steering", "waypoint", "path", "spawn", "trigger", "light", "sound", "audio", "particle", "coll" };
-        const int MaxDepth = 4;
+        static readonly string[] VehicleAreas =
+        {
+            "TRAFFIC/VehiclesHighway",
+            "TRAFFIC/VehiclesDirtRoad",
+            "NPC_CARS",
+            "TRAIN",
+            "RALLY/RallyCars",
+        };
+        static readonly string[] SkipRigidbodies =
+        {
+            "ragdoll", "deadbody", "driverheadpivot", "massplayer", "deathforce", "passenger", "door"
+        };
+
         const float SendInterval = 0.1f;
+        const float InterpDelay = 0.14f;
         const float FollowTimeout = 1.0f;
 
         static readonly List<Thing> things = new List<Thing>();
@@ -62,35 +76,49 @@ namespace MSCMP.Sync
         {
             things.Clear();
             byId.Clear();
-            List<KeyValuePair<string, Transform>> found = new List<KeyValuePair<string, Transform>>();
-            foreach (string area in Areas)
+            List<Transform> raw = new List<Transform>();
+
+            for (int i = 0; i < VehicleAreas.Length; i++)
             {
+                string area = VehicleAreas[i];
                 Transform root = area.IndexOf('/') >= 0 ? GameUtil.FindPath(area) : GameUtil.FindRoot(area);
-                if (root == null) continue;
-                Collect(root, area, 0, found);
+                if (root != null) CollectVehicles(root, 0, raw);
             }
-            // Animals live in several places; find them by name.
-            foreach (Transform t in Resources.FindObjectsOfTypeAll(typeof(Transform)))
+
+            Transform walkers = GameUtil.FindPath("HUMANS/Randomizer/Walkers");
+            if (walkers != null)
             {
-                if (t == null || !GameUtil.IsSceneObject(t.gameObject)) continue;
-                string n = t.name;
-                if (n.StartsWith("AnimalsMoose", StringComparison.Ordinal) || n == "Moose" || n == "Birds")
-                    foreach (Transform c in t) found.Add(new KeyValuePair<string, Transform>(GameUtil.PathOf(c), c));
+                foreach (Transform c in walkers)
+                    if (c != null) raw.Add(c);
             }
-            found.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
-            Dictionary<string, int> dup = new Dictionary<string, int>();
+
+            Transform moose = GameUtil.FindPath("AnimalsMoose/Moose");
+            if (moose != null) raw.Add(moose);
+
+            List<KeyValuePair<string, Transform>> keyed = new List<KeyValuePair<string, Transform>>(raw.Count);
             HashSet<Transform> seen = new HashSet<Transform>();
-            foreach (KeyValuePair<string, Transform> kv in found)
+            for (int i = 0; i < raw.Count; i++)
             {
-                if (!seen.Add(kv.Value)) continue;
+                Transform t = raw[i];
+                if (t == null || !seen.Add(t)) continue;
+                keyed.Add(new KeyValuePair<string, Transform>(GameUtil.PathOf(t) + "|" + GameUtil.SiblingChain(t), t));
+            }
+            keyed.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+
+            Dictionary<string, int> dup = new Dictionary<string, int>();
+            for (int i = 0; i < keyed.Count; i++)
+            {
+                Transform t = keyed[i].Value;
+                string path = GameUtil.PathOf(t);
                 int n;
-                dup.TryGetValue(kv.Key, out n);
-                dup[kv.Key] = n + 1;
-                uint id = GameUtil.Fnv1a("amb:" + kv.Key + "#" + n) | 1u;
-                if (byId.ContainsKey(id)) continue;
-                Thing th = new Thing { Id = id, T = kv.Value, Body = kv.Value.GetComponent<Rigidbody>() };
-                th.SentPos = th.T.localPosition;
-                th.SentRot = th.T.localRotation;
+                dup.TryGetValue(path, out n);
+                dup[path] = n + 1;
+                string idKey = "amb:" + path + "#" + n;
+                uint id = GameUtil.Fnv1a(idKey) | 1u;
+                while (byId.ContainsKey(id)) { idKey += "~"; id = GameUtil.Fnv1a(idKey) | 1u; }
+                Thing th = new Thing { Id = id, T = t, Body = t.GetComponent<Rigidbody>() };
+                th.SentPos = t.position;
+                th.SentRot = t.rotation;
                 things.Add(th);
                 byId[id] = th;
             }
@@ -98,19 +126,44 @@ namespace MSCMP.Sync
             Log.Info("World movers shared by the host: " + things.Count + " (traffic, NPC cars, train, villagers, animals).");
         }
 
-        static void Collect(Transform t, string path, int depth, List<KeyValuePair<string, Transform>> into)
+        static void CollectVehicles(Transform parent, int depth, List<Transform> into)
         {
-            if (depth > 0)
+            if (depth > 3) return;
+            foreach (Transform c in parent)
             {
-                string lower = t.name.ToLowerInvariant();
-                for (int i = 0; i < Skip.Length; i++) if (lower.IndexOf(Skip[i], StringComparison.Ordinal) >= 0) return;
-                if (ObjectSync.Of(t.gameObject) != null) return;              // shared items have their own sync
-                foreach (NetVehicle v in VehicleSync.All) if (v.Root == t) return; // so do drivable vehicles
-                if (t.GetComponent<SkinnedMeshRenderer>() != null) return;     // bodies animate by themselves
-                into.Add(new KeyValuePair<string, Transform>(path, t));
+                if (c == null) continue;
+                if (ObjectSync.Of(c.gameObject) != null) continue;
+                if (IsDrivableVehicle(c)) continue;
+                if (c.GetComponent<Rigidbody>() != null)
+                {
+                    if (ShouldSkipBody(c.name)) continue;
+                    into.Add(c);
+                    // Towed trailers under traffic vehicles (e.g. POLSA/CARAVAN) have their own Rigidbody.
+                    foreach (Transform sub in c)
+                    {
+                        if (sub != null && sub.name.IndexOf("CARAVAN", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                            sub.GetComponent<Rigidbody>() != null)
+                            into.Add(sub);
+                    }
+                    continue; // do not descend into doors, ragdolls, triggers or wheels
+                }
+                CollectVehicles(c, depth + 1, into);
             }
-            if (depth >= MaxDepth) return;
-            foreach (Transform c in t) Collect(c, path + "/" + c.name, depth + 1, into);
+        }
+
+        static bool IsDrivableVehicle(Transform t)
+        {
+            IList<NetVehicle> all = VehicleSync.All;
+            for (int i = 0; i < all.Count; i++) if (all[i].Root == t) return true;
+            return false;
+        }
+
+        static bool ShouldSkipBody(string name)
+        {
+            string lower = name.ToLowerInvariant();
+            for (int i = 0; i < SkipRigidbodies.Length; i++)
+                if (lower.IndexOf(SkipRigidbodies[i], StringComparison.Ordinal) >= 0) return true;
+            return false;
         }
 
         public static void OnWorldLeft() { ReleaseAll(); ready = false; things.Clear(); byId.Clear(); }
@@ -138,8 +191,8 @@ namespace MSCMP.Sync
             {
                 Thing th = things[i];
                 if (th.T == null || !th.T.gameObject.activeInHierarchy) continue;
-                Vector3 p = th.T.localPosition;
-                Quaternion r = th.T.localRotation;
+                Vector3 p = th.T.position;
+                Quaternion r = th.T.rotation;
                 bool moved = (p - th.SentPos).sqrMagnitude > 0.0004f || Quaternion.Angle(r, th.SentRot) > 0.5f;
                 if (!all && !moved) continue;
                 if (all && !th.EverMoved) continue;
@@ -190,28 +243,23 @@ namespace MSCMP.Sync
         {
             float sent = r.Float();
             int n = r.Byte();
-            if (from == null || !from.IsHost || Session.IsHost) { return; }
+            if (from == null || !from.IsHost || Session.IsHost) return;
             float t = from.ToLocalTime(sent);
             float now = Time.realtimeSinceStartup;
             for (int i = 0; i < n; i++)
             {
                 uint id = r.UInt();
                 Vector3 p = r.Vector3();
-                Quaternion q = new Quaternion(r.Half(1f), r.Half(1f), r.Half(1f), r.Half(1f));
+                Quaternion q = Normalize(new Quaternion(r.Half(1f), r.Half(1f), r.Half(1f), r.Half(1f)));
                 Thing th;
                 if (!ready || !byId.TryGetValue(id, out th) || th.T == null) continue;
                 if (!th.Following)
                 {
                     th.Following = true;
-                    th.FromPos = p; th.FromRot = q; th.FromTime = t - SendInterval;
-                    th.ToPos = p; th.ToRot = q; th.ToTime = t;
+                    th.Buffer.Clear();
                     if (th.Body != null) { th.BodyWasKinematic = th.Body.isKinematic; th.Body.isKinematic = true; }
                 }
-                else if (t > th.ToTime)
-                {
-                    th.FromPos = th.ToPos; th.FromRot = th.ToRot; th.FromTime = th.ToTime;
-                    th.ToPos = p; th.ToRot = q; th.ToTime = t;
-                }
+                th.Buffer.Add(t, new AmbState { Pos = p, Rot = q });
                 th.LastHeard = now;
             }
         }
@@ -220,17 +268,16 @@ namespace MSCMP.Sync
         public static void LateUpdate()
         {
             if (!ready || Session.IsHost || !Session.Connected) return;
-            float renderTime = Time.realtimeSinceStartup - 0.12f;
+            float renderTime = Time.realtimeSinceStartup - InterpDelay;
             for (int i = 0; i < things.Count; i++)
             {
                 Thing th = things[i];
                 if (!th.Following || th.T == null) continue;
-                float span = th.ToTime - th.FromTime;
-                float a = span > 0.0001f ? Mathf.Clamp01((renderTime - th.FromTime) / span) : 1f;
-                Vector3 p = Vector3.Lerp(th.FromPos, th.ToPos, a);
-                Quaternion q = Quaternion.Slerp(Normalize(th.FromRot), Normalize(th.ToRot), a);
-                th.T.localPosition = p;
-                th.T.localRotation = q;
+                AmbState a, b;
+                float alpha, over;
+                if (!th.Buffer.Sample(renderTime, out a, out b, out alpha, out over)) continue;
+                th.T.position = Vector3.Lerp(a.Pos, b.Pos, alpha);
+                th.T.rotation = Quaternion.Slerp(a.Rot, b.Rot, alpha);
                 if (th.Body != null && !th.Body.isKinematic) th.Body.isKinematic = true; // the game turned it back on
             }
         }
@@ -254,6 +301,7 @@ namespace MSCMP.Sync
         static void Release(Thing th)
         {
             th.Following = false;
+            th.Buffer.Clear();
             if (th.Body != null) { th.Body.isKinematic = th.BodyWasKinematic; if (!th.Body.isKinematic) th.Body.WakeUp(); }
         }
 

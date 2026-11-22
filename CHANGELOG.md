@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.4 - 2026-11-22
+
+Works together with 0.13.0-0.13.3 (same network protocol), but both players should update: the car-part physics and seated-avatar fixes need both games.
+
+- **Fixed: cars tweaking out and launching when a non-host player installs or drops a part (seats, bucket seats, battery, doors, etc.).** Fitted parts are now detected before physics steps, any bolted part with a physics joint is immediately restored to non-kinematic, parts stay ghosted while assembling or while held/moving as client replicas, non-solid bolt/trigger layers are left untouched, and parked replica cars stay kinematic on clients after an Assembly FSM unfreezes them.
+- **Fixed: 98+ installed engine and car parts vanishing on other screens.** Parts that remove their `Rigidbody` while bolted in (alternator, starter, oilpan, gearbox, pistons, radiator, headlights...) are no longer treated as destroyed. Parts removed by clients also link deterministically without duplicating.
+- **Fixed: seated player models facing the wrong direction in vehicles.** Corrected the `-91.84°` seated animation clip rotation so bodies face straight forward instead of 90° sideways, fixed `SATSUMA` and `BOAT` forward axes, resolved head bones on all 10 character bodies (6 previously had no `Head` bone), fixed `VenttiPig` sinking 60 cm underground, fixed moped leg straddle axis, and fixed seated camera gimbal flips.
+- **Fixed: ambient traffic/NPC/train sync.** Narrowed tracking from ~9,959 static road waypoints and child bones down to the ~27 actual moving actors (including the train), interpolated smoothly in world space.
+- **Fixed: non-host & session bugs.** Non-host clients can now sync spray-paint colors, ride passenger in the Gifu truck, exit passenger seats cleanly onto the ground, wake out-of-LOD vehicles when entering the driver seat, and use host migration on P2P failure. Fixed stopping hosting in-game mistakenly kicking the host to the main menu, fixed 3+ player snapshot clock syncing, fixed midnight (`00:00`) clock sync, fixed `ToAngleAxis` `Infinity`/`NaN` angular velocity on vehicles, fixed horn (`H`) spamming hand-over notices while driving, fixed taken gifts losing hand kinematics, and blocked chat/map/ping hotkeys while in the game's own menus.
+
 ## 0.13.3 - 2026-11-21
 
 Works together with 0.13.0-0.13.2 (same network protocol), but both players should update: most of these fixes need both games.

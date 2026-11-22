@@ -18,6 +18,8 @@ namespace MSCMP.Net
         public delegate void Handler(NetPlayer from, NetReader r);
 
         public static Role Role { get; private set; }
+        /// <summary>The role this session had just before Reset() cleared it (for Session.Ended handlers).</summary>
+        public static Role LastRole { get; private set; }
         public static bool Active { get { return Role != Role.None; } }
         public static bool IsHost { get { return Role == Role.Host; } }
         public static bool IsClient { get { return Role == Role.Client; } }
@@ -253,6 +255,7 @@ namespace MSCMP.Net
             SteamNet.LeaveLobby();
             Array.Clear(slots, 0, slots.Length);
             bySteam.Clear();
+            LastRole = Role;
             Role = Role.None;
             Connected = false;
             HostId = CSteamID.Nil;
@@ -622,6 +625,7 @@ namespace MSCMP.Net
         {
             if (IsClient && user == HostId)
             {
+                if (Options.HostMigration && TryTakeOver()) return;
                 Notifications.Show("Connection to the host failed: " + reason);
                 Reset("p2p failure");
             }

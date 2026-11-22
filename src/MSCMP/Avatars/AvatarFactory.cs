@@ -94,18 +94,20 @@ namespace MSCMP.Avatars
             }
             needed.Add(donorSkeleton);
             // Keep the look-at pivot and the head even if they are not skinned bones.
-            AddIfFound(needed, donorSkeleton, "pelvis/spine_middle/spine_upper/HeadPivot");
-            AddIfFound(needed, donorSkeleton, "pelvis/spine_middle/spine_upper/HeadPivot/head");
+            // Different NPCs name the pivot "HeadPivot", "HeadPivot 1".."HeadPivot 5", or put "head" directly under spine_upper.
+            Transform donorSpineUpper = Find(donorSkeleton, "pelvis/spine_middle/spine_upper");
+            Transform donorHeadPivot = FindHeadPivot(donorSpineUpper);
+            Transform donorHead = FindHead(donorHeadPivot ?? donorSpineUpper);
+            AddWithAncestors(needed, donorSkeleton, donorHeadPivot);
+            AddWithAncestors(needed, donorSkeleton, donorHead);
 
             GameObject root = new GameObject("MSCMP_Player");
             Transform pivot = new GameObject("Pivot").transform;
             pivot.SetParent(root.transform, false);
-            Transform donorPivot = donorChar.parent;
-            if (donorPivot != null && donorPivot.name == "Pivot")
-            {
-                pivot.localPosition = donorPivot.localPosition;
-                pivot.localRotation = donorPivot.localRotation;
-            }
+            // Keep Pivot at local origin with identity rotation: some NPCs (e.g. VenttiPig sitting at
+            // the poker table) offset their donor Pivot downwards by -0.6 m, which would sink them.
+            pivot.localPosition = Vector3.zero;
+            pivot.localRotation = Quaternion.identity;
 
             Transform charCopy = new GameObject("Char").transform;
             charCopy.SetParent(pivot, false);
@@ -149,8 +151,8 @@ namespace MSCMP.Avatars
             rig.Pelvis = rig.Skeleton != null ? rig.Skeleton.Find("pelvis") : null;
             rig.SpineMiddle = Find(rig.Skeleton, "pelvis/spine_middle");
             rig.SpineUpper = Find(rig.Skeleton, "pelvis/spine_middle/spine_upper");
-            rig.HeadPivot = Find(rig.Skeleton, "pelvis/spine_middle/spine_upper/HeadPivot");
-            rig.Head = Find(rig.Skeleton, "pelvis/spine_middle/spine_upper/HeadPivot/head");
+            rig.HeadPivot = FindHeadPivot(rig.SpineUpper);
+            rig.Head = FindHead(rig.HeadPivot ?? rig.SpineUpper);
             rig.CollarLeft = Find(rig.Skeleton, "pelvis/spine_middle/spine_upper/collar_left");
             rig.CollarRight = Find(rig.Skeleton, "pelvis/spine_middle/spine_upper/collar_right");
             rig.ShoulderLeft = Find(rig.CollarLeft, "shoulder_left");
@@ -197,10 +199,36 @@ namespace MSCMP.Avatars
             return root;
         }
 
-        static void AddIfFound(HashSet<Transform> set, Transform from, string path)
+        static void AddWithAncestors(HashSet<Transform> set, Transform stopAt, Transform t)
         {
-            Transform t = from.Find(path);
-            for (; t != null && t != from; t = t.parent) set.Add(t);
+            for (; t != null && t != stopAt; t = t.parent) set.Add(t);
+        }
+
+        static Transform FindHeadPivot(Transform spineUpper)
+        {
+            if (spineUpper == null) return null;
+            for (int i = 0; i < spineUpper.childCount; i++)
+            {
+                Transform c = spineUpper.GetChild(i);
+                if (c.name.StartsWith("HeadPivot", StringComparison.OrdinalIgnoreCase)) return c;
+            }
+            return null;
+        }
+
+        static Transform FindHead(Transform parent)
+        {
+            if (parent == null) return null;
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform c = parent.GetChild(i);
+                if (string.Equals(c.name, "head", StringComparison.OrdinalIgnoreCase)) return c;
+            }
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform nested = FindHead(parent.GetChild(i));
+                if (nested != null) return nested;
+            }
+            return null;
         }
 
         static Transform Find(Transform t, string path)

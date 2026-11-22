@@ -37,9 +37,12 @@ namespace MSCMP.Sync
         public bool[] GhostWasTrigger, GhostWasEnabled;
         public bool Ghost;
         public bool Installed;             // fitted onto a car or another part: the game is in charge
+        public float AssemblingUntil;      // assembly FSM is running on this part: do not steer or un-ghost it
+        public float GhostUntil;           // brief grace window while ownership transfers before Held arrives
         public int SentActive = -1;        // owner: switched on (1) / off (0) as last told to others; -1 unknown
 
-        public bool Alive { get { return Go != null && Body != null; } }
+        public bool Alive { get { return Go != null; } }
+        public bool HasBody { get { return Go != null && Body != null; } }
     }
 
     /// <summary>
@@ -150,6 +153,8 @@ namespace MSCMP.Sync
                 Register(id, rb, false);
             }
             Log.Info("Registered " + all.Count + " shared physics objects.");
+            ScanVehicleJoints();
+            for (int i = 0; i < all.Count; i++) all[i].Installed = IsFitted(all[i]);
             ApplyRoleToAll();
         }
 
@@ -310,12 +315,13 @@ namespace MSCMP.Sync
         static void ApplyRole(NetObject o)
         {
             if (!o.Alive) return;
+            SyncFittedState(o);
             bool replica = Session.Active && Session.Connected && !OwnedLocally(o);
-            if (o.Installed || LocalPlayer.HeldObject == o.Go)
+            if (o.Installed || !o.HasBody || LocalPlayer.HeldObject == o.Go)
             {
-                // In our own hand the game is in charge, exactly like single player: the item
-                // follows the hand and passes through walls and engine blocks. We only stop
-                // treating it as a copy; it becomes one again when dropped if it isn't ours.
+                // Fitted parts and items in our own hand are controlled by the game, exactly like
+                // single player. We only stop treating it as a copy; it becomes one again if
+                // dropped or removed while owned by somebody else.
                 if (o.Replica)
                 {
                     o.Replica = false;
@@ -349,13 +355,16 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (o.Alive && o.Replica)
+                if (o.HasBody && o.Replica)
                 {
                     o.Body.isKinematic = o.OriginalKinematic;
                     o.Replica = false;
                 }
+                else o.Replica = false;
                 o.Owner = 0;
                 o.PendingOwnership = false;
+                o.AssemblingUntil = 0f;
+                o.GhostUntil = 0f;
             }
         }
 
@@ -405,13 +414,22 @@ namespace MSCMP.Sync
         public static void FixedUpdate()
         {
             if (!Session.Active || !Session.Connected) return;
-            float renderTime = Time.realtimeSinceStartup - 0.075f;
+            float now = Time.realtimeSinceStartup;
+            float renderTime = now - 0.075f;
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Replica || !o.Alive) continue;
-                if (o == localHeld) continue; // picked up this instant; ownership is being sorted out
-                if (o.Installed) continue;    // fitted: it moves with the car
+                if (!o.Alive) continue;
+                // Detect newly fitted parts BEFORE PhysX steps so a FixedJoint child is never
+                // forced kinematic or MovePositioned against a dynamic car.
+                if (o.Replica || o.AssemblingUntil > 0f)
+                {
+                    SyncFittedState(o);
+                    if (o.AssemblingUntil > 0f && now >= o.AssemblingUntil) o.AssemblingUntil = 0f;
+                }
+                if (!o.Replica || !o.HasBody) continue;
+                if (o == localHeld || o.Go == LocalPlayer.HeldObject) continue; // picked up this instant; ownership is being sorted out
+                if (o.Installed || now < o.AssemblingUntil) continue; // fitted or mid-assembly: do not fight the game
                 if (!o.Body.isKinematic)
                 {
                     o.OriginalKinematic = false; // the game switched its physics on: that's what it wants later
@@ -448,8 +466,15 @@ namespace MSCMP.Sync
             NetObject previous = localHeld;
             if (previous != null) previous.HeldBy = 255;
             localHeld = o;
-            // Something we were refused (or lost) while holding it becomes a copy now that it's dropped.
-            if (previous != null && previous.Alive && !OwnedLocally(previous)) ApplyRole(previous);
+            if (previous != null && previous.Alive)
+            {
+                if (!OwnedLocally(previous)) ApplyRole(previous);
+                else
+                {
+                    previous.RestSent = false;
+                    previous.LastChange = Time.realtimeSinceStartup;
+                }
+            }
             if (o == null) return;
             o.HeldBy = Session.Local.Slot;
 
@@ -483,6 +508,75 @@ namespace MSCMP.Sync
 
         static float nextInstallCheck;
 
+        /// <summary>Called when an Assembly FSM starts on this part: keep it ghosted and stop
+        /// steering it during the Wait -> Freeze car -> Set joint -> Assemble -> Unfreeze sequence.</summary>
+        public static void PrepareForAssembly(NetObject o)
+        {
+            if (o == null || !o.Alive) return;
+            SyncFittedState(o);
+            if (o.Installed) return;
+            float until = Time.realtimeSinceStartup + 1.5f;
+            if (until > o.AssemblingUntil) o.AssemblingUntil = until;
+            o.Buffer.Clear();
+            if (!o.Ghost) { SetGhost(o, true); ghosts.Add(o); }
+        }
+
+        /// <summary>Immediately synchronises one object's Installed/Replica/kinematic state with
+        /// the scene hierarchy and joints. Zero allocations for loose objects.</summary>
+        public static bool SyncFittedState(NetObject o)
+        {
+            if (o == null || !o.Alive) return false;
+            if (o.Body == null)
+            {
+                Rigidbody rb = o.Go.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    o.Body = rb;
+                    o.OriginalKinematic = rb.isKinematic;
+                }
+            }
+            bool inst = IsFitted(o);
+            if (inst == o.Installed)
+            {
+                // Safety net: a FixedJoint/HingeJoint child of a dynamic vehicle must never remain
+                // kinematic (bucket seat, battery, N2O bottle and fire extinguisher Assembly FSMs
+                // do not call SetIsKinematic(false)).
+                if (inst && o.HasBody && o.Body.isKinematic && HasPhysicsJoint(o))
+                {
+                    o.Body.isKinematic = false;
+                    o.Body.velocity = Vector3.zero;
+                    o.Body.angularVelocity = Vector3.zero;
+                    o.Body.WakeUp();
+                }
+                return inst;
+            }
+            o.Installed = inst;
+            if (inst)
+            {
+                o.Replica = false;
+                o.PendingOwnership = false;
+                o.AssemblingUntil = 0f;
+                o.GhostUntil = 0f;
+                o.Buffer.Clear();
+                if (o.HasBody && o.Body.isKinematic && HasPhysicsJoint(o))
+                {
+                    o.Body.isKinematic = false;
+                    o.Body.velocity = Vector3.zero;
+                    o.Body.angularVelocity = Vector3.zero;
+                    o.Body.WakeUp();
+                }
+                if (o.Ghost) { SetGhost(o, false); ghosts.Remove(o); }
+                if (localHeld != o) o.HeldBy = 255;
+                if (Session.IsHost && o.Owner != 0 && localHeld != o) SetOwner(o, 0, true);
+            }
+            else
+            {
+                o.AssemblingUntil = 0f;
+                ApplyRole(o); // taken off again: back to normal sharing
+            }
+            return inst;
+        }
+
         /// <summary>Notices parts that were fitted onto a car (or onto another part, like the
         /// engine block) and parts that were taken off again. While fitted, the game moves them
         /// with the car; the mod must not move them (a copy pushed towards where another game
@@ -499,17 +593,7 @@ namespace MSCMP.Sync
             {
                 NetObject o = all[i];
                 if (!o.Alive) continue;
-                bool inst = IsFitted(o);
-                if (inst == o.Installed) continue;
-                o.Installed = inst;
-                if (inst)
-                {
-                    // Hand it over to the game exactly as it is: no longer a copy we steer.
-                    o.Replica = false;
-                    o.Buffer.Clear();
-                    if (o.Ghost) { SetGhost(o, false); ghosts.Remove(o); }
-                }
-                else ApplyRole(o); // taken off again: back to normal sharing
+                SyncFittedState(o);
             }
         }
 
@@ -536,10 +620,30 @@ namespace MSCMP.Sync
             }
         }
 
+        static bool HasPhysicsJoint(NetObject o)
+        {
+            if (o.Body != null && joinedToVehicle.Contains(o.Body)) return true;
+            Joint first = o.Go.GetComponent<Joint>();
+            if (first == null) return false;
+            if (IsFittedJoint(first)) return true;
+            Joint[] joints = o.Go.GetComponents<Joint>();
+            for (int i = 1; i < joints.Length; i++)
+                if (IsFittedJoint(joints[i])) return true;
+            return false;
+        }
+
+        static bool IsFittedJoint(Joint j)
+        {
+            if (j == null || j.connectedBody == null) return false;
+            Rigidbody other = j.connectedBody;
+            return vehicleRoots.Contains(other.transform.root) || byInstance.ContainsKey(other.gameObject.GetInstanceID());
+        }
+
         /// <summary>Fitted onto a car or another part, either by being made part of it (its
-        /// child) or by a physics joint to it. Either way the game moves it with the car.</summary>
+        /// child), by a physics joint to it, or by having its Rigidbody removed while bolted in.</summary>
         static bool IsFitted(NetObject o)
         {
+            if (o.Body == null) return true;
             Transform parent = o.Go.transform.parent;
             if (parent != null)
             {
@@ -547,16 +651,7 @@ namespace MSCMP.Sync
                     if (byInstance.ContainsKey(t.gameObject.GetInstanceID())) return true; // on another shared part
                 if (vehicleRoots.Contains(parent.root)) return true;
             }
-            if (joinedToVehicle.Contains(o.Body)) return true;
-            Joint[] joints = o.Go.GetComponents<Joint>();
-            for (int i = 0; i < joints.Length; i++)
-            {
-                Rigidbody other = joints[i].connectedBody;
-                if (other == null) continue;
-                if (vehicleRoots.Contains(other.transform.root)) return true;           // joined to a car
-                if (byInstance.ContainsKey(other.gameObject.GetInstanceID())) return true; // joined to another part
-            }
-            return false;
+            return HasPhysicsJoint(o);
         }
 
         // ================================================================ held items pass through
@@ -564,17 +659,25 @@ namespace MSCMP.Sync
         static readonly List<NetObject> ghosts = new List<NetObject>();
         static readonly HashSet<NetObject> wantGhost = new HashSet<NetObject>();
 
-        /// <summary>Whatever anybody holds (you, a friend, a bot) passes through walls, engine
-        /// blocks and other things, the way items in your hand do in single player: its
-        /// colliders become triggers while it is held. Triggers still work, so parts can still
-        /// be fitted. Everything is put back exactly when it is let go.</summary>
+        /// <summary>Whatever anybody holds (you, a friend, a bot), anything currently mid-assembly,
+        /// and any client-owned kinematic replica passes through solid bodies so a kinematic part
+        /// can never blast a dynamic car with infinite mass. Everything is put back cleanly when
+        /// let go, settled or installed.</summary>
         static void UpdateGhosts()
         {
+            float now = Time.realtimeSinceStartup;
             wantGhost.Clear();
             if (localHeld != null && localHeld.Alive) wantGhost.Add(localHeld);
             foreach (NetPlayer p in Session.Remotes) AddHeld(p);
             foreach (NetPlayer p in Bots.RemotePlayers) AddHeld(p);
             foreach (Bots.Bot b in Bots.All) if (b.Carry != null && b.Carry.Alive) wantGhost.Add(b.Carry);
+            for (int i = 0; i < all.Count; i++)
+            {
+                NetObject o = all[i];
+                if (!o.Alive || o.Installed) continue;
+                if (now < o.AssemblingUntil || now < o.GhostUntil || (o.Replica && o.Owner != 0))
+                    wantGhost.Add(o);
+            }
 
             wantGhost.RemoveWhere(o => o.Installed);
             for (int i = ghosts.Count - 1; i >= 0; i--)
@@ -590,6 +693,12 @@ namespace MSCMP.Sync
             if (o != null && o.Alive) wantGhost.Add(o);
         }
 
+        static bool IsNonSolidLayer(int layer)
+        {
+            // DontCollide (11), Bolts (12), Dashboard (13), TriggerOnly (28) never collide with cars/ground.
+            return layer == 11 || layer == 12 || layer == 13 || layer == 28;
+        }
+
         static void SetGhost(NetObject o, bool on)
         {
             if (on)
@@ -602,10 +711,13 @@ namespace MSCMP.Sync
                 for (int i = 0; i < cols.Length; i++)
                 {
                     Collider c = cols[i];
-                    if (c == null) continue;
+                    if (c == null || c.isTrigger || IsNonSolidLayer(c.gameObject.layer))
+                    {
+                        cols[i] = null;
+                        continue;
+                    }
                     o.GhostWasTrigger[i] = c.isTrigger;
                     o.GhostWasEnabled[i] = c.enabled;
-                    if (c.isTrigger) continue;
                     MeshCollider mc = c as MeshCollider;
                     if (mc != null && !mc.convex) c.enabled = false; // can't be a trigger
                     else c.isTrigger = true;
@@ -650,7 +762,8 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Alive || o.Replica || !OwnedLocally(o) || o.Installed) continue;
+                if (!o.Alive || o.Replica || !OwnedLocally(o)) continue;
+                if (SyncFittedState(o) || !o.HasBody || now < o.AssemblingUntil) continue;
                 int act = o.Go.activeSelf ? 1 : 0;
                 if (o.SentActive != act)
                 {
@@ -663,6 +776,7 @@ namespace MSCMP.Sync
                 Vector3 pos = t.position;
                 Quaternion rot = t.rotation;
                 bool moved = (pos - o.SentPos).sqrMagnitude > MoveEpsilon * MoveEpsilon || Quaternion.Angle(rot, o.SentRot) > AngleEpsilon;
+                bool moving = !o.Body.isKinematic && (o.Body.velocity.sqrMagnitude > 0.0025f || o.Body.angularVelocity.sqrMagnitude > 0.01f);
                 if (moved)
                 {
                     o.LastChange = now;
@@ -684,7 +798,7 @@ namespace MSCMP.Sync
                         if (packets >= 6) break; // bandwidth cap per tick
                     }
                 }
-                else if (!o.RestSent && now - o.LastChange > 0.4f)
+                else if (!o.RestSent && !moving && now - o.LastChange > 0.4f)
                 {
                     // Came to rest: send the exact final pose reliably.
                     o.RestSent = true;
@@ -779,12 +893,13 @@ namespace MSCMP.Sync
             if (!Session.IsHost || from == null) return;
             uint id = r.UInt();
             NetObject o = ById(id);
-            if (o == null || !o.Alive) { Deny(from, id); return; }
+            if (o == null || !o.Alive || SyncFittedState(o) || !o.HasBody) { Deny(from, id); return; }
             bool hostHolding = localHeld == o;
             bool otherHolding = false;
             NetPlayer current = Session.BySlot(o.Owner);
             if (current != null && !current.IsLocal && current != from && current.Last.Held == id) otherHolding = true;
             if (hostHolding || otherHolding) { Deny(from, id); return; }
+            o.GhostUntil = Time.realtimeSinceStartup + 0.5f;
             SetOwner(o, from.Slot, true);
         }
 
@@ -832,8 +947,10 @@ namespace MSCMP.Sync
         /// <summary>Owner side: let the host take an object back once it has settled.</summary>
         static void CheckRelease(NetObject o)
         {
-            if (Session.IsHost || !OwnedLocally(o) || o.PendingOwnership || localHeld == o || o.Installed) return;
+            if (Session.IsHost || !OwnedLocally(o) || o.PendingOwnership || localHeld == o || !o.HasBody) return;
+            if (SyncFittedState(o) || Time.realtimeSinceStartup < o.AssemblingUntil) return;
             if (!o.RestSent) return;
+            if (!o.Body.isKinematic && (o.Body.velocity.sqrMagnitude > 0.01f || o.Body.angularVelocity.sqrMagnitude > 0.04f)) return;
             if (VehicleSync.IsCargoOfLocalVehicle(o)) return;
             NetWriter w = Session.Begin(Msg.ObjRelease);
             WriteRest(w, o);
@@ -852,14 +969,27 @@ namespace MSCMP.Sync
             Quaternion rot = r.Quaternion();
             NetObject o = ById(id);
             if (o == null || !o.Alive || o.Owner != from.Slot) return;
-            if (!o.Installed)
+            if (!SyncFittedState(o))
             {
+                o.GhostUntil = 0f;
+                if (o.Go.activeSelf != active) o.Go.SetActive(active);
                 o.Go.transform.position = pos;
                 o.Go.transform.rotation = rot;
+                SetOwner(o, 0, true);
+                o.Buffer.Clear();
+                if (o.HasBody && !o.Body.isKinematic)
+                {
+                    o.Body.velocity = Vector3.zero;
+                    o.Body.angularVelocity = Vector3.zero;
+                }
+                SendRest(o, null);
             }
-            SetOwner(o, 0, true);
-            o.Buffer.Clear();
-            SendRest(o, null);
+            else
+            {
+                o.GhostUntil = 0f;
+                SetOwner(o, 0, true);
+                o.Buffer.Clear();
+            }
         }
 
         static void OnPlayerLeft(NetPlayer p)
@@ -870,6 +1000,7 @@ namespace MSCMP.Sync
                 NetObject o = all[i];
                 if (o.Owner == p.Slot)
                 {
+                    o.GhostUntil = 0f;
                     if (Session.IsHost) SetOwner(o, 0, true);
                     else { o.Owner = 0; ApplyRole(o); }
                 }
@@ -901,14 +1032,15 @@ namespace MSCMP.Sync
                 uint id;
                 ObjState s = ReadState(r, out id);
                 NetObject o = ById(id);
-                if (o == null) continue;
+                if (o == null || !o.Alive) continue;
+                if (SyncFittedState(o)) continue;
                 if (Session.IsHost)
                 {
                     if (o.Owner != from.Slot) continue; // only the owner may move it
                     WriteStateRaw(relay, id, s);
                     relayCount++;
                 }
-                if (o.Replica)
+                if (o.Replica && Time.realtimeSinceStartup >= o.AssemblingUntil)
                 {
                     if (!o.Go.activeSelf) o.Go.SetActive(true); // the owner only sends what is switched on
                     o.Buffer.Add(local, s);
@@ -944,6 +1076,7 @@ namespace MSCMP.Sync
             Quaternion rot = r.Quaternion();
             NetObject o = ById(id);
             if (o == null || !o.Alive) return;
+            if (SyncFittedState(o)) return;
             if (Session.IsHost)
             {
                 if (o.Owner != from.Slot) return;
@@ -960,14 +1093,14 @@ namespace MSCMP.Sync
 
         static void ApplyRest(NetObject o, bool active, Vector3 pos, Quaternion rot)
         {
+            if (SyncFittedState(o)) return; // fitted: it is where the car puts it
             if (o.Go.activeSelf != active) o.Go.SetActive(active);
-            if (o.Installed) return; // fitted: it is where the car puts it
             o.Buffer.Clear();
             o.Go.transform.position = pos;
             o.Go.transform.rotation = rot;
             o.SentPos = pos;
             o.SentRot = rot;
-            if (!o.Replica && !o.Body.isKinematic)
+            if (!o.Replica && o.HasBody && !o.Body.isKinematic)
             {
                 o.Body.velocity = Vector3.zero;
                 o.Body.angularVelocity = Vector3.zero;
@@ -981,7 +1114,9 @@ namespace MSCMP.Sync
             for (int i = all.Count - 1; i >= 0; i--)
             {
                 NetObject o = all[i];
-                if (o.Go != null && o.Body != null) continue;
+                // Only truly destroyed GameObjects leave the registry: 98+ car/engine parts
+                // destroy their Rigidbody while bolted in and re-add it on removal.
+                if (o.Go != null) continue;
                 Unregister(o);
                 NetWriter w = Session.Begin(Msg.ObjDestroy);
                 w.UInt(o.Id);
@@ -1000,6 +1135,7 @@ namespace MSCMP.Sync
             NetObject o = ById(id);
             if (o != null)
             {
+                if (o.Go != null && IsFitted(o)) return;
                 Unregister(o);
                 if (o.Go != null) UnityEngine.Object.Destroy(o.Go);
             }
@@ -1173,6 +1309,12 @@ namespace MSCMP.Sync
                 float d = (rb.transform.position - pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = rb.gameObject; }
             }
+            if (best == null)
+            {
+                GameObject held = LocalPlayer.HeldObject;
+                if (held != null && held.name == name && !byInstance.ContainsKey(held.GetInstanceID()) && held.GetComponent<Rigidbody>() != null)
+                    return held;
+            }
             return best;
         }
 
@@ -1208,7 +1350,7 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Alive || !o.Go.activeInHierarchy || o.Installed) continue;
+                if (!o.HasBody || !o.Go.activeInHierarchy || o.Installed) continue;
                 NetVehicle v = VehicleSync.VehicleContaining(o.Go.transform.position);
                 if (v == null || v.Owner == 0 || v.Owner == o.Owner) continue;
                 NetPlayer holder = Session.BySlot(o.Owner);
@@ -1253,7 +1395,7 @@ namespace MSCMP.Sync
             for (int i = 0; i < all.Count; i++)
             {
                 NetObject o = all[i];
-                if (!o.Alive) continue;
+                if (!o.Alive || SyncFittedState(o)) continue;
                 NetWriter w = Session.Begin(Msg.ObjRest);
                 WriteRest(w, o);
                 batch.AddCurrent(w); // carries the current owner too

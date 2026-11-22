@@ -34,12 +34,14 @@ namespace MSCMP.Sync
         public Vector3 PassengerHeadLocal;
         public bool HasPassengerSeat;
         public bool UsesVanSeat;
+        public bool SeatFacesBack;          // boat: bow is -Z, transom/motor is +Z
         public Bounds LocalBounds;
 
         public byte Owner;          // simulating player (0 = host)
         public byte Driver = 255;   // 255 = nobody
         public byte Passenger = 255;
         public bool Replica;
+        public bool PendingOwnership;       // client asked the host to drive it
         public bool IsBike;                 // the moped: ridden astride
         public byte LockedBy = 255;         // only this player may drive it (255 = anyone)
         public bool OriginalKinematic;      // what the game wants (kept up to date while we override)
@@ -50,10 +52,16 @@ namespace MSCMP.Sync
         public bool RestSent = true;
         public float LastStateTime;
 
+        public Vector3 PassengerEntryWorld()
+        {
+            if (GetInPivot != null) return GetInPivot.position;
+            return Root.TransformPoint(new Vector3(PassengerHeadLocal.x + Mathf.Sign(PassengerHeadLocal.x) * 1.1f, LocalBounds.min.y, PassengerHeadLocal.z));
+        }
+
         public Vector3 PassengerExitWorld()
         {
-            if (GetInPivot != null) return GetInPivot.position + Vector3.up * 0.15f;
-            return Root.TransformPoint(PassengerHeadLocal + new Vector3(Mathf.Sign(PassengerHeadLocal.x) * 1.4f, -0.8f, 0f));
+            if (GetInPivot != null) return GetInPivot.position;
+            return Root.TransformPoint(new Vector3(PassengerHeadLocal.x + Mathf.Sign(PassengerHeadLocal.x) * 1.4f, LocalBounds.min.y, PassengerHeadLocal.z));
         }
     }
 
@@ -167,14 +175,15 @@ namespace MSCMP.Sync
                 if (v.DriverHead == null && all[i].name == "DriverHeadPivot") v.DriverHead = all[i];
                 if (v.GetInPivot == null && all[i].name == "GetInPivot" && all[i].parent == root) v.GetInPivot = all[i];
             }
+            string n = root.name.ToUpperInvariant();
             if (v.DriverHead != null)
             {
                 Vector3 d = root.InverseTransformPoint(v.DriverHead.position);
                 v.PassengerHeadLocal = new Vector3(-d.x, d.y, d.z);
-                v.HasPassengerSeat = v.GetInPivot != null && Mathf.Abs(d.x) > 0.15f;
+                v.HasPassengerSeat = (v.GetInPivot != null || n.StartsWith("GIFU")) && Mathf.Abs(d.x) > 0.15f;
             }
-            string n = root.name.ToUpperInvariant();
             v.UsesVanSeat = n.StartsWith("HAYOSIKO") || n.StartsWith("GIFU") || n.StartsWith("KEKMET") || n.StartsWith("COMBINE");
+            v.SeatFacesBack = n.StartsWith("BOAT");
             v.IsBike = n.StartsWith("JONNEZ");
             v.LocalBounds = ComputeLocalBounds(root);
 
@@ -239,7 +248,7 @@ namespace MSCMP.Sync
 
         public static bool IsCargoOfLocalVehicle(NetObject o)
         {
-            if (Session.Local == null) return false;
+            if (Session.Local == null || o == null || !o.Alive) return false;
             NetVehicle v = VehicleContaining(o.Go.transform.position);
             return v != null && v.Owner == Session.Local.Slot && v.Body != null && v.Body.velocity.sqrMagnitude > 0.04f;
         }
@@ -273,12 +282,13 @@ namespace MSCMP.Sync
             {
                 NoteGameKinematic(v);
                 v.Replica = false;
-                // What the game wants *now* (e.g. the moped's kickstand was flipped up meanwhile),
-                // not what it wanted when this became a copy.
-                v.Body.isKinematic = v.OriginalKinematic;
+                bool localDriver = LocalPlayerDrives(v);
+                // If we are sitting in the driver's seat, always wake physics (the vehicle may have
+                // been loaded outside LOD range with OriginalKinematic == true).
+                v.Body.isKinematic = localDriver ? false : v.OriginalKinematic;
                 // The game switches the controller on when you enter driving mode and off when
                 // you leave; only keep it on if we are the one sitting in the driver's seat.
-                if (v.Controller != null) v.Controller.enabled = LocalPlayerDrives(v);
+                if (v.Controller != null) v.Controller.enabled = localDriver;
                 v.Body.WakeUp();
                 v.RestSent = true;
             }
@@ -334,7 +344,7 @@ namespace MSCMP.Sync
                     if (v.Controller != null) v.Controller.enabled = LocalPlayerDrives(v);
                     v.Replica = false;
                 }
-                v.Owner = 0; v.Driver = 255; v.Passenger = 255;
+                v.Owner = 0; v.Driver = 255; v.Passenger = 255; v.PendingOwnership = false;
                 if (v.DriveTrigger != null) v.DriveTrigger.enabled = true;
             }
         }
@@ -381,12 +391,13 @@ namespace MSCMP.Sync
             {
                 NetPlayer locker = Session.BySlot(v.LockedBy);
                 Notifications.Show("The " + Pretty(v.Name) + " is locked by " + (locker != null ? locker.Name : "someone") + ".");
-                if (v.DriveTrigger != null && !GameUtil.ForceState(v.DriveTrigger, "In car")) GameUtil.ForceState(v.DriveTrigger, "Create player");
+                KickOutOfDriverSeat(v);
                 return;
             }
             if (v.Driver != 255 && v.Driver != me)
             {
                 Notifications.Show("Someone else is driving this vehicle.");
+                KickOutOfDriverSeat(v);
                 return;
             }
             Log.Info("Driving " + v.Name);
@@ -397,6 +408,7 @@ namespace MSCMP.Sync
             else
             {
                 // Take it immediately; the host confirms (or refuses and we hand it back).
+                v.PendingOwnership = true;
                 v.Owner = me;
                 v.Driver = me;
                 ApplyRole(v);
@@ -406,9 +418,17 @@ namespace MSCMP.Sync
             }
         }
 
+        static void KickOutOfDriverSeat(NetVehicle v)
+        {
+            if (v != null && v.DriveTrigger != null)
+                GameUtil.ForceState(v.DriveTrigger, "Create player");
+            if (localDriving == v) localDriving = null;
+        }
+
         static void OnLocalExit(NetVehicle v)
         {
             byte me = Session.Local.Slot;
+            v.PendingOwnership = false;
             if (v.Driver != me) return;
             Log.Info("Stopped driving " + v.Name);
             if (Session.IsHost)
@@ -511,7 +531,15 @@ namespace MSCMP.Sync
             for (int i = 0; i < vehicles.Count; i++)
             {
                 NetVehicle v = vehicles[i];
-                if (!v.Replica || v.Root == null || v.Body == null || v.Buffer.Count == 0) continue;
+                if (!v.Replica || v.Root == null || v.Body == null) continue;
+                NoteGameKinematic(v);
+                if (v.Buffer.Count == 0)
+                {
+                    // Even before any state arrives (e.g. after a local Assembly FSM runs Unfreeze car),
+                    // a parked replica must stay kinematic so it cannot drift or fight joints locally.
+                    ForceKinematic(v, v.Driver == 255);
+                    continue;
+                }
                 VehState a, b;
                 float alpha, over;
                 if (!v.Buffer.Sample(renderTime, out a, out b, out alpha, out over)) continue;
@@ -523,11 +551,12 @@ namespace MSCMP.Sync
                 if (over > 0f) t.Pos += t.Vel * Mathf.Min(over, 0.4f);
 
                 bool driven = v.Driver != 255 || over < 1f;
-                NoteGameKinematic(v);
                 ForceKinematic(v, !driven);
 
                 if (v.Body.isKinematic)
                 {
+                    if (over > 1.5f && (v.Body.position - t.Pos).sqrMagnitude < 1e-6f && Quaternion.Angle(v.Body.rotation, t.Rot) < 0.05f)
+                        continue;
                     v.Body.MovePosition(t.Pos);
                     v.Body.MoveRotation(t.Rot);
                     continue;
@@ -538,21 +567,32 @@ namespace MSCMP.Sync
                 {
                     v.Body.position = t.Pos;
                     v.Body.rotation = t.Rot;
-                    v.Body.velocity = t.Vel;
-                    v.Body.angularVelocity = t.AngVel;
+                    if (IsFinite(t.Vel)) v.Body.velocity = t.Vel;
+                    if (IsFinite(t.AngVel)) v.Body.angularVelocity = t.AngVel;
                 }
                 else
                 {
-                    v.Body.velocity = Vector3.Lerp(v.Body.velocity, t.Vel + err * 4f, 0.5f);
+                    Vector3 newVel = Vector3.Lerp(v.Body.velocity, t.Vel + err * 4f, 0.5f);
+                    if (IsFinite(newVel)) v.Body.velocity = newVel;
                     Quaternion dq = t.Rot * Quaternion.Inverse(v.Body.rotation);
                     float angle; Vector3 axis;
                     dq.ToAngleAxis(out angle, out axis);
                     if (angle > 180f) angle -= 360f;
-                    Vector3 angCorr = float.IsNaN(axis.x) ? Vector3.zero : axis * (angle * Mathf.Deg2Rad * 4f);
-                    v.Body.angularVelocity = Vector3.Lerp(v.Body.angularVelocity, t.AngVel + angCorr, 0.5f);
+                    // Unity 5 ToAngleAxis returns Infinity (not NaN) on near-identity quaternions.
+                    Vector3 angCorr = Vector3.zero;
+                    if (Mathf.Abs(angle) > 0.05f && IsFinite(axis) && axis.sqrMagnitude > 0.01f)
+                        angCorr = axis.normalized * (angle * Mathf.Deg2Rad * 4f);
+                    Vector3 newAng = Vector3.Lerp(v.Body.angularVelocity, t.AngVel + angCorr, 0.5f);
+                    if (IsFinite(newAng)) v.Body.angularVelocity = newAng;
                 }
                 ApplyInputs(v, t);
             }
+        }
+
+        static bool IsFinite(Vector3 v)
+        {
+            return !float.IsNaN(v.x) && !float.IsNaN(v.y) && !float.IsNaN(v.z) &&
+                   !float.IsInfinity(v.x) && !float.IsInfinity(v.y) && !float.IsInfinity(v.z);
         }
 
         /// <summary>Feeds the driver's inputs into the copy so wheels, suspension and the engine behave the same.</summary>
@@ -665,6 +705,7 @@ namespace MSCMP.Sync
             }
             if (!allowed || v.Driver != 255 && v.Driver != from.Slot)
             {
+                if (allowed) Session.SendNotice(from, "Someone else is already driving the " + Pretty(v.Name) + ".");
                 NetWriter w = Session.Begin(Msg.VehOwnDeny);
                 w.UInt(v.Id);
                 Session.SendTo(from, true, Channel.Reliable);
@@ -678,13 +719,12 @@ namespace MSCMP.Sync
         {
             NetVehicle v = ById(r.UInt());
             if (v == null) return;
-            Notifications.Show("Someone else is already driving the " + Pretty(v.Name) + ".");
-            if (localDriving == v && v.DriveTrigger != null)
-            {
-                // Get out the same way the game does when you press the driving key.
-                if (!GameUtil.ForceState(v.DriveTrigger, "In car")) GameUtil.ForceState(v.DriveTrigger, "Create player");
-            }
-            localDriving = null;
+            v.PendingOwnership = false;
+            byte me = Session.LocalSlot;
+            if (v.Owner == me) v.Owner = 0;
+            if (v.Driver == me) v.Driver = 255;
+            ApplyRole(v);
+            if (localDriving == v) KickOutOfDriverSeat(v);
         }
 
         static void OnOwner(NetPlayer from, NetReader r)
@@ -694,6 +734,21 @@ namespace MSCMP.Sync
             byte owner = r.Byte();
             byte driver = r.Byte();
             if (v == null) return;
+            byte me = Session.LocalSlot;
+            if (v.PendingOwnership)
+            {
+                if (owner == me && driver == me) v.PendingOwnership = false;
+                else if (driver == 255) return; // stale update from before our request reached the host
+                else
+                {
+                    v.PendingOwnership = false;
+                    if (localDriving == v) KickOutOfDriverSeat(v);
+                }
+            }
+            else if (localDriving == v && driver != me)
+            {
+                KickOutOfDriverSeat(v);
+            }
             NoteDriver(v, v.Driver, driver);
             v.Owner = owner;
             v.Driver = driver;
@@ -797,7 +852,7 @@ namespace MSCMP.Sync
                 if (!v.HasPassengerSeat || v.Root == null || !v.Root.gameObject.activeInHierarchy) continue;
                 if (v.Driver == me || v.Passenger != 255) continue;
                 if (v.Driver == 255) continue; // only ride along with a friend
-                if ((v.GetInPivot.position - feet).sqrMagnitude < 1.7f * 1.7f) return v;
+                if ((v.PassengerEntryWorld() - feet).sqrMagnitude < 1.7f * 1.7f) return v;
             }
             return null;
         }
@@ -977,11 +1032,6 @@ namespace MSCMP.Sync
             bool ok = by == 255 ? v.LockedBy == from.Slot : (by == from.Slot && (v.LockedBy == 255 || v.LockedBy == from.Slot));
             if (!ok) { Session.SendNotice(from, "You can't change that lock."); NetWriter back = Session.Begin(Msg.VehLock); back.UInt(v.Id); back.Byte(v.LockedBy); Session.SendTo(from, true, Channel.Reliable); return; }
             ApplyLock(v, by, null);
-            // also tell the one who asked
-            NetWriter w = Session.Begin(Msg.VehLock);
-            w.UInt(v.Id);
-            w.Byte(by);
-            Session.SendTo(from, true, Channel.Reliable);
         }
 
         public static string Pretty(string rootName)

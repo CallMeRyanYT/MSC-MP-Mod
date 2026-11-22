@@ -63,7 +63,7 @@ namespace MSCMP.Game
             ShoppingList.OnSessionEnded();
             EndCatchUp();
             autoJoinWorld = false;
-            if (MP.InGameScene && !Session.IsHost && !Session.TakingOver)
+            if (MP.InGameScene && Session.LastRole == Role.Client && !Session.TakingOver)
             {
                 // A client that lost the session is standing in someone else's world.
                 // Send them home; their own save is restored in the main menu.

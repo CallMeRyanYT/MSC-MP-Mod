@@ -217,8 +217,8 @@ namespace MSCMP.Sync
                 else if (x.C != null)
                 {
                     Color c = x.C.Value;
-                    if (Same(c, x.LastColor) || OwnerOf(x) != me) continue;
-                    SendValue(x, 0f, c);
+                    if (Same(c, x.LastColor)) continue;
+                    if (OwnerOf(x) == me || NextToMe(x)) SendValue(x, 0f, c);
                     x.LastColor = c;
                     x.NextSend = now + MinInterval;
                 }
@@ -327,7 +327,7 @@ namespace MSCMP.Sync
             if (!byId.TryGetValue(id, out x) || x.Fsm == null) return;
             if (Session.IsHost)
             {
-                if (from.IsLocal || OwnerOf(x) != from.Slot) return; // only the owner decides
+                if (from.IsLocal || (!isColor && OwnerOf(x) != from.Slot)) return; // floats: owner decides; paint: any nearby player
                 NetWriter w = Session.Begin(Msg.VarValue);
                 WriteValue(w, x, v, isColor ? (Color?)c : null);
                 Session.BroadcastInGame(true, Channel.Reliable, from);

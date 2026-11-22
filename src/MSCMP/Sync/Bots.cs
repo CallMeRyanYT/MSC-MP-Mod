@@ -235,7 +235,7 @@ namespace MSCMP.Sync
         /// <summary>Why a bot can't pick this up, or null if it can.</summary>
         static string CannotCarry(NetObject o)
         {
-            if (o == null || !o.Alive) return "Look at an item first (it has to be in the middle of the screen).";
+            if (o == null || !o.HasBody) return "Look at an item first (it has to be in the middle of the screen).";
             if (o.Go == LocalPlayer.HeldObject) return "You're holding that yourself.";
             if (!ObjectSync.OwnedLocally(o) || o.Replica) return "Someone else is using that.";
             if (o.Body.isKinematic || o.Installed) return "That is fixed in place.";
@@ -472,11 +472,11 @@ namespace MSCMP.Sync
                     // You took it out of the bot's hands: let go, or the two of you pull it back and forth.
                     NetObject o = b.Carry;
                     b.Carry = null;
-                    o.Body.isKinematic = b.CarryWasKinematic;
+                    if (o.HasBody) o.Body.isKinematic = b.CarryWasKinematic;
                     if (b.Order == Order.Fetch || b.Order == Order.Deliver) Command(b, Order.Follow);
                     Log.Info(b.P.Name + " let go of " + o.Name);
                 }
-                else if (b.Carry != null && b.Carry.Alive)
+                else if (b.Carry != null && b.Carry.HasBody && !b.Carry.Installed)
                 {
                     // Hold it in front of the chest, like a player carrying something.
                     Transform t = b.Carry.Go.transform;
@@ -712,7 +712,7 @@ namespace MSCMP.Sync
 
         static bool Gettable(Bot b, NetObject o)
         {
-            if (o == null || !o.Alive || !o.Go.activeInHierarchy || o.Replica || o.Installed || !ObjectSync.OwnedLocally(o)) return false;
+            if (o == null || !o.HasBody || !o.Go.activeInHierarchy || o.Replica || o.Installed || !ObjectSync.OwnedLocally(o)) return false;
             if (o.HeldBy != 255 || o.Go == LocalPlayer.HeldObject) return false;
             foreach (Bot other in bots) if (other != b && (other.Carry == o || other.FetchTarget == o)) return false;
             return true;
@@ -752,7 +752,7 @@ namespace MSCMP.Sync
             GameObject mineInHand = LocalPlayer.HeldObject;
             foreach (NetObject o in ObjectSync.All)
             {
-                if (!o.Alive || !o.Go.activeInHierarchy || o.Replica || o.HeldBy != 255 || o.Go == mineInHand) continue;
+                if (!o.HasBody || !o.Go.activeInHierarchy || o.Replica || o.HeldBy != 255 || o.Go == mineInHand) continue;
                 if (!ObjectSync.OwnedLocally(o) || o.Installed || o.Body.isKinematic || o.Body.mass > CarryMaxMass) continue;
                 Vector3 p = o.Go.transform.position;
                 float fromPile = Flat(p - around);
@@ -775,14 +775,17 @@ namespace MSCMP.Sync
             NetObject o = b.Carry;
             b.Carry = null;
             if (o == null || !o.Alive) return;
-            if (inFront)
+            if (inFront && !o.Installed)
             {
                 Vector3 fwd = Quaternion.Euler(0f, b.Yaw, 0f) * Vector3.forward;
                 o.Go.transform.position = b.Feet + fwd * 0.7f + Vector3.up * 0.6f;
             }
-            o.Body.isKinematic = b.CarryWasKinematic;
+            if (o.HasBody && !o.Installed)
+            {
+                o.Body.isKinematic = b.CarryWasKinematic;
+                if (!o.Body.isKinematic) { o.Body.velocity = Vector3.zero; o.Body.WakeUp(); }
+            }
             o.HeldBy = 255;
-            if (!o.Body.isKinematic) { o.Body.velocity = Vector3.zero; o.Body.WakeUp(); }
             Log.Info(b.P.Name + " put down " + o.Name);
         }
 
@@ -911,7 +914,7 @@ namespace MSCMP.Sync
                     {
                         case Msg.BotSpawn: HandleSpawn(Loopback.BotOwner, loopReader, false); break;
                         case Msg.BotRemove: HandleRemove(Loopback.BotOwner, loopReader, false); break;
-                        case Msg.BotStates: HandleStates(Loopback.BotOwner, loopReader, false); break;
+                        case Msg.BotStates: HandleStates(Loopback.BotOwner, Loopback.BotOwner, loopReader, false); break;
                         case Msg.BotAction: HandleAction(Loopback.BotOwner, loopReader, false); break;
                     }
                 }
@@ -1013,7 +1016,7 @@ namespace MSCMP.Sync
 
         static void OnSpawn(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleSpawn(OwnerOf(from, slot), r, Session.IsHost); }
         static void OnRemove(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleRemove(OwnerOf(from, slot), r, Session.IsHost); }
-        static void OnStates(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleStates(OwnerOf(from, slot), r, Session.IsHost); }
+        static void OnStates(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleStates(OwnerOf(from, slot), from, r, Session.IsHost); }
         static void OnAction(NetPlayer from, NetReader r) { byte slot = r.Byte(); HandleAction(OwnerOf(from, slot), r, Session.IsHost); }
 
         static void HandleSpawn(NetPlayer owner, NetReader r, bool relay)
@@ -1075,15 +1078,17 @@ namespace MSCMP.Sync
 
         static readonly List<KeyValuePair<byte, PlayerSnapshot>> incoming = new List<KeyValuePair<byte, PlayerSnapshot>>();
 
-        static void HandleStates(NetPlayer owner, NetReader r, bool relay)
+        static void HandleStates(NetPlayer owner, NetPlayer clockSource, NetReader r, bool relay)
         {
             int n = r.Byte();
-            if (owner == null || owner.IsLocal) return;
+            if (owner == null || owner.IsLocal || clockSource == null) return;
             incoming.Clear();
             for (int i = 0; i < n; i++)
             {
                 byte id = r.Byte();
-                incoming.Add(new KeyValuePair<byte, PlayerSnapshot>(id, PlayerSnapshot.Read(r)));
+                PlayerSnapshot s = PlayerSnapshot.Read(r);
+                s.Time = clockSource.ToLocalTime(s.Time); // convert to local (or host) clock before storing/relaying
+                incoming.Add(new KeyValuePair<byte, PlayerSnapshot>(id, s));
             }
             bool mirrored = owner == Loopback.BotOwner;
             foreach (KeyValuePair<byte, PlayerSnapshot> kv in incoming)
@@ -1091,11 +1096,10 @@ namespace MSCMP.Sync
                 RemoteBot rb;
                 if (!remote.TryGetValue(Key(owner.Slot, kv.Key), out rb)) continue;
                 PlayerSnapshot s = kv.Value;
-                s.Time = owner.ToLocalTime(s.Time); // the bot's NetPlayer keeps local time
                 if (mirrored && s.Vehicle == 0) { s.Position += Loopback.Offset; s.Head += Loopback.Offset; }
                 rb.P.Last = s;
                 rb.P.HasState = true;
-                if (rb.P.Avatar != null) rb.P.Avatar.Push(s);
+                if (rb.P.Avatar != null) rb.P.Avatar.Push(s.Time, s);
             }
             if (relay && incoming.Count > 0)
             {
